@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, TextInput } from 'react-native';
 import { Header, Button } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { db } from '../firebase';
@@ -11,6 +11,7 @@ import {
   onSnapshot,
   doc,
   getDoc,
+  deleteDoc,
 } from 'firebase/firestore';
 import { AuthContext } from '../contexts/AuthContext';
 
@@ -21,9 +22,11 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
   
   const [workouts, setWorkouts] = useState([]);
   const [users, setUsers] = useState({});
+  const [participants, setParticipants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshTimeout, setRefreshTimeout] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Reset to 'all' tab when returning from submission
   useEffect(() => {
@@ -53,6 +56,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     
     // Force re-fetch of users and workouts
     fetchUsers();
+    fetchParticipants();
   };
 
   // Helper function to stop refreshing and clear timeout
@@ -83,6 +87,57 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     }
   };
 
+  const fetchParticipants = async () => {
+    try {
+      const participantsList = [];
+      for (const uid of competition.participants || []) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', uid));
+          if (userDoc.exists()) {
+            participantsList.push({
+              id: uid,
+              ...userDoc.data()
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching participant:', error);
+        }
+      }
+      // Sort alphabetically by username
+      participantsList.sort((a, b) => (a.username || '').localeCompare(b.username || ''));
+      setParticipants(participantsList);
+    } catch (error) {
+      console.error('Error in fetchParticipants:', error);
+    }
+  };
+
+  /* ---------------- delete workout handler ---------------- */
+  const handleDeleteWorkout = (workout) => {
+    Alert.alert(
+      'Delete Activity',
+      'Are you sure you want to delete this activity?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteDoc(doc(db, 'submissions', workout.id));
+              Alert.alert('Success', 'Activity deleted successfully');
+            } catch (error) {
+              console.error('Error deleting workout:', error);
+              Alert.alert('Error', 'Failed to delete activity. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   useEffect(() => {
     if (!competition?.id) {
       stopRefreshing();
@@ -91,6 +146,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
 
     // Fetch user data for all participants
     fetchUsers();
+    fetchParticipants();
 
     // Listen to submissions for this competition
     const submissionsQuery = query(
@@ -141,6 +197,179 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     };
   };
 
+  // Filter workouts based on search query
+  const filteredWorkouts = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return workouts;
+    }
+    
+    const query = searchQuery.toLowerCase().trim();
+    return workouts.filter(workout => {
+      const userName = users[workout.userId]?.username || 'Unknown User';
+      const activityType = workout.activityType || '';
+      const activityDisplay = `${workout.distance || workout.duration} ${workout.unit} ${workout.activityType}`;
+      
+      return userName.toLowerCase().includes(query) || 
+             activityType.toLowerCase().includes(query) ||
+             activityDisplay.toLowerCase().includes(query);
+    });
+  }, [workouts, users, searchQuery]);
+
+  // Format competition dates
+  const formatCompetitionDates = () => {
+    const startDate = new Date(competition.startDate);
+    const endDate = new Date(competition.endDate);
+    
+    const formatOptions = {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    };
+    
+    return {
+      start: startDate.toLocaleDateString('en-US', formatOptions),
+      end: endDate.toLocaleDateString('en-US', formatOptions)
+    };
+  };
+
+  // Render Rules Tab Content
+  const renderRulesTab = () => (
+    <ScrollView 
+      style={styles.rulesContainer}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={['#A4D65E']} // Android
+          tintColor="#A4D65E" // iOS
+        />
+      }
+    >
+      {/* Back Arrow */}
+      <TouchableOpacity 
+        style={styles.backToAllButton}
+        onPress={() => setActiveTab('all')}
+      >
+        <Ionicons name="arrow-back" size={20} color="#A4D65E" />
+        <Text style={styles.backToAllText}>Back to All</Text>
+      </TouchableOpacity>
+
+      {/* Description Section */}
+      <View style={styles.rulesSection}>
+        <Text style={styles.rulesSectionTitle}>Description</Text>
+        <View style={styles.rulesSectionContent}>
+          <Text style={styles.descriptionText}>
+            {competition.description || 'No description provided.'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.sectionDivider} />
+
+      {/* Competition Dates Section */}
+      <View style={styles.rulesSection}>
+        <Text style={styles.rulesSectionTitle}>Competition Dates</Text>
+        <View style={styles.rulesSectionContent}>
+          <View style={styles.dateItem}>
+            <View style={styles.dateIcon}>
+              <Ionicons name="play-circle" size={24} color="#4CAF50" />
+            </View>
+            <View style={styles.dateInfo}>
+              <Text style={styles.dateLabel}>Start Date</Text>
+              <Text style={styles.dateValue}>{formatCompetitionDates().start}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.dateItem}>
+            <View style={styles.dateIcon}>
+              <Ionicons name="stop-circle" size={24} color="#FF6B6B" />
+            </View>
+            <View style={styles.dateInfo}>
+              <Text style={styles.dateLabel}>End Date</Text>
+              <Text style={styles.dateValue}>{formatCompetitionDates().end}</Text>
+            </View>
+          </View>
+
+          {competition.dailyCap && (
+            <View style={styles.dailyCapItem}>
+              <View style={styles.dateIcon}>
+                <Ionicons name="speedometer" size={24} color="#FF9800" />
+              </View>
+              <View style={styles.dateInfo}>
+                <Text style={styles.dateLabel}>Daily Point Limit</Text>
+                <Text style={styles.dateValue}>{competition.dailyCap} points per day</Text>
+              </View>
+            </View>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.sectionDivider} />
+
+      {/* Activity Scoring Section */}
+      <View style={styles.rulesSection}>
+        <Text style={styles.rulesSectionTitle}>Activity Scoring</Text>
+        <View style={styles.rulesSectionContent}>
+          {competition.rules && competition.rules.length > 0 ? (
+            competition.rules.map((rule, index) => (
+              <View key={index} style={styles.activityItem}>
+                <View style={styles.activityIcon}>
+                  <Ionicons name="fitness" size={24} color="#A4D65E" />
+                </View>
+                <View style={styles.activityInfo}>
+                  <Text style={styles.activityType}>{rule.type}</Text>
+                  <Text style={styles.activityScoring}>
+                    {rule.unitsPerPoint} {rule.unit.toLowerCase()}{rule.unitsPerPoint !== 1 ? 's' : ''} = {rule.pointsPerUnit} point{rule.pointsPerUnit !== 1 ? 's' : ''}
+                  </Text>
+                </View>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.noDataText}>No activity rules defined.</Text>
+          )}
+        </View>
+      </View>
+
+      <View style={styles.sectionDivider} />
+
+      {/* Participants Section */}
+      <View style={styles.rulesSection}>
+        <Text style={styles.rulesSectionTitle}>
+          Participants ({participants.length})
+        </Text>
+        <View style={styles.rulesSectionContent}>
+          {participants.length > 0 ? (
+            participants.map((participant) => (
+              <View key={participant.id} style={styles.participantItem}>
+                <View style={styles.participantAvatar}>
+                  <Ionicons name="person-circle" size={40} color="#A4D65E" />
+                </View>
+                <View style={styles.participantInfo}>
+                  <Text style={styles.participantName}>
+                    {participant.username || 'Unknown User'}
+                  </Text>
+                  <Text style={styles.participantHandle}>
+                    @{participant.handle || participant.username || 'unknown'}
+                  </Text>
+                </View>
+                {participant.id === competition.ownerId && (
+                  <View style={styles.ownerBadge}>
+                    <Text style={styles.ownerText}>Owner</Text>
+                  </View>
+                )}
+              </View>
+            ))
+          ) : (
+            <Text style={styles.noDataText}>No participants found.</Text>
+          )}
+        </View>
+      </View>
+    </ScrollView>
+  );
+
   return (
     <View style={styles.container}>
       <Header 
@@ -175,63 +404,108 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         >
           <Text style={[styles.tabText, activeTab === 'add' && styles.activeTabText]}>Add</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'rules' && styles.activeTab]} 
+          onPress={() => setActiveTab('rules')}
+        >
+          <Text style={[styles.tabText, activeTab === 'rules' && styles.activeTabText]}>Rules</Text>
+        </TouchableOpacity>
       </View>
       
-      <ScrollView 
-        style={styles.workoutsContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={['#A4D65E']} // Android
-            tintColor="#A4D65E" // iOS
-          />
-        }
-      >
-        {loading ? (
-          <Text style={styles.loadingText}>Loading workouts...</Text>
-        ) : workouts.length === 0 ? (
-          <Text style={styles.emptyText}>No workouts yet. Be the first to add one!</Text>
-        ) : (
-          workouts.map(workout => {
-            const formatted = formatWorkoutDisplay(workout);
-            return (
-              <TouchableOpacity key={workout.id} style={styles.workoutCard}>
-                <View style={styles.cardBackground}>
-                  <Ionicons name="fitness" size={60} color="rgba(255,255,255,0.2)" style={styles.backgroundIcon} />
-                </View>
-                <View style={styles.cardContent}>
-                  <View style={styles.workoutInfo}>
-                    <Text style={styles.workoutType}>{formatted.activityDisplay}</Text>
-                    <View style={styles.workoutDetails}>
-                      <View style={styles.detailItem}>
-                        <Text style={styles.detailIcon}>•</Text>
-                        <Text style={styles.detailText}>{workout.duration} Minutes</Text>
-                      </View>
-                      <View style={styles.detailItem}>
-                        <Text style={styles.detailIcon}>♦</Text>
-                        <Text style={styles.detailText}>{workout.calories} Kcal</Text>
-                      </View>
-                      <View style={styles.detailItem}>
-                        <Text style={styles.detailIcon}>★</Text>
-                        <Text style={styles.detailText}>{workout.points} Points</Text>
-                      </View>
+      {activeTab === 'rules' ? (
+        renderRulesTab()
+      ) : (
+        <>
+          {/* Search bar - Only show in All tab */}
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={18} color="#999" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="search by competitor or activity"
+              placeholderTextColor="#999"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
+          </View>
+
+          <ScrollView 
+            style={styles.workoutsContainer}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#A4D65E']} // Android
+                tintColor="#A4D65E" // iOS
+              />
+            }
+          >
+            {loading ? (
+              <Text style={styles.loadingText}>Loading workouts...</Text>
+            ) : filteredWorkouts.length === 0 ? (
+              <Text style={styles.emptyText}>
+                {searchQuery.trim() ? 'No workouts match your search.' : 'No workouts yet. Be the first to add one!'}
+              </Text>
+            ) : (
+              filteredWorkouts.map(workout => {
+                const formatted = formatWorkoutDisplay(workout);
+                const isUserWorkout = workout.userId === user.uid;
+                
+                return (
+                  <TouchableOpacity key={workout.id} style={styles.workoutCard}>
+                    <View style={styles.cardBackground}>
+                      <Ionicons name="fitness" size={60} color="rgba(255,255,255,0.2)" style={styles.backgroundIcon} />
                     </View>
-                  </View>
-                  <View style={styles.userLabel}>
-                    <Text style={styles.userLabelText}>{formatted.userName}'s Workout</Text>
-                  </View>
-                  {workout.isNotification && (
-                    <View style={styles.notificationIcon}>
-                      <Text style={styles.notificationText}>!</Text>
+                    
+                    {/* Delete Button - Only for user's own workouts */}
+                    {isUserWorkout && (
+                      <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={(e) => {
+                          e.stopPropagation(); // Prevent card press
+                          handleDeleteWorkout(workout);
+                        }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Text style={styles.deleteButtonText}>✕</Text>
+                      </TouchableOpacity>
+                    )}
+                    
+                    <View style={styles.cardContent}>
+                      <View style={styles.workoutInfo}>
+                        <Text style={styles.workoutType}>{formatted.activityDisplay}</Text>
+                        <View style={styles.workoutDetails}>
+                          <View style={styles.detailItem}>
+                            <Text style={styles.detailIcon}>•</Text>
+                            <Text style={styles.detailText}>{workout.duration} Minutes</Text>
+                          </View>
+                          <View style={styles.detailItem}>
+                            <Text style={styles.detailIcon}>♦</Text>
+                            <Text style={styles.detailText}>{workout.calories} Kcal</Text>
+                          </View>
+                          <View style={styles.detailItem}>
+                            <Text style={styles.detailIcon}>★</Text>
+                            <Text style={styles.detailText}>{workout.points} Points</Text>
+                          </View>
+                        </View>
+                      </View>
+                      <View style={styles.userLabel}>
+                        <Text style={styles.userLabelText}>{formatted.userName}'s Workout</Text>
+                      </View>
+                      {workout.isNotification && (
+                        <View style={styles.notificationIcon}>
+                          <Text style={styles.notificationText}>!</Text>
+                        </View>
+                      )}
                     </View>
-                  )}
-                </View>
-              </TouchableOpacity>
-            );
-          })
-        )}
-      </ScrollView>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </ScrollView>
+        </>
+      )}
     </View>
   );
 };
@@ -264,6 +538,25 @@ const styles = StyleSheet.create({
   },
   activeTabText: {
     color: '#A4D65E',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EAEAEA',
+    borderRadius: 28,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 20,
+    paddingHorizontal: 16,
+    height: 52,
+  },
+  searchIcon: { 
+    marginRight: 10 
+  },
+  searchInput: { 
+    flex: 1, 
+    fontSize: 16, 
+    color: '#333' 
   },
   workoutsContainer: {
     flex: 1,
@@ -364,6 +657,192 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#1A1E23',
+  },
+  deleteButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  deleteButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+    lineHeight: 16,
+  },
+
+  // Rules Tab Styles
+  rulesContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  backToAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  backToAllText: {
+    color: '#A4D65E',
+    fontSize: 16,
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  rulesSection: {
+    marginBottom: 24,
+  },
+  rulesSectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1A1E23',
+    marginBottom: 12,
+  },
+  rulesSectionContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 8,
+  },
+  
+  // Description Styles
+  descriptionText: {
+    fontSize: 16,
+    color: '#333333',
+    lineHeight: 24,
+  },
+  
+  // Date Styles
+  dateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  dailyCapItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 0,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  dateIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  dateInfo: {
+    flex: 1,
+  },
+  dateLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  dateValue: {
+    fontSize: 16,
+    color: '#1A1E23',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  
+  // Activity Styles
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  activityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F0F9E8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  activityInfo: {
+    flex: 1,
+  },
+  activityType: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1E23',
+  },
+  activityScoring: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  
+  // Participant Styles
+  participantItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  participantAvatar: {
+    marginRight: 12,
+  },
+  participantInfo: {
+    flex: 1,
+  },
+  participantName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1E23',
+  },
+  participantHandle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  ownerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF8E1',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  ownerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#F57C00',
+    marginLeft: 4,
+  },
+  
+  // No Data Styles
+  noDataText: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    paddingVertical: 20,
+    fontStyle: 'italic',
   },
 });
 
