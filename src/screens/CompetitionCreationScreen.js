@@ -1,4 +1,4 @@
-// CompetitionCreationScreen.js
+// CompetitionCreationScreen.js - FIXED VERSION
 
 import React, { useState, useContext, useEffect } from 'react';
 import {
@@ -25,10 +25,10 @@ import {
 } from 'firebase/firestore';
 import { AuthContext } from '../contexts/AuthContext';
 
-// All activities can now use any of these units
+// All activities can now use any of these units - ADDED "Custom" option
 const workoutTypes = [
   'Walking','Running','Cycling','Cardio Session','Elliptical',
-  'Weightlifting','Swimming','Rowing','Yoga','HIIT','Other',
+  'Weightlifting','Swimming','Rowing','Yoga','HIIT','Other','Custom',
 ];
 
 // Universal units available for all activities
@@ -76,7 +76,7 @@ export default function CompetitionCreationScreen({ navigation }) {
       endTime: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 23, 59),
       dailyCap: '',
       activities: [
-        { type: 'Walking', unit: 'Minute', points: '1', unitsPerPoint: '1' }
+        { type: 'Walking', unit: 'Minute', points: '1', unitsPerPoint: '1', customName: '' }
       ],
       inviteUsername: '',
       invitedFriends: []
@@ -95,15 +95,49 @@ export default function CompetitionCreationScreen({ navigation }) {
   const [endTime, setEndTime] = useState(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 23, 59));
   
   const [dailyCap, setDailyCap] = useState('');
-  // Each activity now has: type, unit, pointsPerUnit, unitsPerPoint
+  // Each activity now has: type, unit, pointsPerUnit, unitsPerPoint, customName
   const [activities, setActs] = useState([
-    { type: 'Walking', unit: 'Minute', points: '1', unitsPerPoint: '1' }
+    { type: 'Walking', unit: 'Minute', points: '1', unitsPerPoint: '1', customName: '' }
   ]);
 
   const [inviteUsername, setInviteUsername] = useState('');
   const [invitedFriends, setInvitedFriends] = useState([]);
   const [userFriends, setUserFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
+
+  /* ---------- NEW: Helper functions for activity management ---------- */
+  
+  // Get available activity types (excluding already selected ones, except Custom)
+  const getAvailableActivityTypes = (currentIndex) => {
+    const selectedTypes = activities
+      .map((act, idx) => idx !== currentIndex ? act.type : null)
+      .filter(type => type && type !== 'Custom');
+    
+    return workoutTypes.filter(type => 
+      type === 'Custom' || !selectedTypes.includes(type)
+    );
+  };
+
+  // Get display name for activity (custom name if Custom, otherwise type)
+  const getActivityDisplayName = (activity) => {
+    if (activity.type === 'Custom' && activity.customName) {
+      return activity.customName;
+    }
+    return activity.type;
+  };
+
+  // Validate custom activity name
+  const validateCustomActivityName = (name, currentIndex) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return false;
+    
+    // Check if name is already used by another custom activity
+    const existingCustomNames = activities
+      .map((act, idx) => idx !== currentIndex && act.type === 'Custom' ? act.customName : null)
+      .filter(name => name);
+    
+    return !existingCustomNames.includes(trimmedName);
+  };
 
   /* ---------- fetch user's friends ---------- */
   useEffect(() => {
@@ -206,12 +240,43 @@ export default function CompetitionCreationScreen({ navigation }) {
     return combined;
   };
 
-  /* ---------- helpers ---------- */
+  /* ---------- UPDATED: activity helpers ---------- */
   const updateAct = (idx, patch) =>
     setActs(a => a.map((row,i) => i===idx ? {...row,...patch} : row));
 
-  const addActivity = () =>
-    setActs([...activities, { type:'Walking', unit:'Minute', points:'1', unitsPerPoint:'1' }]);
+  // UPDATED: Handle activity type change with validation
+  const handleActivityTypeChange = (idx, newType) => {
+    const updates = { type: newType };
+    
+    // If changing to Custom, initialize customName
+    if (newType === 'Custom') {
+      updates.customName = '';
+    } else {
+      // If changing from Custom to something else, clear customName
+      updates.customName = '';
+    }
+    
+    updateAct(idx, updates);
+  };
+
+  // UPDATED: Handle custom name change with validation
+  const handleCustomNameChange = (idx, newName) => {
+    updateAct(idx, { customName: newName });
+  };
+
+  // UPDATED: Add activity with better default selection
+  const addActivity = () => {
+    const availableTypes = getAvailableActivityTypes(-1);
+    const defaultType = availableTypes.length > 0 ? availableTypes[0] : 'Custom';
+    
+    setActs([...activities, { 
+      type: defaultType, 
+      unit: 'Minute', 
+      points: '1', 
+      unitsPerPoint: '1',
+      customName: ''
+    }]);
+  };
 
   const removeAct = idx =>
     setActs(a => a.filter((_,i) => i!==idx));
@@ -316,7 +381,7 @@ export default function CompetitionCreationScreen({ navigation }) {
   const removeInvite = uid =>
     setInvitedFriends(f => f.filter(x => x.uid !== uid));
 
-  /* ---------- create competition ---------- */
+  /* ---------- UPDATED: create competition with validation ---------- */
   const handleCreate = async () => {
     if (!name.trim()) {
       Alert.alert('Validation','Competition name is required');
@@ -331,12 +396,40 @@ export default function CompetitionCreationScreen({ navigation }) {
       return;
     }
     
-    if (activities.some(a=>!a.points || parseFloat(a.points)<=0 || !a.unitsPerPoint || parseFloat(a.unitsPerPoint)<=0)) {
-      Alert.alert('Validation','Please set valid points & units-per-point for all activities');
-      return;
+    // UPDATED: Validate activities including custom names
+    for (let i = 0; i < activities.length; i++) {
+      const activity = activities[i];
+      
+      if (!activity.points || parseFloat(activity.points) <= 0 || 
+          !activity.unitsPerPoint || parseFloat(activity.unitsPerPoint) <= 0) {
+        Alert.alert('Validation','Please set valid points & units-per-point for all activities');
+        return;
+      }
+      
+      // Validate custom activities have names
+      if (activity.type === 'Custom') {
+        if (!activity.customName || !activity.customName.trim()) {
+          Alert.alert('Validation', 'Please provide a name for all custom activities');
+          return;
+        }
+        
+        if (!validateCustomActivityName(activity.customName, i)) {
+          Alert.alert('Validation', 'Custom activity names must be unique');
+          return;
+        }
+      }
     }
     
     try {
+      // UPDATED: Create rules with proper activity names
+      const rules = activities.map(a => ({
+        type: a.type === 'Custom' ? a.customName.trim() : a.type,
+        unit: a.unit,
+        pointsPerUnit: Number(a.points),
+        unitsPerPoint: Number(a.unitsPerPoint),
+        isCustom: a.type === 'Custom',
+      }));
+
       await addDoc(collection(db,'competitions'), {
         name: name.trim(),
         description: description.trim(),
@@ -345,12 +438,7 @@ export default function CompetitionCreationScreen({ navigation }) {
         ownerId: user.uid,
         participants: [user.uid],
         pendingParticipants: invitedFriends.map(f=>f.uid),
-        rules: activities.map(a=>({
-          type: a.type,
-          unit: a.unit,
-          pointsPerUnit: Number(a.points),
-          unitsPerPoint: Number(a.unitsPerPoint),
-        })),
+        rules: rules,
         dailyCap: dailyCap ? Number(dailyCap) : null,
         bonuses: [],
         createdAt: serverTimestamp(),
@@ -436,15 +524,29 @@ export default function CompetitionCreationScreen({ navigation }) {
         <Text style={styles.sectionSubtext}>Set up custom point & unit thresholds</Text>
         {activities.map((act,idx) => {
           const z = 1000 - idx*10;
+          const availableTypes = getAvailableActivityTypes(idx);
+          
           return (
-            <View key={idx} style={[styles.activityCard,{zIndex:z}]}>
+            <View key={`activity-${idx}`} style={[styles.activityCard,{zIndex:z}]}>
               <Dropdown
                 label="Activity Type"
                 selectedValue={act.type}
-                onValueChange={val=>updateAct(idx,{type:val})}
-                items={workoutTypes}
+                onValueChange={val=>handleActivityTypeChange(idx, val)}
+                items={availableTypes}
                 containerStyle={{zIndex:z+2}}
               />
+              
+              {/* UPDATED: Show custom name input for Custom activities */}
+              {act.type === 'Custom' && (
+                <FormInput
+                  label="Custom Activity Name"
+                  value={act.customName}
+                  onChangeText={name => handleCustomNameChange(idx, name)}
+                  placeholder="Enter custom activity name"
+                  style={styles.customNameInput}
+                />
+              )}
+              
               <Dropdown
                 label="Measurement Unit"
                 selectedValue={act.unit}
@@ -478,10 +580,13 @@ export default function CompetitionCreationScreen({ navigation }) {
           );
         })}
 
-        <TouchableOpacity style={styles.addBtn} onPress={addActivity}>
-          <Ionicons name="add-circle" size={40} color="#A4D65E"/>
-          <Text style={styles.addText}>Add Activity Rule</Text>
-        </TouchableOpacity>
+        {/* UPDATED: Only show add button if there are available activity types */}
+        {getAvailableActivityTypes(-1).length > 0 && (
+          <TouchableOpacity style={styles.addBtn} onPress={addActivity}>
+            <Ionicons name="add-circle" size={40} color="#A4D65E"/>
+            <Text style={styles.addText}>Add Activity Rule</Text>
+          </TouchableOpacity>
+        )}
 
         <FormInput
           label="Daily Point Limit (optional)"
@@ -591,6 +696,7 @@ const styles = StyleSheet.create({
   label:            {fontSize:16,color:'#1A1E23',marginBottom:8,marginTop:16},
   textArea:         {backgroundColor:'#FFF',borderRadius:8,padding:12,fontSize:16,color:'#1A1E23',minHeight:120,borderWidth:1,borderColor:'#E5E7EB'},
   activityCard:     {backgroundColor:'#FFF',borderRadius:8,padding:12,marginBottom:16,borderWidth:1,borderColor:'#E5E7EB'},
+  customNameInput:  {marginTop:8}, // NEW: Style for custom name input
   trashBtn:         {alignSelf:'flex-end',marginTop:4},
   addBtn:           {flexDirection:'row',alignItems:'center',justifyContent:'center',backgroundColor:'#FFF',borderRadius:8,padding:10,marginBottom:20,borderStyle:'dashed',borderWidth:1,borderColor:'#A4D65E'},
   addText:          {marginLeft:8,color:'#1A1E23',fontWeight:'600'},
@@ -617,3 +723,4 @@ const styles = StyleSheet.create({
   inviteFriendButtonText: {fontSize:14,fontWeight:'600',color:'#FFFFFF'},
   invitedFriendButtonText: {color:'#6B7280'},
 });
+

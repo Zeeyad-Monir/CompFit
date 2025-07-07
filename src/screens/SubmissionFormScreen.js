@@ -1,4 +1,4 @@
-// SubmissionFormScreen.js
+// SubmissionFormScreen.js - IMPROVED VERSION with "View more" functionality
 
 import React, { useState, useContext, useEffect } from 'react';
 import {
@@ -23,9 +23,35 @@ export default function SubmissionFormScreen({ route, navigation }) {
   const [notes, setNotes] = useState('');
   const [currentDayPoints, setCurrentDayPoints] = useState(0);
   const [loadingDayPoints, setLoadingDayPoints] = useState(false);
+  
+  // NEW: State for managing activity display
+  const [showAllActivities, setShowAllActivities] = useState(false);
 
   // Grab types
   const activityTypes = competition?.rules?.map(r=>r.type)||[];
+  
+  // NEW: Constants for activity display management
+  const ACTIVITIES_PER_ROW = 3;
+  const INITIAL_ROWS = 3;
+  const INITIAL_ACTIVITIES_COUNT = ACTIVITIES_PER_ROW * INITIAL_ROWS; // 9 activities
+
+  // NEW: Get activities to display based on showAllActivities state
+  const getDisplayedActivities = () => {
+    if (showAllActivities || activityTypes.length <= INITIAL_ACTIVITIES_COUNT) {
+      return activityTypes;
+    }
+    return activityTypes.slice(0, INITIAL_ACTIVITIES_COUNT);
+  };
+
+  // NEW: Check if we need to show the "View more" button
+  const shouldShowViewMoreButton = () => {
+    return activityTypes.length > INITIAL_ACTIVITIES_COUNT && !showAllActivities;
+  };
+
+  // NEW: Check if we need to show the "View less" button
+  const shouldShowViewLessButton = () => {
+    return activityTypes.length > INITIAL_ACTIVITIES_COUNT && showAllActivities;
+  };
 
   useEffect(()=>{
     if (activityTypes.length>0 && !activityTypes.includes(activityType)) {
@@ -233,10 +259,10 @@ export default function SubmissionFormScreen({ route, navigation }) {
           </Text>
         </View>
 
-        {/* Activity Type */}
+        {/* Activity Type - IMPROVED with View more functionality */}
         <Text style={styles.label}>Activity Type</Text>
         <View style={styles.activityTypesContainer}>
-          {activityTypes.map(type=>(
+          {getDisplayedActivities().map(type=>(
             <TouchableOpacity
               key={type}
               style={[
@@ -258,6 +284,32 @@ export default function SubmissionFormScreen({ route, navigation }) {
               </Text>
             </TouchableOpacity>
           ))}
+          
+          {/* NEW: View More Button */}
+          {shouldShowViewMoreButton() && (
+            <TouchableOpacity
+              style={styles.viewMoreButton}
+              onPress={() => setShowAllActivities(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="chevron-down" size={20} color="#A4D65E" />
+              <Text style={styles.viewMoreText}>
+                View more ({activityTypes.length - INITIAL_ACTIVITIES_COUNT} more)
+              </Text>
+            </TouchableOpacity>
+          )}
+          
+          {/* NEW: View Less Button */}
+          {shouldShowViewLessButton() && (
+            <TouchableOpacity
+              style={styles.viewLessButton}
+              onPress={() => setShowAllActivities(false)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="chevron-up" size={20} color="#A4D65E" />
+              <Text style={styles.viewLessText}>View less</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Duration and Distance */}
@@ -393,6 +445,50 @@ const styles = StyleSheet.create({
   selectedActivityType:{backgroundColor:'#A4D65E',borderColor:'#A4D65E'},
   activityTypeText:{fontSize:14,color:'#1A1E23',marginLeft:5},
   selectedActivityTypeText:{color:'#FFF'},
+  
+  // NEW: Styles for View More/Less buttons
+  viewMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 5,
+    marginTop: 10,
+    marginBottom: 50,
+    borderWidth: 2,
+    borderColor: '#A4D65E',
+    borderStyle: 'dashed',
+    width: '100%', // Take full width to center it
+  },
+  viewMoreText: {
+    fontSize: 14,
+    color: '#A4D65E',
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  viewLessButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#A4D65E',
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginHorizontal: 5,
+    marginTop: 10,
+    marginBottom: 50,
+    width: '100%', // Take full width to center it
+  },
+  viewLessText: {
+    fontSize: 14,
+    color: '#FFF',
+    fontWeight: '600',
+    marginLeft: 0,
+  },
+  
   row:             {flexDirection:'row',justifyContent:'space-between',gap:10},
   halfField:       {flex:1},
   textArea:        {backgroundColor:'#FFF',borderRadius:8,padding:12,fontSize:16,color:'#1A1E23',minHeight:100,borderWidth:1,borderColor:'#E5E7EB'},
