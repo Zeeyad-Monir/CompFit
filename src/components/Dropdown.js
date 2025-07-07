@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 /**
@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
  *  - onValueChange   (fn)      callback(newValue)
  *  - items           (string[]) list of selectable items
  *  - containerStyle  (object)  optional extra style (e.g., zIndex layering)
+ *  - priorityItems   (string[]) items to show at the top (e.g., ["Custom"])
  */
 const Dropdown = ({
   label,
@@ -16,10 +17,21 @@ const Dropdown = ({
   onValueChange,
   items,
   containerStyle,
+  priorityItems = [],
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
+  // Organize items: priority items first, then the rest
+  const organizedItems = useMemo(() => {
+    if (!priorityItems.length) return items;
+    
+    const priority = priorityItems.filter(item => items.includes(item));
+    const remaining = items.filter(item => !priorityItems.includes(item));
+    return [...priority, ...remaining];
+  }, [items, priorityItems]);
+
   const toggle = () => setIsOpen(o => !o);
+  
   const select = value => {
     onValueChange(value);
     setIsOpen(false);
@@ -44,28 +56,40 @@ const Dropdown = ({
 
       {isOpen && (
         <View style={styles.optionsContainer}>
-          {items.map(item => (
-            <TouchableOpacity
-              key={item}
-              style={[
-                styles.optionItem,
-                selectedValue === item && styles.selectedOption,
-              ]}
-              onPress={() => select(item)}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  selectedValue === item && styles.selectedOptionText,
-                ]}
-              >
-                {item}
-              </Text>
-              {selectedValue === item && (
-                <Ionicons name="checkmark" size={20} color="#A4D65E" />
-              )}
-            </TouchableOpacity>
-          ))}
+          <ScrollView
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+            style={styles.scrollViewStyle}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {organizedItems.map((item, index) => {
+              const isPriority = priorityItems.includes(item);
+              return (
+                <TouchableOpacity
+                  key={`${item}-${index}`}
+                  style={[
+                    styles.optionItem,
+                    selectedValue === item && styles.selectedOption,
+                    isPriority && styles.priorityOption,
+                  ]}
+                  onPress={() => select(item)}
+                >
+                  <Text
+                    style={[
+                      styles.optionText,
+                      selectedValue === item && styles.selectedOptionText,
+                      isPriority && styles.priorityOptionText,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                  {selectedValue === item && (
+                    <Ionicons name="checkmark" size={20} color="#A4D65E" />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
       )}
     </View>
@@ -95,7 +119,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1A1E23',
   },
-  /* menu now sits inline, pushing content below */
+  /* Fixed height scrollable container for smooth scrolling */
   optionsContainer: {
     marginTop: 4,
     backgroundColor: '#FFFFFF',
@@ -107,6 +131,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    height: 320, // Fixed height for 8 visible items
+  },
+  scrollViewStyle: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 10,
   },
   optionItem: {
     padding: 12,
@@ -116,14 +147,26 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
-  selectedOption: { backgroundColor: '#F9FAF9' },
+  selectedOption: { 
+    backgroundColor: '#F9FAF9' 
+  },
+  priorityOption: {
+    backgroundColor: '#E8F5E8',
+    borderBottomWidth: 2,
+    borderBottomColor: '#A4D65E',
+  },
   optionText: {
     fontSize: 16,
     color: '#1A1E23',
+    flex: 1,
   },
   selectedOptionText: {
     color: '#A4D65E',
     fontWeight: '500',
+  },
+  priorityOptionText: {
+    fontWeight: '600',
+    color: '#1A1E23',
   },
 });
 
