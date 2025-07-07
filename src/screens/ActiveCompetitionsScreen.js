@@ -442,12 +442,14 @@ export default function ActiveCompetitionsScreen({ navigation }) {
               activeOpacity={0.85}
               onPress={() => handleCompetitionPress(comp)}
             >
-              <Ionicons
-                name="trophy"
-                size={90}
-                color="rgba(255,255,255,0.08)"
-                style={styles.bgIcon}
-              />
+              {/* Centered Trophy Background Icon */}
+              <View style={styles.completedTrophyBackground}>
+                <Ionicons
+                  name="trophy"
+                  size={64}
+                  color="rgba(164, 214, 94, 0.2)"
+                />
+              </View>
 
               {/* Leave Competition Button */}
               <TouchableOpacity
@@ -458,7 +460,7 @@ export default function ActiveCompetitionsScreen({ navigation }) {
                 }}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Text style={styles.leaveButtonText}>✕</Text>
+                <Ionicons name="close" size={16} color="#FFFFFF" />
               </TouchableOpacity>
 
               <View style={styles.cardContent}>
@@ -466,11 +468,6 @@ export default function ActiveCompetitionsScreen({ navigation }) {
                   <Text style={[styles.cardTitle, styles.completedCardTitle]}>
                     {comp.name}
                   </Text>
-                  <View style={[styles.statusBadge, styles.completedBadge]}>
-                    <Text style={[styles.statusText, styles.completedStatusText]}>
-                      Completed
-                    </Text>
-                  </View>
                 </View>
 
                 <Text style={[styles.timeRemainingText, styles.completedTimeText]}>
@@ -506,7 +503,10 @@ export default function ActiveCompetitionsScreen({ navigation }) {
 
       {/* Main content */}
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.root}>
-        <Header title="CompFit" />
+        {/* Custom Header with Prominent Title */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>CompFit</Text>
+        </View>
 
         {/* Tab Navigation */}
         <View style={styles.tabContainer}>
@@ -556,7 +556,7 @@ export default function ActiveCompetitionsScreen({ navigation }) {
         <ScrollView
           style={styles.scroll}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 110 }}
+          contentContainerStyle={{ paddingBottom: 150 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -581,6 +581,21 @@ export default function ActiveCompetitionsScreen({ navigation }) {
 /* ───────────── styles ───────────── */
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F8F8F8' },
+
+  // Custom Header
+  header: {
+    height: 60,
+    backgroundColor: '#192126',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#A4D65E',
+    letterSpacing: -0.5,
+  },
 
   // Tab Navigation (matching ProfileScreen style)
   tabContainer: {
@@ -661,7 +676,7 @@ const styles = StyleSheet.create({
   },
 
   completedCard: {
-    backgroundColor: '#2A4A2A',
+    backgroundColor: '#262626',
     borderWidth: 2,
     borderColor: '#A4D65E',
   },
@@ -714,10 +729,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
 
-  completedBadge: {
-    backgroundColor: '#A4D65E',
-  },
-
   activeBadge: {
     backgroundColor: '#4CAF50',
   },
@@ -732,10 +743,6 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
 
-  completedStatusText: {
-    color: '#1A1E23',
-  },
-
   timeRemainingText: {
     fontSize: 14,
     color: '#ccc',
@@ -744,6 +751,16 @@ const styles = StyleSheet.create({
 
   completedTimeText: {
     color: '#A4D65E',
+  },
+
+  completedTrophyBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   viewResultsContainer: {
@@ -765,27 +782,20 @@ const styles = StyleSheet.create({
 
   leaveButton: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FF4444',
+    top: 16,
+    right: 16,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-
-  leaveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    lineHeight: 18,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
 
   inviteText: { 
