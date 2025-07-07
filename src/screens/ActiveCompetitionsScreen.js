@@ -33,6 +33,9 @@ export default function ActiveCompetitionsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
 
+  /* ---------------- tab state ------------------ */
+  const [activeTab, setActiveTab] = useState('active');
+
   /* ---------------- live Firestore data ---------------- */
   const [activeCompetitions, setActiveCompetitions] = useState([]);
   const [pendingInvitations, setPendingInvitations] = useState([]);
@@ -334,6 +337,166 @@ export default function ActiveCompetitionsScreen({ navigation }) {
     }
   };
 
+  /* ---------------- render tab content ---------------- */
+  const renderActiveTab = () => (
+    <>
+      {/* Pending Invitations Section */}
+      {filteredPending.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Pending Invitations</Text>
+          {filteredPending.map(comp => (
+            <View key={comp.id} style={styles.inviteCard}>
+              <Ionicons
+                name="mail"
+                size={90}
+                color="rgba(255,255,255,0.08)"
+                style={styles.bgIcon}
+              />
+
+              <View style={styles.inviteContent}>
+                <Text style={styles.cardTitle}>{comp.name}</Text>
+                <Text style={styles.inviteText}>You've been invited to join!</Text>
+                <View style={styles.inviteActions}>
+                  <TouchableOpacity
+                    style={[styles.inviteButton, styles.acceptButton]}
+                    onPress={() => handleAcceptInvite(comp.id)}
+                  >
+                    <Text style={styles.acceptButtonText}>Accept</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.inviteButton, styles.declineButton]}
+                    onPress={() => handleDeclineInvite(comp.id)}
+                  >
+                    <Text style={styles.declineButtonText}>Decline</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          ))}
+        </>
+      )}
+
+      {/* Active Competitions */}
+      {filteredActive.length > 0 ? (
+        filteredActive.map(comp => {
+          const status = getCompetitionStatus(comp);
+          
+          return (
+            <TouchableOpacity
+              key={comp.id}
+              style={styles.card}
+              activeOpacity={0.85}
+              onPress={() => handleCompetitionPress(comp)}
+            >
+              <Ionicons
+                name="fitness"
+                size={90}
+                color="rgba(255,255,255,0.08)"
+                style={styles.bgIcon}
+              />
+
+              <View style={styles.cardContent}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>
+                    {comp.name}
+                  </Text>
+                  <View style={[
+                    styles.statusBadge,
+                    status === 'active' && styles.activeBadge,
+                    status === 'upcoming' && styles.upcomingBadge,
+                  ]}>
+                    <Text style={styles.statusText}>
+                      {getCompetitionStatusText(comp)}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.timeRemainingText}>
+                  {getTimeRemaining(comp)}
+                </Text>
+
+                <View style={styles.seeMoreRow}>
+                  <Text style={styles.seeMoreText}>See more</Text>
+                  <Text style={styles.seeMoreArrow}>›</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        })
+      ) : (
+        <Text style={styles.emptyText}>
+          No active competitions yet — create one or wait for an invite!
+        </Text>
+      )}
+    </>
+  );
+
+  const renderCompletedTab = () => (
+    <>
+      {filteredCompleted.length > 0 ? (
+        filteredCompleted.map(comp => {
+          return (
+            <TouchableOpacity
+              key={comp.id}
+              style={[styles.card, styles.completedCard]}
+              activeOpacity={0.85}
+              onPress={() => handleCompetitionPress(comp)}
+            >
+              <Ionicons
+                name="trophy"
+                size={90}
+                color="rgba(255,255,255,0.08)"
+                style={styles.bgIcon}
+              />
+
+              {/* Leave Competition Button */}
+              <TouchableOpacity
+                style={styles.leaveButton}
+                onPress={(e) => {
+                  e.stopPropagation(); // Prevent card press
+                  handleLeaveCompetition(comp);
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.leaveButtonText}>✕</Text>
+              </TouchableOpacity>
+
+              <View style={styles.cardContent}>
+                <View style={styles.cardHeader}>
+                  <Text style={[styles.cardTitle, styles.completedCardTitle]}>
+                    {comp.name}
+                  </Text>
+                  <View style={[styles.statusBadge, styles.completedBadge]}>
+                    <Text style={[styles.statusText, styles.completedStatusText]}>
+                      Completed
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={[styles.timeRemainingText, styles.completedTimeText]}>
+                  {getTimeRemaining(comp)}
+                </Text>
+
+                <View style={styles.viewResultsContainer}>
+                  <Button
+                    title="View Results"
+                    style={styles.viewResultsButton}
+                    textStyle={styles.viewResultsButtonText}
+                    onPress={() => navigation.navigate('Leaderboard', { competition: comp })}
+                  />
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        })
+      ) : (
+        <Text style={styles.emptyText}>
+          No completed competitions yet.
+        </Text>
+      )}
+    </>
+  );
+
   return (
     <>
       {/* Paint the status‑bar / notch area solid black */}
@@ -343,7 +506,38 @@ export default function ActiveCompetitionsScreen({ navigation }) {
 
       {/* Main content */}
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.root}>
-        <Header title="Active Competitions" showProfileIcon />
+        <Header title="CompFit" />
+
+        {/* Tab Navigation */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'active' && styles.activeTabStyle]}
+            onPress={() => setActiveTab('active')}
+          >
+            <Ionicons 
+              name="fitness" 
+              size={20} 
+              color={activeTab === 'active' ? '#A4D65E' : '#6B7280'} 
+            />
+            <Text style={[styles.tabText, activeTab === 'active' && styles.activeTabText]}>
+              Active
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'completed' && styles.activeTabStyle]}
+            onPress={() => setActiveTab('completed')}
+          >
+            <Ionicons 
+              name="trophy" 
+              size={20} 
+              color={activeTab === 'completed' ? '#A4D65E' : '#6B7280'} 
+            />
+            <Text style={[styles.tabText, activeTab === 'completed' && styles.activeTabText]}>
+              Completed
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Search bar */}
         <View style={styles.searchContainer}>
@@ -358,7 +552,7 @@ export default function ActiveCompetitionsScreen({ navigation }) {
           />
         </View>
 
-        {/* Card list */}
+        {/* Tab content */}
         <ScrollView
           style={styles.scroll}
           showsVerticalScrollIndicator={false}
@@ -376,161 +570,8 @@ export default function ActiveCompetitionsScreen({ navigation }) {
             <Text style={styles.loadingText}>Loading competitions…</Text>
           )}
 
-          {/* Pending Invitations Section */}
-          {filteredPending.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>Pending Invitations</Text>
-              {filteredPending.map(comp => (
-                <View key={comp.id} style={styles.inviteCard}>
-                  <Ionicons
-                    name="mail"
-                    size={90}
-                    color="rgba(255,255,255,0.08)"
-                    style={styles.bgIcon}
-                  />
-
-                  <View style={styles.inviteContent}>
-                    <Text style={styles.cardTitle}>{comp.name}</Text>
-                    <Text style={styles.inviteText}>You've been invited to join!</Text>
-                    <View style={styles.inviteActions}>
-                      <TouchableOpacity
-                        style={[styles.inviteButton, styles.acceptButton]}
-                        onPress={() => handleAcceptInvite(comp.id)}
-                      >
-                        <Text style={styles.acceptButtonText}>Accept</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.inviteButton, styles.declineButton]}
-                        onPress={() => handleDeclineInvite(comp.id)}
-                      >
-                        <Text style={styles.declineButtonText}>Decline</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </>
-          )}
-
-          {/* Active Competitions Section */}
-          {filteredActive.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>Active Competitions</Text>
-              {filteredActive.map(comp => {
-                const status = getCompetitionStatus(comp);
-                
-                return (
-                  <TouchableOpacity
-                    key={comp.id}
-                    style={styles.card}
-                    activeOpacity={0.85}
-                    onPress={() => handleCompetitionPress(comp)}
-                  >
-                    <Ionicons
-                      name="fitness"
-                      size={90}
-                      color="rgba(255,255,255,0.08)"
-                      style={styles.bgIcon}
-                    />
-
-                    <View style={styles.cardContent}>
-                      <View style={styles.cardHeader}>
-                        <Text style={styles.cardTitle}>
-                          {comp.name}
-                        </Text>
-                        <View style={[
-                          styles.statusBadge,
-                          status === 'active' && styles.activeBadge,
-                          status === 'upcoming' && styles.upcomingBadge,
-                        ]}>
-                          <Text style={styles.statusText}>
-                            {getCompetitionStatusText(comp)}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <Text style={styles.timeRemainingText}>
-                        {getTimeRemaining(comp)}
-                      </Text>
-
-                      <View style={styles.seeMoreRow}>
-                        <Text style={styles.seeMoreText}>See more</Text>
-                        <Text style={styles.seeMoreArrow}>›</Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </>
-          )}
-
-          {/* Completed Competitions Section */}
-          {filteredCompleted.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>Completed Competitions</Text>
-              {filteredCompleted.map(comp => {
-                return (
-                  <TouchableOpacity
-                    key={comp.id}
-                    style={[styles.card, styles.completedCard]}
-                    activeOpacity={0.85}
-                    onPress={() => handleCompetitionPress(comp)}
-                  >
-                    <Ionicons
-                      name="trophy"
-                      size={90}
-                      color="rgba(255,255,255,0.08)"
-                      style={styles.bgIcon}
-                    />
-
-                    {/* Leave Competition Button */}
-                    <TouchableOpacity
-                      style={styles.leaveButton}
-                      onPress={(e) => {
-                        e.stopPropagation(); // Prevent card press
-                        handleLeaveCompetition(comp);
-                      }}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <Text style={styles.leaveButtonText}>✕</Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.cardContent}>
-                      <View style={styles.cardHeader}>
-                        <Text style={[styles.cardTitle, styles.completedCardTitle]}>
-                          {comp.name}
-                        </Text>
-                        <View style={[styles.statusBadge, styles.completedBadge]}>
-                          <Text style={[styles.statusText, styles.completedStatusText]}>
-                            Completed
-                          </Text>
-                        </View>
-                      </View>
-
-                      <Text style={[styles.timeRemainingText, styles.completedTimeText]}>
-                        {getTimeRemaining(comp)}
-                      </Text>
-
-                      <View style={styles.viewResultsContainer}>
-                        <Button
-                          title="View Results"
-                          style={styles.viewResultsButton}
-                          textStyle={styles.viewResultsButtonText}
-                          onPress={() => navigation.navigate('Leaderboard', { competition: comp })}
-                        />
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </>
-          )}
-
-          {!loading && filteredActive.length === 0 && filteredCompleted.length === 0 && filteredPending.length === 0 && (
-            <Text style={styles.loadingText}>
-              No competitions yet — create one or wait for an invite!
-            </Text>
-          )}
+          {!loading && activeTab === 'active' && renderActiveTab()}
+          {!loading && activeTab === 'completed' && renderCompletedTab()}
         </ScrollView>
       </SafeAreaView>
     </>
@@ -541,13 +582,45 @@ export default function ActiveCompetitionsScreen({ navigation }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F8F8F8' },
 
+  // Tab Navigation (matching ProfileScreen style)
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    padding: 4,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  activeTabStyle: {
+    backgroundColor: '#F0F9E8',
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginLeft: 8,
+  },
+  activeTabText: {
+    color: '#A4D65E',
+    fontWeight: '600',
+  },
+
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EAEAEA',
     borderRadius: 28,
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 16,
     marginBottom: 20,
     paddingHorizontal: 16,
     height: 52,
@@ -558,6 +631,13 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, paddingHorizontal: 16 },
 
   loadingText: {
+    textAlign: 'center',
+    color: '#666',
+    marginTop: 40,
+    fontSize: 16,
+  },
+
+  emptyText: {
     textAlign: 'center',
     color: '#666',
     marginTop: 40,
