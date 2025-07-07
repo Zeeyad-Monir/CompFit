@@ -1,3 +1,5 @@
+//LeaderboardScreen.js
+
 import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { Header, Button } from '../components';
@@ -190,11 +192,6 @@ const LeaderboardScreen = ({ route, navigation }) => {
                       size={user.position === 1 ? 70 : 60} 
                       color={user.position === 1 ? "#FFD700" : "#FFFFFF"} 
                     />
-                    {user.position === 1 && (
-                      <View style={styles.crownContainer}>
-                        <Ionicons name="crown" size={20} color="#FFD700" />
-                      </View>
-                    )}
                     <View style={[
                       styles.positionBadge,
                       user.position === 1 && styles.firstPlaceBadge,
@@ -317,11 +314,6 @@ const styles = StyleSheet.create({
   userImageContainer: {
     position: 'relative',
     marginBottom: 5,
-  },
-  crownContainer: {
-    position: 'absolute',
-    top: -10,
-    alignSelf: 'center',
   },
   positionBadge: {
     position: 'absolute',
