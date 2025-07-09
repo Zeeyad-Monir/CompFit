@@ -1,4 +1,11 @@
 // src/firebase.js
+import { LogBox } from 'react-native';
+
+// Suppress known Firebase Auth warning spamming your console
+LogBox.ignoreLogs([
+  '@firebase/auth',
+]);
+
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   getAuth,
@@ -20,7 +27,7 @@ const firebaseConfig = {
 };
 
 // Initialize (or reuse) the Firebase App
-const app = !getApps().length
+const app = getApps().length === 0
   ? initializeApp(firebaseConfig)
   : getApp();
 

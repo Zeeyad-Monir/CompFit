@@ -26,7 +26,8 @@ import {
   deleteDoc,
   arrayUnion,
   arrayRemove,
-  getDoc
+  getDoc,
+  serverTimestamp
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 
@@ -62,31 +63,74 @@ export default function ProfileScreen() {
     if (!user) return;
     const ref = doc(db, 'users', user.uid);
 
-    const unsub = onSnapshot(ref, snap => {
-      if (snap.exists()) {
-        const userData = snap.data();
-        setProfile(userData);
-        // Fetch friend details when friends array changes
-        if (userData.friends?.length > 0) {
-          fetchFriendsDetails(userData.friends);
+    const unsub = onSnapshot(ref, 
+      snap => {
+        if (snap.exists()) {
+          const userData = snap.data();
+          setProfile(userData);
+          // Fetch friend details when friends array changes
+          if (userData.friends?.length > 0) {
+            fetchFriendsDetails(userData.friends);
+          } else {
+            setFriendsList([]);
+          }
         } else {
-          setFriendsList([]);
+          // create doc using the username provided at sign‑up
+          const initialData = {
+            username: user.displayName || user.email.split('@')[0],
+            handle: (user.displayName || user.email.split('@')[0]).replace(/\s+/g, '').toLowerCase(),
+            favouriteWorkout: '',
+            wins: 0,
+            totals: 0,
+            friends: [],
+          };
+          setDoc(ref, initialData)
+            .then(() => console.log('User profile created'))
+            .catch(error => console.error('Error creating user profile:', error));
         }
-      } else {
-        // create doc using the username provided at sign‑up
-        setDoc(ref, {
-          username: user.displayName || user.email.split('@')[0],
-          handle: (user.displayName || user.email.split('@')[0]).replace(/\s+/g, '').toLowerCase(),
-          favouriteWorkout: '',
-          wins: 0,
-          totals: 0,
-          friends: [],
-        });
+        setLoading(false);
+      },
+      error => {
+        console.error('Error in profile subscription:', error);
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    );
 
-    return unsub;
+    // Also monitor friend requests for removal notifications
+    const requestsRef = collection(db, 'users', user.uid, 'friendRequests');
+    const requestsUnsub = onSnapshot(requestsRef, 
+      async (snapshot) => {
+        for (const docSnap of snapshot.docs) {
+          const requestData = docSnap.data();
+          
+          // Handle friend removal notifications immediately
+          if (requestData.type === 'friend_removed') {
+            try {
+              // Update the local profile state immediately
+              setProfile(prev => ({
+                ...prev,
+                friends: prev.friends.filter(id => id !== requestData.fromUserId)
+              }));
+              
+              // Update in Firestore
+              await updateDoc(doc(db, 'users', user.uid), {
+                friends: arrayRemove(requestData.fromUserId),
+              });
+              
+              // Delete the processed notification
+              await deleteDoc(docSnap.ref);
+            } catch (error) {
+              console.error('Error processing friend removal:', error);
+            }
+          }
+        }
+      }
+    );
+
+    return () => {
+      unsub();
+      requestsUnsub();
+    };
   }, [user]);
 
   /* ----- live friend requests subscription ----- */
@@ -94,28 +138,53 @@ export default function ProfileScreen() {
     if (!user) return;
     
     const requestsRef = collection(db, 'users', user.uid, 'friendRequests');
-    const unsub = onSnapshot(requestsRef, async (snapshot) => {
-      const requests = [];
-      
-      for (const docSnap of snapshot.docs) {
-        const requestData = docSnap.data();
-        // Fetch sender's details
-        try {
-          const senderDoc = await getDoc(doc(db, 'users', requestData.fromUserId));
-          if (senderDoc.exists()) {
-            requests.push({
-              id: docSnap.id,
-              ...requestData,
-              senderData: senderDoc.data(),
-            });
+    const unsub = onSnapshot(requestsRef, 
+      async (snapshot) => {
+        const requests = [];
+        
+        for (const docSnap of snapshot.docs) {
+          const requestData = docSnap.data();
+          
+          // Skip friend removal notifications (handled in profile subscription)
+          if (requestData.type === 'friend_removed') {
+            continue;
           }
-        } catch (error) {
-          console.error('Error fetching sender data:', error);
+          
+          // If this is an accepted request, automatically add to friends
+          if (requestData.accepted) {
+            try {
+              await updateDoc(doc(db, 'users', user.uid), {
+                friends: arrayUnion(requestData.fromUserId),
+              });
+              // Delete the processed request
+              await deleteDoc(docSnap.ref);
+              continue;
+            } catch (error) {
+              console.error('Error processing accepted request:', error);
+            }
+          }
+          
+          // Fetch sender's details for regular requests
+          try {
+            const senderDoc = await getDoc(doc(db, 'users', requestData.fromUserId));
+            if (senderDoc.exists()) {
+              requests.push({
+                id: docSnap.id,
+                ...requestData,
+                senderData: senderDoc.data(),
+              });
+            }
+          } catch (error) {
+            console.error('Error fetching sender data:', error);
+          }
         }
+        
+        setPendingRequests(requests);
+      },
+      error => {
+        console.error('Error in friend requests subscription:', error);
       }
-      
-      setPendingRequests(requests);
-    });
+    );
 
     return unsub;
   }, [user]);
@@ -125,31 +194,48 @@ export default function ProfileScreen() {
     if (!user) return;
     
     const sentRequestsRef = collection(db, 'users', user.uid, 'sentRequests');
-    const unsub = onSnapshot(sentRequestsRef, async (snapshot) => {
-      const requests = [];
-      
-      for (const docSnap of snapshot.docs) {
-        const requestData = docSnap.data();
-        // Fetch recipient's details
-        try {
-          const recipientDoc = await getDoc(doc(db, 'users', requestData.toUserId));
-          if (recipientDoc.exists()) {
-            requests.push({
-              id: docSnap.id,
-              ...requestData,
-              recipientData: recipientDoc.data(),
-            });
+    const unsub = onSnapshot(sentRequestsRef, 
+      async (snapshot) => {
+        const requests = [];
+        
+        for (const docSnap of snapshot.docs) {
+          const requestData = docSnap.data();
+          // Fetch recipient's details
+          try {
+            const recipientDoc = await getDoc(doc(db, 'users', requestData.toUserId));
+            if (recipientDoc.exists()) {
+              const recipientData = recipientDoc.data();
+              
+              // Check if we're already friends (request was accepted)
+              if (profile.friends?.includes(requestData.toUserId)) {
+                // Clean up the sent request since we're now friends
+                await deleteDoc(docSnap.ref);
+                continue;
+              }
+              
+              requests.push({
+                id: docSnap.id,
+                ...requestData,
+                recipientData: recipientData,
+              });
+            } else {
+              // Recipient doesn't exist, clean up the request
+              await deleteDoc(docSnap.ref);
+            }
+          } catch (error) {
+            console.error('Error fetching recipient data:', error);
           }
-        } catch (error) {
-          console.error('Error fetching recipient data:', error);
         }
+        
+        setSentRequests(requests);
+      },
+      error => {
+        console.error('Error in sent requests subscription:', error);
       }
-      
-      setSentRequests(requests);
-    });
+    );
 
     return unsub;
-  }, [user]);
+  }, [user, profile.friends]);
 
   /* ----- fetch friends details ----- */
   const fetchFriendsDetails = async (friendIds) => {
@@ -183,30 +269,45 @@ export default function ProfileScreen() {
   const cancelEdit = () => setEditing(false);
 
   const saveEdit = async () => {
-    const ref = doc(db, 'users', user.uid);
-    await updateDoc(ref, draft);
-    setEditing(false);
+    try {
+      const ref = doc(db, 'users', user.uid);
+      await updateDoc(ref, draft);
+      setEditing(false);
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      Alert.alert('Error', 'Failed to save profile changes');
+    }
   };
 
   const handleLogout = () => signOut(auth);
 
   /* ----- friends handlers ----- */
   const findUserByUsername = async (username) => {
-    const trimmedUsername = username.trim();
+    const trimmedUsername = username.trim().toLowerCase();
     if (!trimmedUsername) return null;
 
     try {
-      const q = query(collection(db, 'users'), where('username', '==', trimmedUsername));
-      const snapshot = await getDocs(q);
+      // First, check if username exists in usernames collection
+      const usernameDoc = await getDoc(doc(db, 'usernames', trimmedUsername));
       
-      if (!snapshot.empty) {
-        const userData = snapshot.docs[0].data();
-        return {
-          id: snapshot.docs[0].id,
-          ...userData,
-        };
+      if (!usernameDoc.exists()) {
+        return null;
       }
-      return null;
+      
+      // Get the userId from the username document
+      const { uid } = usernameDoc.data();
+      
+      // Now fetch the full user profile
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      
+      if (!userDoc.exists()) {
+        return null;
+      }
+      
+      return {
+        id: uid,
+        ...userDoc.data(),
+      };
     } catch (error) {
       console.error('Error finding user:', error);
       return null;
@@ -220,7 +321,7 @@ export default function ProfileScreen() {
       return;
     }
 
-    if (username === profile.username) {
+    if (username.toLowerCase() === profile.username.toLowerCase()) {
       Alert.alert('Error', "You can't send a friend request to yourself");
       return;
     }
@@ -238,70 +339,86 @@ export default function ProfileScreen() {
         return;
       }
 
-      // Check if request already sent
-      const existingRequestQuery = query(
-        collection(db, 'users', targetUser.id, 'friendRequests'),
-        where('fromUserId', '==', user.uid)
-      );
-      const existingRequests = await getDocs(existingRequestQuery);
+      // Check if request already sent by checking sent requests
+      let requestAlreadySent = false;
+      try {
+        const sentRequestsSnapshot = await getDocs(collection(db, 'users', user.uid, 'sentRequests'));
+        requestAlreadySent = sentRequestsSnapshot.docs.some(doc => 
+          doc.data().toUserId === targetUser.id
+        );
+      } catch (error) {
+        console.log('Error checking sent requests:', error);
+      }
       
-      if (!existingRequests.empty) {
+      if (requestAlreadySent) {
         Alert.alert('Request Already Sent', `You have already sent a friend request to ${targetUser.username}`);
         return;
       }
 
-      const timestamp = new Date();
+      console.log('Sending friend request:', {
+        to: targetUser.id,
+        from: user.uid,
+        fromUsername: profile.username
+      });
 
       // Send friend request to recipient
-      await addDoc(collection(db, 'users', targetUser.id, 'friendRequests'), {
+      const friendRequestData = {
         fromUserId: user.uid,
         fromUsername: profile.username,
-        timestamp: timestamp,
-      });
+        timestamp: serverTimestamp(),
+      };
+      
+      await addDoc(collection(db, 'users', targetUser.id, 'friendRequests'), friendRequestData);
 
       // Store sent request in sender's collection
-      await addDoc(collection(db, 'users', user.uid, 'sentRequests'), {
+      const sentRequestData = {
         toUserId: targetUser.id,
         toUsername: targetUser.username,
-        timestamp: timestamp,
-      });
+        fromUserId: user.uid,
+        timestamp: serverTimestamp(),
+      };
+      
+      await addDoc(collection(db, 'users', user.uid, 'sentRequests'), sentRequestData);
 
       setFriendUsername('');
       Alert.alert('Success', `Friend request sent to ${targetUser.username}!`);
     } catch (error) {
       console.error('Error sending friend request:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        currentUserId: user.uid,
+        targetUserId: targetUser?.id
+      });
       Alert.alert('Error', 'Failed to send friend request. Please try again.');
     }
   };
 
   const acceptFriendRequest = async (request) => {
     try {
-      // Add to both users' friends arrays
+      // Add the sender to my friends array
       const myRef = doc(db, 'users', user.uid);
-      const friendRef = doc(db, 'users', request.fromUserId);
-      
       await updateDoc(myRef, {
         friends: arrayUnion(request.fromUserId),
       });
-      
-      await updateDoc(friendRef, {
-        friends: arrayUnion(user.uid),
-      });
 
-      // Delete the friend request from recipient's collection
+      // Delete the friend request from my collection
       await deleteDoc(doc(db, 'users', user.uid, 'friendRequests', request.id));
 
-      // Delete the sent request from sender's collection
-      const sentRequestQuery = query(
-        collection(db, 'users', request.fromUserId, 'sentRequests'),
-        where('toUserId', '==', user.uid)
-      );
-      const sentRequestDocs = await getDocs(sentRequestQuery);
-      sentRequestDocs.forEach(async (docSnap) => {
-        await deleteDoc(docSnap.ref);
-      });
+      // Create a reciprocal friend request that's pre-accepted
+      // This way the sender can add me to their friends list when they see it
+      try {
+        await addDoc(collection(db, 'users', request.fromUserId, 'friendRequests'), {
+          fromUserId: user.uid,
+          fromUsername: profile.username,
+          timestamp: serverTimestamp(),
+          accepted: true, // Mark this as already accepted
+        });
+      } catch (error) {
+        console.log('Could not create reciprocal request:', error);
+      }
 
-      Alert.alert('Success', `You are now friends with ${request.senderData.username}!`);
+      Alert.alert('Success', `You are now friends with ${request.senderData.username}! They will see you in their friends list when they refresh.`);
     } catch (error) {
       console.error('Error accepting friend request:', error);
       Alert.alert('Error', 'Failed to accept friend request. Please try again.');
@@ -313,15 +430,8 @@ export default function ProfileScreen() {
       // Delete the friend request from recipient's collection
       await deleteDoc(doc(db, 'users', user.uid, 'friendRequests', request.id));
 
-      // Delete the sent request from sender's collection
-      const sentRequestQuery = query(
-        collection(db, 'users', request.fromUserId, 'sentRequests'),
-        where('toUserId', '==', user.uid)
-      );
-      const sentRequestDocs = await getDocs(sentRequestQuery);
-      sentRequestDocs.forEach(async (docSnap) => {
-        await deleteDoc(docSnap.ref);
-      });
+      // We can't directly delete from the sender's sentRequests
+      // The sender will need to handle cleanup on their end
 
       Alert.alert('Request Declined', `Friend request from ${request.senderData.username} has been declined.`);
     } catch (error) {
@@ -344,17 +454,11 @@ export default function ProfileScreen() {
               // Delete the sent request from sender's collection
               await deleteDoc(doc(db, 'users', user.uid, 'sentRequests', request.id));
 
-              // Delete the friend request from recipient's collection
-              const friendRequestQuery = query(
-                collection(db, 'users', request.toUserId, 'friendRequests'),
-                where('fromUserId', '==', user.uid)
-              );
-              const friendRequestDocs = await getDocs(friendRequestQuery);
-              friendRequestDocs.forEach(async (docSnap) => {
-                await deleteDoc(docSnap.ref);
-              });
+              // We can't directly query/delete from the recipient's friendRequests
+              // The recipient will need to handle cleanup on their end
+              // Or we could use a Cloud Function for this
 
-              Alert.alert('Request Cancelled', `Friend request to ${request.recipientData.username} has been cancelled.`);
+              Alert.alert('Request Cancelled', `Friend request to ${request.recipientData.username} has been cancelled from your side.`);
             } catch (error) {
               console.error('Error cancelling sent request:', error);
               Alert.alert('Error', 'Failed to cancel friend request. Please try again.');
@@ -376,16 +480,25 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              // Only remove from my friends list
               const myRef = doc(db, 'users', user.uid);
-              const friendRef = doc(db, 'users', friend.id);
-              
               await updateDoc(myRef, {
                 friends: arrayRemove(friend.id),
               });
-              
-              await updateDoc(friendRef, {
-                friends: arrayRemove(user.uid),
-              });
+
+              // Optionally, create a "friend removal" notification for the other user
+              // So they can remove us from their list too
+              try {
+                await addDoc(collection(db, 'users', friend.id, 'friendRequests'), {
+                  fromUserId: user.uid,
+                  fromUsername: profile.username,
+                  timestamp: serverTimestamp(),
+                  type: 'friend_removed', // Special type to indicate removal
+                });
+              } catch (error) {
+                console.log('Could not notify friend of removal:', error);
+                // Continue anyway - at least we've removed them from our list
+              }
 
               Alert.alert('Success', `${friend.username} has been removed from your friends.`);
             } catch (error) {
@@ -449,14 +562,14 @@ export default function ProfileScreen() {
           )}
           {renderStat(
             'Competitions Won', 'trophy',
-            editing, String(draft.wins),
-            t => setDraft({ ...draft, wins: Number(t) }),
+            editing, String(draft.wins || 0),
+            t => setDraft({ ...draft, wins: Number(t) || 0 }),
             `${profile.wins} Wins`
           )}
           {renderStat(
             'Total Competitions', 'stats-chart',
-            editing, String(draft.totals),
-            t => setDraft({ ...draft, totals: Number(t) }),
+            editing, String(draft.totals || 0),
+            t => setDraft({ ...draft, totals: Number(t) || 0 }),
             `${profile.totals} Total`
           )}
 
@@ -682,7 +795,7 @@ function renderStat(label, icon, editing, draftVal, onChange, displayVal) {
             keyboardType={label.includes('Competitions') ? 'number-pad' : 'default'}
           />
         ) : (
-          <Text style={styles.statValue}>{displayVal}</Text>
+          <Text style={styles.statValue}>{displayVal || '—'}</Text>
         )}
         <Ionicons name={icon} size={24} color="#A4D65E" style={styles.statIcon} />
       </View>

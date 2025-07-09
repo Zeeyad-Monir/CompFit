@@ -13,7 +13,7 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
-import { doc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 export default function SignUpScreen({ navigation }) {
   const [username, setUsername] = useState('');
@@ -23,18 +23,15 @@ export default function SignUpScreen({ navigation }) {
   const [error,    setError]    = useState('');
   const [loading,  setLoading]  = useState(false);
 
-  // Check if username is already taken
+  // Check if username is already taken using the usernames collection
   const isUsernameAvailable = async (username) => {
     const trimmedUsername = username.trim();
     if (!trimmedUsername) return false;
     
     try {
-      const q = query(
-        collection(db, 'users'),
-        where('username', '==', trimmedUsername)
-      );
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.empty; // true if no documents found (username available)
+      // Check if the username document exists
+      const usernameDoc = await getDoc(doc(db, 'usernames', trimmedUsername));
+      return !usernameDoc.exists(); // true if document doesn't exist (username available)
     } catch (error) {
       console.error('Error checking username availability:', error);
       return false;
@@ -98,6 +95,9 @@ export default function SignUpScreen({ navigation }) {
       /* 2) Save username on Auth profile */
       await updateProfile(cred.user, { displayName: trimmedUsername });
 
+      // Small delay to ensure auth state propagates
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       /* 3) users/{uid} profile document */
       await setDoc(doc(db, 'users', cred.user.uid), {
         username: trimmedUsername,
@@ -106,15 +106,16 @@ export default function SignUpScreen({ navigation }) {
         favouriteWorkout: '',
         wins: 0,
         totals: 0,
+        friends: [],
       });
 
       /* 4) reverse lookup emails/{email} → { uid }  */
-      await setDoc(doc(db, 'emails', trimmedEmail), {
+      await setDoc(doc(db, 'emails', trimmedEmail.replace(/\./g, '_')), {
         uid: cred.user.uid,
       });
 
       /* 5) username lookup usernames/{username} → { uid } */
-      await setDoc(doc(db, 'usernames', trimmedUsername), {
+      await setDoc(doc(db, 'usernames', trimmedUsername.toLowerCase()), {
         uid: cred.user.uid,
       });
 
