@@ -14,14 +14,17 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function SignUpScreen({ navigation }) {
-  const [username, setUsername] = useState('');
-  const [email,    setEmail]    = useState('');
-  const [pass1,    setPass1]    = useState('');
-  const [pass2,    setPass2]    = useState('');
-  const [error,    setError]    = useState('');
-  const [loading,  setLoading]  = useState(false);
+  const [username,      setUsername]      = useState('');
+  const [email,         setEmail]         = useState('');
+  const [pass1,         setPass1]         = useState('');
+  const [pass2,         setPass2]         = useState('');
+  const [error,         setError]         = useState('');
+  const [loading,       setLoading]       = useState(false);
+  const [showPassword1, setShowPassword1] = useState(false);
+  const [showPassword2, setShowPassword2] = useState(false);
 
   // Check if username is already taken using the usernames collection
   const isUsernameAvailable = async (username) => {
@@ -117,9 +120,7 @@ export default function SignUpScreen({ navigation }) {
       // User is now signed in, and the app will navigate to the home stack automatically.
 
     } catch (e) {
-      // to line 120
-console.log('Sign up error:', e.code); // Use console.log instead
-
+      console.log('Sign up error:', e.code);
       // Handle specific Firebase Auth errors
       if (e.code === 'auth/email-already-in-use') {
         setError('This email is already registered. Please log in or use a different email.');
@@ -163,29 +164,57 @@ console.log('Sign up error:', e.code); // Use console.log instead
           editable={!loading}
         />
 
-        <TextInput
-          placeholder="Password"
-          placeholderTextColor="#6B7280"
-          style={styles.input}
-          secureTextEntry
-          textContentType="newPassword"
-          autoComplete="password-new"
-          value={pass1}
-          onChangeText={setPass1}
-          editable={!loading}
-        />
+        {/* Password Input with Eye Toggle */}
+        <View style={styles.passwordContainer}>
+          <TextInput
+            placeholder="Password"
+            placeholderTextColor="#6B7280"
+            style={styles.passwordInput}
+            secureTextEntry={!showPassword1}
+            textContentType="newPassword"
+            autoComplete="password-new"
+            value={pass1}
+            onChangeText={setPass1}
+            editable={!loading}
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowPassword1(!showPassword1)}
+            disabled={loading}
+          >
+            <Ionicons
+              name={showPassword1 ? 'eye-off' : 'eye'}
+              size={24}
+              color="#6B7280"
+            />
+          </TouchableOpacity>
+        </View>
 
-        <TextInput
-          placeholder="Repeat Password"
-          placeholderTextColor="#6B7280"
-          style={styles.input}
-          secureTextEntry
-          textContentType="newPassword"
-          autoComplete="password-new"
-          value={pass2}
-          onChangeText={setPass2}
-          editable={!loading}
-        />
+        {/* Repeat Password Input with Eye Toggle */}
+        <View style={styles.passwordContainer}>
+          <TextInput
+            placeholder="Repeat Password"
+            placeholderTextColor="#6B7280"
+            style={styles.passwordInput}
+            secureTextEntry={!showPassword2}
+            textContentType="newPassword"
+            autoComplete="password-new"
+            value={pass2}
+            onChangeText={setPass2}
+            editable={!loading}
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowPassword2(!showPassword2)}
+            disabled={loading}
+          >
+            <Ionicons
+              name={showPassword2 ? 'eye-off' : 'eye'}
+              size={24}
+              color="#6B7280"
+            />
+          </TouchableOpacity>
+        </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -240,6 +269,23 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16, 
     marginBottom: 20,
+  },
+  passwordContainer: {
+    position: 'relative',
+    marginBottom: 20,
+  },
+  passwordInput: {
+    backgroundColor: '#FFF', 
+    borderRadius: 8, 
+    padding: 12,
+    paddingRight: 50, // Make room for the eye icon
+    fontSize: 16,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 16,
+    top: 6,
+    padding: 4,
   },
   btn: {
     backgroundColor: '#A4D65E', 

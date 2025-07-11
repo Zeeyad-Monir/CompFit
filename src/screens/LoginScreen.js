@@ -1,3 +1,4 @@
+// src/screens/LoginScreen.js
 import React, { useState } from 'react';
 import {
   View,
@@ -11,10 +12,11 @@ import { signInWithEmailAndPassword, auth } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function LoginScreen({ navigation }) {
-  const [email,    setEmail]    = useState('');
-  const [password, setPassword] = useState('');
-  const [error,    setError]    = useState('');
-  const [loading,  setLoading]  = useState(false);
+  const [email,        setEmail]        = useState('');
+  const [password,     setPassword]     = useState('');
+  const [error,        setError]        = useState('');
+  const [loading,      setLoading]      = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -36,19 +38,22 @@ export default function LoginScreen({ navigation }) {
       await signInWithEmailAndPassword(auth, trimmedEmail, password);
       // User will be automatically redirected by AuthContext
     } catch (e) {
-      console.error('Login error:', e);
+      console.log('Login error:', e.code);
+      
       if (e.code === 'auth/user-not-found') {
         setError('No account found with this email address.');
       } else if (e.code === 'auth/wrong-password') {
         setError('Incorrect password. Please try again.');
       } else if (e.code === 'auth/invalid-email') {
         setError('Please enter a valid email address.');
+      } else if (e.code === 'auth/invalid-credential') {
+        setError('Invalid email or password. Please check your credentials.');
       } else if (e.code === 'auth/user-disabled') {
         setError('This account has been disabled. Please contact support.');
       } else if (e.code === 'auth/too-many-requests') {
         setError('Too many failed login attempts. Please try again later.');
       } else {
-        setError(e.message || 'Failed to login. Please try again.');
+        setError('Failed to login. Please check your credentials and try again.');
       }
     } finally {
       setLoading(false);
@@ -74,17 +79,41 @@ export default function LoginScreen({ navigation }) {
           textContentType="emailAddress"
         />
 
-        <TextInput
-          placeholder="Password"
-          placeholderTextColor="#6B7280"
-          style={styles.input}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-          editable={!loading}
-          autoComplete="password"
-          textContentType="password"
-        />
+        {/* Password Input with Eye Toggle */}
+        <View style={styles.passwordContainer}>
+          <TextInput
+            placeholder="Password"
+            placeholderTextColor="#6B7280"
+            style={styles.passwordInput}
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+            editable={!loading}
+            autoComplete="password"
+            textContentType="password"
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowPassword(!showPassword)}
+            disabled={loading}
+          >
+            <Ionicons
+              name={showPassword ? 'eye-off' : 'eye'}
+              size={24}
+              color="#6B7280"
+            />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity 
+          onPress={() => navigation.navigate('ForgotPassword')}
+          style={styles.forgotPasswordContainer}
+          disabled={loading}
+        >
+          <Text style={[styles.forgotPasswordText, loading && styles.disabledText]}>
+            Forgot Password?
+          </Text>
+        </TouchableOpacity>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -147,6 +176,32 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16, 
     marginBottom: 20,
+  },
+  passwordContainer: {
+    position: 'relative',
+    marginBottom: 20,
+  },
+  passwordInput: {
+    backgroundColor: '#FFF', 
+    borderRadius: 12, 
+    padding: 16,
+    paddingRight: 50, // Make room for the eye icon
+    fontSize: 16,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 16,
+    top: 10,
+    padding: 4,
+  },
+  forgotPasswordContainer: {
+    alignSelf: 'flex-end',
+    marginBottom: 15,
+  },
+  forgotPasswordText: {
+    color: '#A4D65E',
+    fontSize: 14,
+    fontWeight: '600',
   },
   btn: {
     backgroundColor: '#A4D65E', 
