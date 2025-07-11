@@ -186,14 +186,52 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     };
   }, [competition?.id, user.uid]);
 
+  // FIXED: Get the primary value and unit for display based on the workout's unit type
+  const getPrimaryValueAndUnit = (workout) => {
+    const { unit } = workout;
+    
+    switch (unit) {
+      case 'Kilometre':
+        return { value: workout.distance || 0, displayUnit: 'km' };
+      case 'Mile':
+        return { value: workout.distance || 0, displayUnit: 'miles' };
+      case 'Meter':
+        return { value: workout.distance || 0, displayUnit: 'm' };
+      case 'Yard':
+        return { value: workout.distance || 0, displayUnit: 'yards' };
+      case 'Hour':
+        return { value: workout.duration || 0, displayUnit: 'hours' };
+      case 'Minute':
+        return { value: workout.duration || 0, displayUnit: 'min' };
+      case 'Calorie':
+        return { value: workout.calories || 0, displayUnit: 'cal' };
+      case 'Session':
+        return { value: workout.sessions || 0, displayUnit: 'sessions' };
+      case 'Class':
+        return { value: workout.sessions || 0, displayUnit: 'classes' };
+      case 'Rep':
+        return { value: workout.reps || 0, displayUnit: 'reps' };
+      case 'Set':
+        return { value: workout.sets || 0, displayUnit: 'sets' };
+      case 'Step':
+        return { value: workout.steps || 0, displayUnit: 'steps' };
+      default:
+        // For custom units, use the custom value and the unit name
+        return { value: workout.customValue || 0, displayUnit: unit.toLowerCase() };
+    }
+  };
+
+  // FIXED: Format workout display with proper unit handling
   const formatWorkoutDisplay = (workout) => {
     const userName = users[workout.userId]?.username || 'Unknown User';
-    const activityDisplay = `${workout.distance || workout.duration} ${workout.unit} ${workout.activityType}`;
+    const primaryValue = getPrimaryValueAndUnit(workout);
     
     return {
       ...workout,
       userName,
-      activityDisplay,
+      primaryValue,
+      // FIXED: Just show the activity type as the title
+      activityTitle: workout.activityType,
     };
   };
 
@@ -207,11 +245,9 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     return workouts.filter(workout => {
       const userName = users[workout.userId]?.username || 'Unknown User';
       const activityType = workout.activityType || '';
-      const activityDisplay = `${workout.distance || workout.duration} ${workout.unit} ${workout.activityType}`;
       
       return userName.toLowerCase().includes(query) || 
-             activityType.toLowerCase().includes(query) ||
-             activityDisplay.toLowerCase().includes(query);
+             activityType.toLowerCase().includes(query);
     });
   }, [workouts, users, searchQuery]);
 
@@ -474,16 +510,26 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                     
                     <View style={styles.cardContent}>
                       <View style={styles.workoutInfo}>
-                        <Text style={styles.workoutType}>{formatted.activityDisplay}</Text>
+                        {/* FIXED: Show just the activity type as the title */}
+                        <Text style={styles.workoutType}>{formatted.activityTitle}</Text>
                         <View style={styles.workoutDetails}>
+                          {/* FIXED: Show the primary unit value based on the workout's unit type */}
                           <View style={styles.detailItem}>
                             <Text style={styles.detailIcon}>•</Text>
-                            <Text style={styles.detailText}>{workout.duration} Minutes</Text>
+                            <Text style={styles.detailText}>
+                              {formatted.primaryValue.value} {formatted.primaryValue.displayUnit}
+                            </Text>
                           </View>
-                          <View style={styles.detailItem}>
-                            <Text style={styles.detailIcon}>♦</Text>
-                            <Text style={styles.detailText}>{workout.calories} Kcal</Text>
-                          </View>
+                          
+                          {/* Show calories if available and not the primary unit */}
+                          {workout.calories > 0 && workout.unit !== 'Calorie' && (
+                            <View style={styles.detailItem}>
+                              <Text style={styles.detailIcon}>♦</Text>
+                              <Text style={styles.detailText}>{workout.calories} Kcal</Text>
+                            </View>
+                          )}
+                          
+                          {/* Always show points */}
                           <View style={styles.detailItem}>
                             <Text style={styles.detailIcon}>★</Text>
                             <Text style={styles.detailText}>{workout.points} Points</Text>

@@ -1,4 +1,4 @@
-// SubmissionFormScreen.js - IMPROVED VERSION with "View more" functionality
+// SubmissionFormScreen.js - FINAL VERSION with proper unit handling and double-tap prevention
 
 import React, { useState, useContext, useEffect } from 'react';
 import {
@@ -20,22 +20,30 @@ export default function SubmissionFormScreen({ route, navigation }) {
   const [duration, setDuration] = useState('');
   const [distance, setDistance] = useState('');
   const [calories, setCalories] = useState('');
+  const [sessions, setSessions] = useState('');
+  const [reps, setReps] = useState('');
+  const [sets, setSets] = useState('');
+  const [steps, setSteps] = useState('');
+  const [customValue, setCustomValue] = useState('');
   const [notes, setNotes] = useState('');
   const [currentDayPoints, setCurrentDayPoints] = useState(0);
   const [loadingDayPoints, setLoadingDayPoints] = useState(false);
   
-  // NEW: State for managing activity display
+  // NEW: State to prevent double submissions
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // State for managing activity display
   const [showAllActivities, setShowAllActivities] = useState(false);
 
   // Grab types
   const activityTypes = competition?.rules?.map(r=>r.type)||[];
   
-  // NEW: Constants for activity display management
+  // Constants for activity display management
   const ACTIVITIES_PER_ROW = 3;
   const INITIAL_ROWS = 3;
   const INITIAL_ACTIVITIES_COUNT = ACTIVITIES_PER_ROW * INITIAL_ROWS; // 9 activities
 
-  // NEW: Get activities to display based on showAllActivities state
+  // Get activities to display based on showAllActivities state
   const getDisplayedActivities = () => {
     if (showAllActivities || activityTypes.length <= INITIAL_ACTIVITIES_COUNT) {
       return activityTypes;
@@ -43,12 +51,12 @@ export default function SubmissionFormScreen({ route, navigation }) {
     return activityTypes.slice(0, INITIAL_ACTIVITIES_COUNT);
   };
 
-  // NEW: Check if we need to show the "View more" button
+  // Check if we need to show the "View more" button
   const shouldShowViewMoreButton = () => {
     return activityTypes.length > INITIAL_ACTIVITIES_COUNT && !showAllActivities;
   };
 
-  // NEW: Check if we need to show the "View less" button
+  // Check if we need to show the "View less" button
   const shouldShowViewLessButton = () => {
     return activityTypes.length > INITIAL_ACTIVITIES_COUNT && showAllActivities;
   };
@@ -125,28 +133,48 @@ export default function SubmissionFormScreen({ route, navigation }) {
       return;
     }
     setDate(selectedDate);
-    // fetchCurrentDayPoints will be called automatically via useEffect
   };
 
-  // helper: find rule
+  // helper: find rule for selected activity
   const getRule = () => competition.rules.find(r=>r.type===activityType) || {};
 
-  // calculate points with threshold
+  // Get the correct value based on the unit type
+  const getValueForUnit = () => {
+    const rule = getRule();
+    const { unit } = rule;
+    
+    switch (unit) {
+      case 'Kilometre':
+      case 'Mile':
+      case 'Meter':
+      case 'Yard':
+        return parseFloat(distance) || 0;
+      case 'Hour':
+        return (parseFloat(duration) || 0) / 60; // Convert minutes to hours
+      case 'Minute':
+        return parseFloat(duration) || 0;
+      case 'Calorie':
+        return parseFloat(calories) || 0;
+      case 'Session':
+      case 'Class':
+        return parseFloat(sessions) || 0;
+      case 'Rep':
+        return parseFloat(reps) || 0;
+      case 'Set':
+        return parseFloat(sets) || 0;
+      case 'Step':
+        return parseFloat(steps) || 0;
+      default:
+        // For custom units or any other unit
+        return parseFloat(customValue) || 0;
+    }
+  };
+
+  // Calculate points with proper unit handling
   const calculatePoints = () => {
     const rule = getRule();
-    const { unit, pointsPerUnit=0, unitsPerPoint=1 } = rule;
-    let value = 0;
-    if (['Kilometre','Mile','Meter','Yard','Step','Rep','Set'].includes(unit)) {
-      value = parseFloat(distance)||0;
-    } else if (unit==='Hour') {
-      value = (parseFloat(duration)||0)/60;
-    } else if (unit==='Minute') {
-      value = parseFloat(duration)||0;
-    } else if (unit==='Calorie') {
-      value = parseFloat(calories)||0;
-    } else {
-      value = 1; // session/class
-    }
+    const { pointsPerUnit = 0, unitsPerPoint = 1 } = rule;
+    const value = getValueForUnit();
 
     const pointsEarned = Math.floor(value / unitsPerPoint) * pointsPerUnit;
     return pointsEarned;
@@ -174,30 +202,148 @@ export default function SubmissionFormScreen({ route, navigation }) {
     return Math.max(0, competition.dailyCap - currentDayPoints);
   };
 
-  // show inputs by unit
-  const shouldShowField = field => {
+  // Determine which input fields to show based on the unit
+  const shouldShowField = (field) => {
     const { unit } = getRule();
-    if (field==='duration') return true;
-    if (field==='distance') {
-      return ['Kilometre','Mile','Meter','Yard','Step','Rep','Set'].includes(unit);
+    
+    switch (field) {
+      case 'duration':
+        return ['Minute', 'Hour'].includes(unit);
+      case 'distance':
+        return ['Kilometre', 'Mile', 'Meter', 'Yard'].includes(unit);
+      case 'calories':
+        return unit === 'Calorie';
+      case 'sessions':
+        return ['Session', 'Class'].includes(unit);
+      case 'reps':
+        return unit === 'Rep';
+      case 'sets':
+        return unit === 'Set';
+      case 'steps':
+        return unit === 'Step';
+      case 'customValue':
+        return !['Minute', 'Hour', 'Kilometre', 'Mile', 'Meter', 'Yard', 'Calorie', 'Session', 'Class', 'Rep', 'Set', 'Step'].includes(unit);
+      default:
+        return false;
     }
-    if (field==='calories') return true;
+  };
+
+  // Get appropriate labels for input fields
+  const getFieldLabel = (field) => {
+    const { unit } = getRule();
+    
+    switch (field) {
+      case 'duration':
+        return unit === 'Hour' ? 'Duration (hours)' : 'Duration (minutes)';
+      case 'distance':
+        const distanceLabels = {
+          'Kilometre': 'Distance (km)',
+          'Mile': 'Distance (miles)',
+          'Meter': 'Distance (meters)',
+          'Yard': 'Distance (yards)'
+        };
+        return distanceLabels[unit] || 'Distance';
+      case 'calories':
+        return 'Calories Burned';
+      case 'sessions':
+        return unit === 'Class' ? 'Number of Classes' : 'Number of Sessions';
+      case 'reps':
+        return 'Number of Reps';
+      case 'sets':
+        return 'Number of Sets';
+      case 'steps':
+        return 'Number of Steps';
+      case 'customValue':
+        return `${unit} Count`;
+      default:
+        return 'Value';
+    }
+  };
+
+  // Get appropriate placeholder for input fields
+  const getFieldPlaceholder = (field) => {
+    const { unit } = getRule();
+    
+    switch (field) {
+      case 'duration':
+        return unit === 'Hour' ? '1.5' : '30';
+      case 'distance':
+        return '5.0';
+      case 'calories':
+        return '250';
+      case 'sessions':
+        return '1';
+      case 'reps':
+        return '10';
+      case 'sets':
+        return '3';
+      case 'steps':
+        return '1000';
+      case 'customValue':
+        return '1';
+      default:
+        return '0';
+    }
+  };
+
+  // Validation to ensure required fields are filled
+  const validateSubmission = () => {
+    const rule = getRule();
+    const { unit } = rule;
+    
+    // Always require duration for time-based activities
+    if (shouldShowField('duration') && (!duration || duration === '0')) {
+      Alert.alert('Validation Error', `Please enter the ${getFieldLabel('duration').toLowerCase()}`);
+      return false;
+    }
+    
+    // Require the primary measurement field based on unit
+    if (shouldShowField('distance') && (!distance || distance === '0')) {
+      Alert.alert('Validation Error', `Please enter the ${getFieldLabel('distance').toLowerCase()}`);
+      return false;
+    }
+    
+    if (shouldShowField('calories') && (!calories || calories === '0')) {
+      Alert.alert('Validation Error', `Please enter the ${getFieldLabel('calories').toLowerCase()}`);
+      return false;
+    }
+    
+    if (shouldShowField('sessions') && (!sessions || sessions === '0')) {
+      Alert.alert('Validation Error', `Please enter the ${getFieldLabel('sessions').toLowerCase()}`);
+      return false;
+    }
+    
+    if (shouldShowField('reps') && (!reps || reps === '0')) {
+      Alert.alert('Validation Error', `Please enter the ${getFieldLabel('reps').toLowerCase()}`);
+      return false;
+    }
+    
+    if (shouldShowField('sets') && (!sets || sets === '0')) {
+      Alert.alert('Validation Error', `Please enter the ${getFieldLabel('sets').toLowerCase()}`);
+      return false;
+    }
+    
+    if (shouldShowField('steps') && (!steps || steps === '0')) {
+      Alert.alert('Validation Error', `Please enter the ${getFieldLabel('steps').toLowerCase()}`);
+      return false;
+    }
+    
+    if (shouldShowField('customValue') && (!customValue || customValue === '0')) {
+      Alert.alert('Validation Error', `Please enter the ${getFieldLabel('customValue').toLowerCase()}`);
+      return false;
+    }
+    
     return true;
   };
 
-  // labels
-  const getDistanceLabel = () => {
-    const map = {
-      Kilometre:'Distance (km)', Mile:'Distance (miles)',
-      Meter:'Distance (meters)', Yard:'Distance (yards)',
-      Step:'Steps', Rep:'Reps', Set:'Sets'
-    };
-    return map[getRule().unit]||'Value';
-  };
-
+  // FIXED: Handle submit with double-tap prevention
   const handleSubmit = async () => {
-    if (!duration||duration==='0') {
-      Alert.alert('Validation Error','Please enter workout duration');
+    // Prevent double submissions
+    if (isSubmitting) {
+      return;
+    }
+
+    if (!validateSubmission()) {
       return;
     }
     
@@ -206,17 +352,27 @@ export default function SubmissionFormScreen({ route, navigation }) {
       return;
     }
 
+    // Set submitting state to prevent double taps
+    setIsSubmitting(true);
+
     // Allow submission but use capped points
     const points = getFinalPoints();
+    const rule = getRule();
+    
     try {
       await addDoc(collection(db,'submissions'),{
         competitionId: competition.id,
         userId: user.uid,
         activityType,
-        duration: parseFloat(duration)||0,
-        distance: parseFloat(distance)||0,
-        calories: parseFloat(calories)||0,
-        unit: getRule().unit,
+        duration: parseFloat(duration) || 0,
+        distance: parseFloat(distance) || 0,
+        calories: parseFloat(calories) || 0,
+        sessions: parseFloat(sessions) || 0,
+        reps: parseFloat(reps) || 0,
+        sets: parseFloat(sets) || 0,
+        steps: parseFloat(steps) || 0,
+        customValue: parseFloat(customValue) || 0,
+        unit: rule.unit,
         points,
         notes,
         date: date.toISOString(),
@@ -231,7 +387,10 @@ export default function SubmissionFormScreen({ route, navigation }) {
     } catch(e) {
       console.error(e);
       Alert.alert('Error','Failed to submit workout. Please try again.');
+      // Re-enable the button if there was an error
+      setIsSubmitting(false);
     }
+    // Note: We don't reset isSubmitting on success because we navigate away
   };
 
   const competitionStartDate = new Date(competition.startDate);
@@ -259,7 +418,7 @@ export default function SubmissionFormScreen({ route, navigation }) {
           </Text>
         </View>
 
-        {/* Activity Type - IMPROVED with View more functionality */}
+        {/* Activity Type with View more functionality */}
         <Text style={styles.label}>Activity Type</Text>
         <View style={styles.activityTypesContainer}>
           {getDisplayedActivities().map(type=>(
@@ -270,6 +429,7 @@ export default function SubmissionFormScreen({ route, navigation }) {
                 activityType===type&&styles.selectedActivityType
               ]}
               onPress={()=>setActivityType(type)}
+              disabled={isSubmitting} // Disable activity selection while submitting
             >
               <Ionicons
                 name="fitness"
@@ -285,12 +445,13 @@ export default function SubmissionFormScreen({ route, navigation }) {
             </TouchableOpacity>
           ))}
           
-          {/* NEW: View More Button */}
+          {/* View More Button */}
           {shouldShowViewMoreButton() && (
             <TouchableOpacity
               style={styles.viewMoreButton}
               onPress={() => setShowAllActivities(true)}
               activeOpacity={0.8}
+              disabled={isSubmitting}
             >
               <Ionicons name="chevron-down" size={20} color="#A4D65E" />
               <Text style={styles.viewMoreText}>
@@ -299,12 +460,13 @@ export default function SubmissionFormScreen({ route, navigation }) {
             </TouchableOpacity>
           )}
           
-          {/* NEW: View Less Button */}
+          {/* View Less Button */}
           {shouldShowViewLessButton() && (
             <TouchableOpacity
               style={styles.viewLessButton}
               onPress={() => setShowAllActivities(false)}
               activeOpacity={0.8}
+              disabled={isSubmitting}
             >
               <Ionicons name="chevron-up" size={20} color="#A4D65E" />
               <Text style={styles.viewLessText}>View less</Text>
@@ -312,40 +474,104 @@ export default function SubmissionFormScreen({ route, navigation }) {
           )}
         </View>
 
-        {/* Duration and Distance */}
-        <View style={styles.row}>
-          <View style={styles.halfField}>
+        {/* Dynamic input fields based on the competition's unit requirements */}
+        <View style={styles.inputFieldsContainer}>
+          {/* Duration field - for time-based units */}
+          {shouldShowField('duration') && (
             <FormInput
-              label="Duration (min)"
+              label={getFieldLabel('duration')}
               value={duration}
               onChangeText={setDuration}
               keyboardType="numeric"
-              placeholder="0"
+              placeholder={getFieldPlaceholder('duration')}
+              editable={!isSubmitting}
             />
-          </View>
+          )}
+
+          {/* Distance field - for distance-based units */}
           {shouldShowField('distance') && (
-            <View style={styles.halfField}>
-              <FormInput
-                label={getDistanceLabel()}
-                value={distance}
-                onChangeText={setDistance}
-                keyboardType="numeric"
-                placeholder="0"
-              />
-            </View>
+            <FormInput
+              label={getFieldLabel('distance')}
+              value={distance}
+              onChangeText={setDistance}
+              keyboardType="numeric"
+              placeholder={getFieldPlaceholder('distance')}
+              editable={!isSubmitting}
+            />
+          )}
+
+          {/* Calories field - for calorie-based units */}
+          {shouldShowField('calories') && (
+            <FormInput
+              label={getFieldLabel('calories')}
+              value={calories}
+              onChangeText={setCalories}
+              keyboardType="numeric"
+              placeholder={getFieldPlaceholder('calories')}
+              editable={!isSubmitting}
+            />
+          )}
+
+          {/* Sessions field - for session/class-based units */}
+          {shouldShowField('sessions') && (
+            <FormInput
+              label={getFieldLabel('sessions')}
+              value={sessions}
+              onChangeText={setSessions}
+              keyboardType="numeric"
+              placeholder={getFieldPlaceholder('sessions')}
+              editable={!isSubmitting}
+            />
+          )}
+
+          {/* Reps field - for rep-based units */}
+          {shouldShowField('reps') && (
+            <FormInput
+              label={getFieldLabel('reps')}
+              value={reps}
+              onChangeText={setReps}
+              keyboardType="numeric"
+              placeholder={getFieldPlaceholder('reps')}
+              editable={!isSubmitting}
+            />
+          )}
+
+          {/* Sets field - for set-based units */}
+          {shouldShowField('sets') && (
+            <FormInput
+              label={getFieldLabel('sets')}
+              value={sets}
+              onChangeText={setSets}
+              keyboardType="numeric"
+              placeholder={getFieldPlaceholder('sets')}
+              editable={!isSubmitting}
+            />
+          )}
+
+          {/* Steps field - for step-based units */}
+          {shouldShowField('steps') && (
+            <FormInput
+              label={getFieldLabel('steps')}
+              value={steps}
+              onChangeText={setSteps}
+              keyboardType="numeric"
+              placeholder={getFieldPlaceholder('steps')}
+              editable={!isSubmitting}
+            />
+          )}
+
+          {/* Custom value field - for custom units */}
+          {shouldShowField('customValue') && (
+            <FormInput
+              label={getFieldLabel('customValue')}
+              value={customValue}
+              onChangeText={setCustomValue}
+              keyboardType="numeric"
+              placeholder={getFieldPlaceholder('customValue')}
+              editable={!isSubmitting}
+            />
           )}
         </View>
-
-        {/* Calories */}
-        {shouldShowField('calories') && (
-          <FormInput
-            label="Calories Burned (optional)"
-            value={calories}
-            onChangeText={setCalories}
-            keyboardType="numeric"
-            placeholder="0"
-          />
-        )}
 
         {/* Notes */}
         <Text style={styles.label}>Notes</Text>
@@ -356,9 +582,10 @@ export default function SubmissionFormScreen({ route, navigation }) {
           onChangeText={setNotes}
           placeholder="Add any additional details..."
           placeholderTextColor="#999"
+          editable={!isSubmitting}
         />
 
-        {/* Points Preview */}
+        {/* Points Preview with correct unit display */}
         <View style={styles.pointsPreview}>
           <View>
             <Text style={styles.pointsLabel}>Points Earned:</Text>
@@ -416,17 +643,23 @@ export default function SubmissionFormScreen({ route, navigation }) {
 
         {/* Photo Evidence (optional) */}
         <Text style={styles.label}>Add Photo Evidence (Optional)</Text>
-        <TouchableOpacity style={styles.addPhotoButton}>
+        <TouchableOpacity 
+          style={[styles.addPhotoButton, isSubmitting && styles.disabledButton]}
+          disabled={isSubmitting}
+        >
           <Ionicons name="camera" size={40} color="#A4D65E"/>
           <Text style={styles.addPhotoText}>Take Photo</Text>
         </TouchableOpacity>
 
-        {/* Submit */}
+        {/* FIXED: Submit button with double-tap prevention */}
         <Button 
-          title="Submit Workout"
+          title={isSubmitting ? "Submitting..." : "Submit Workout"}
           onPress={handleSubmit} 
-          style={styles.submitButton}
-          disabled={loadingDayPoints}
+          style={[
+            styles.submitButton,
+            isSubmitting && styles.disabledButton
+          ]}
+          disabled={loadingDayPoints || isSubmitting}
         />
       </ScrollView>
     </View>
@@ -446,7 +679,7 @@ const styles = StyleSheet.create({
   activityTypeText:{fontSize:14,color:'#1A1E23',marginLeft:5},
   selectedActivityTypeText:{color:'#FFF'},
   
-  // NEW: Styles for View More/Less buttons
+  // Styles for View More/Less buttons
   viewMoreButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -461,7 +694,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#A4D65E',
     borderStyle: 'dashed',
-    width: '100%', // Take full width to center it
+    width: '100%',
   },
   viewMoreText: {
     fontSize: 14,
@@ -480,7 +713,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
     marginTop: 10,
     marginBottom: 50,
-    width: '100%', // Take full width to center it
+    width: '100%',
   },
   viewLessText: {
     fontSize: 14,
@@ -489,6 +722,7 @@ const styles = StyleSheet.create({
     marginLeft: 0,
   },
   
+  inputFieldsContainer: {marginTop: 8},
   row:             {flexDirection:'row',justifyContent:'space-between',gap:10},
   halfField:       {flex:1},
   textArea:        {backgroundColor:'#FFF',borderRadius:8,padding:12,fontSize:16,color:'#1A1E23',minHeight:100,borderWidth:1,borderColor:'#E5E7EB'},
@@ -507,7 +741,7 @@ const styles = StyleSheet.create({
   warningText:     {fontSize:14,color:'#D32F2F',fontWeight:'500',marginTop:4},
   remainingText:   {fontSize:12,color:'#666',fontStyle:'italic'},
   loadingText:     {fontSize:12,color:'#666'},
-  disabledButton:  {backgroundColor:'#CCCCCC'},
+  disabledButton:  {backgroundColor:'#CCCCCC',opacity:0.6},
   addPhotoButton:  {flexDirection:'row',alignItems:'center',justifyContent:'center',backgroundColor:'#FFF',borderRadius:8,padding:12,marginVertical:10},
   addPhotoText:    {marginLeft:8,fontSize:16,color:'#1A1E23'},
   submitButton:    {marginTop:20,marginBottom:20},
