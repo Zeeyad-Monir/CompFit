@@ -25,15 +25,16 @@ export default function SignUpScreen({ navigation }) {
 
   // Check if username is already taken using the usernames collection
   const isUsernameAvailable = async (username) => {
-    const trimmedUsername = username.trim();
+    const trimmedUsername = username.trim().toLowerCase();
     if (!trimmedUsername) return false;
     
     try {
-      // Check if the username document exists
+      // Check if the username document exists in the 'usernames' collection
       const usernameDoc = await getDoc(doc(db, 'usernames', trimmedUsername));
-      return !usernameDoc.exists(); // true if document doesn't exist (username available)
+      return !usernameDoc.exists(); // Returns true if username is available
     } catch (error) {
       console.error('Error checking username availability:', error);
+      // Fail safely: assume username is not available if there's an error
       return false;
     }
   };
@@ -42,7 +43,7 @@ export default function SignUpScreen({ navigation }) {
     const trimmedUsername = username.trim();
     const trimmedEmail = email.trim().toLowerCase();
     
-    // Basic validation
+    // --- Start Validation ---
     if (!trimmedUsername) {
       setError('Username is required');
       return;
@@ -72,12 +73,13 @@ export default function SignUpScreen({ navigation }) {
       setError('Password must be at least 6 characters long');
       return;
     }
+    // --- End Validation ---
 
     setLoading(true);
     setError('');
     
     try {
-      // Check if username is available
+      // 1. Check if username is available before anything else
       const usernameAvailable = await isUsernameAvailable(trimmedUsername);
       if (!usernameAvailable) {
         setError('Username is already taken. Please choose a different one.');
@@ -85,20 +87,18 @@ export default function SignUpScreen({ navigation }) {
         return;
       }
 
-      /* 1) Create Auth account */
+      // 2. Create the user with Firebase Authentication
+      // This will fail automatically if the email is already in use
       const cred = await createUserWithEmailAndPassword(
         auth,
         trimmedEmail,
         pass1
       );
 
-      /* 2) Save username on Auth profile */
+      // 3. Update the new user's Auth profile with the chosen display name
       await updateProfile(cred.user, { displayName: trimmedUsername });
 
-      // Small delay to ensure auth state propagates
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      /* 3) users/{uid} profile document */
+      // 4. Create the user's profile document in the 'users' collection
       await setDoc(doc(db, 'users', cred.user.uid), {
         username: trimmedUsername,
         handle: trimmedUsername.toLowerCase(),
@@ -109,26 +109,26 @@ export default function SignUpScreen({ navigation }) {
         friends: [],
       });
 
-      /* 4) reverse lookup emails/{email} → { uid }  */
-      await setDoc(doc(db, 'emails', trimmedEmail.replace(/\./g, '_')), {
-        uid: cred.user.uid,
-      });
-
-      /* 5) username lookup usernames/{username} → { uid } */
+      // 5. Create a reverse lookup document for the username to enforce uniqueness
       await setDoc(doc(db, 'usernames', trimmedUsername.toLowerCase()), {
         uid: cred.user.uid,
       });
 
-      /* you're now signed in; navigation will flip to the HomeStack */
+      // User is now signed in, and the app will navigate to the home stack automatically.
+
     } catch (e) {
-      console.error('Sign up error:', e);
+      // to line 120
+console.log('Sign up error:', e.code); // Use console.log instead
+
+      // Handle specific Firebase Auth errors
       if (e.code === 'auth/email-already-in-use') {
-        setError('Email is already registered. Please use a different email or login.');
+        setError('This email is already registered. Please log in or use a different email.');
       } else if (e.code === 'auth/weak-password') {
-        setError('Password is too weak. Please choose a stronger password.');
+        setError('Password is too weak. Please choose a stronger one.');
       } else if (e.code === 'auth/invalid-email') {
         setError('Please enter a valid email address.');
       } else {
+        // Generic error for other issues
         setError(e.message || 'Failed to create account. Please try again.');
       }
     } finally {
@@ -213,7 +213,6 @@ export default function SignUpScreen({ navigation }) {
   );
 }
 
-/* ---- styles ---- */
 const styles = StyleSheet.create({
   root: { 
     flex: 1, 
