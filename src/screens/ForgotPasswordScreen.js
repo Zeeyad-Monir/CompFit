@@ -9,8 +9,7 @@ import {
   KeyboardAvoidingView,
   Alert,
 } from 'react-native';
-import { auth } from '../firebase';
-import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth, sendPasswordResetEmail } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function ForgotPasswordScreen({ navigation }) {
@@ -32,7 +31,7 @@ export default function ForgotPasswordScreen({ navigation }) {
     setSent(false);
     
     try {
-      await sendPasswordResetEmail(auth, trimmedEmail);
+      await sendPasswordResetEmail(trimmedEmail);
       setSent(true);
       Alert.alert(
         'Check Your Inbox',

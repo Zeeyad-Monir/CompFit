@@ -8,7 +8,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
 } from 'react-native';
-import { signInWithEmailAndPassword, auth } from '../firebase';
+import { auth, signInWithEmailAndPassword } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function LoginScreen({ navigation }) {
@@ -35,7 +35,7 @@ export default function LoginScreen({ navigation }) {
     setError('');
     
     try {
-      await signInWithEmailAndPassword(auth, trimmedEmail, password);
+      await signInWithEmailAndPassword(trimmedEmail, password);
       // User will be automatically redirected by AuthContext
     } catch (e) {
       console.log('Login error:', e.code);

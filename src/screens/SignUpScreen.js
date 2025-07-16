@@ -8,11 +8,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
 } from 'react-native';
-import { auth, db } from '../firebase';
-import {
-  createUserWithEmailAndPassword,
-  updateProfile,
-} from 'firebase/auth';
+import { auth, db, createUserWithEmailAndPassword, updateProfile } from '../firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -93,7 +89,6 @@ export default function SignUpScreen({ navigation }) {
       // 2. Create the user with Firebase Authentication
       // This will fail automatically if the email is already in use
       const cred = await createUserWithEmailAndPassword(
-        auth,
         trimmedEmail,
         pass1
       );
