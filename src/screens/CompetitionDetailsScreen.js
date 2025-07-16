@@ -186,7 +186,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     };
   }, [competition?.id, user.uid]);
 
-  // FIXED: Get the primary value and unit for display based on the workout's unit type
+  // Get the primary value and unit for display based on the workout's unit type
   const getPrimaryValueAndUnit = (workout) => {
     const { unit } = workout;
     
@@ -221,7 +221,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     }
   };
 
-  // FIXED: Format workout display with proper unit handling
+  // Format workout display with proper unit handling
   const formatWorkoutDisplay = (workout) => {
     const userName = users[workout.userId]?.username || 'Unknown User';
     const primaryValue = getPrimaryValueAndUnit(workout);
@@ -230,7 +230,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
       ...workout,
       userName,
       primaryValue,
-      // FIXED: Just show the activity type as the title
+      // Just show the activity type as the title
       activityTitle: workout.activityType,
     };
   };
@@ -490,44 +490,20 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                 
                 return (
                   <TouchableOpacity key={workout.id} style={styles.workoutCard}>
-                    <View style={styles.cardBackground}>
-                      <Ionicons name="fitness" size={60} color="rgba(255,255,255,0.2)" style={styles.backgroundIcon} />
-                    </View>
-                    
-                    {/* Delete Button - Only for user's own workouts */}
-                    {isUserWorkout && (
-                      <TouchableOpacity
-                        style={styles.deleteButton}
-                        onPress={(e) => {
-                          e.stopPropagation(); // Prevent card press
-                          handleDeleteWorkout(workout);
-                        }}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <Text style={styles.deleteButtonText}>✕</Text>
-                      </TouchableOpacity>
-                    )}
+                    {/* REMOVED: Heart icon background - no more cardBackground with heart */}
                     
                     <View style={styles.cardContent}>
                       <View style={styles.workoutInfo}>
-                        {/* FIXED: Show just the activity type as the title */}
+                        {/* Show just the activity type as the title */}
                         <Text style={styles.workoutType}>{formatted.activityTitle}</Text>
                         <View style={styles.workoutDetails}>
-                          {/* FIXED: Show the primary unit value based on the workout's unit type */}
+                          {/* Show the primary unit value based on the workout's unit type */}
                           <View style={styles.detailItem}>
                             <Text style={styles.detailIcon}>•</Text>
                             <Text style={styles.detailText}>
                               {formatted.primaryValue.value} {formatted.primaryValue.displayUnit}
                             </Text>
                           </View>
-                          
-                          {/* Show calories if available and not the primary unit */}
-                          {workout.calories > 0 && workout.unit !== 'Calorie' && (
-                            <View style={styles.detailItem}>
-                              <Text style={styles.detailIcon}>♦</Text>
-                              <Text style={styles.detailText}>{workout.calories} Kcal</Text>
-                            </View>
-                          )}
                           
                           {/* Always show points */}
                           <View style={styles.detailItem}>
@@ -536,9 +512,26 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                           </View>
                         </View>
                       </View>
+                      
+                      {/* MOVED: User label repositioned to bottom right */}
                       <View style={styles.userLabel}>
                         <Text style={styles.userLabelText}>{formatted.userName}'s Workout</Text>
                       </View>
+                      
+                      {/* Delete Button - Only for user's own workouts */}
+                      {isUserWorkout && (
+                        <TouchableOpacity
+                          style={styles.deleteButton}
+                          onPress={(e) => {
+                            e.stopPropagation(); // Prevent card press
+                            handleDeleteWorkout(workout);
+                          }}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <Ionicons name="close" size={16} color="#FFFFFF" />
+                        </TouchableOpacity>
+                      )}
+                      
                       {workout.isNotification && (
                         <View style={styles.notificationIcon}>
                           <Text style={styles.notificationText}>!</Text>
@@ -628,19 +621,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#333',
     position: 'relative',
   },
-  cardBackground: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#333',
-  },
-  backgroundIcon: {
-    position: 'absolute',
-    right: 10,
-    bottom: 10,
-  },
   cardContent: {
     flex: 1,
     padding: 15,
@@ -674,9 +654,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'white',
   },
+  // REPOSITIONED: User label moved to bottom right
   userLabel: {
     position: 'absolute',
-    top: 10,
+    bottom: 10,
     right: 10,
     backgroundColor: '#A4D65E',
     paddingHorizontal: 10,
@@ -691,7 +672,7 @@ const styles = StyleSheet.create({
   notificationIcon: {
     position: 'absolute',
     bottom: 10,
-    right: 10,
+    left: 10, // Moved to left since user label is now on the right
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -704,28 +685,23 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1A1E23',
   },
+  // Delete button positioning updated since user label moved
   deleteButton: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FF4444',
+    top: 10,
+    right: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#888888',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  deleteButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-    lineHeight: 16,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
 
   // Rules Tab Styles
