@@ -4,4 +4,5 @@ export { default as CompetitionDetailsScreen } from './CompetitionDetailsScreen'
 export { default as LeaderboardScreen } from './LeaderboardScreen';
 export { default as SubmissionFormScreen } from './SubmissionFormScreen';
 export { default as ProfileScreen } from './ProfileScreen';
-export { default as ForgotPasswordScreen } from './ForgotPasswordScreen'; 
+export { default as ForgotPasswordScreen } from './ForgotPasswordScreen';
+export { default as WorkoutDetailsScreen } from './WorkoutDetailsScreen';

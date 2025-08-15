@@ -18,6 +18,7 @@ import {
   LeaderboardScreen,           // Shows competition leaderboard
   SubmissionFormScreen,        // Form to submit workout results
   ProfileScreen,               // User profile and settings
+  WorkoutDetailsScreen,        // Shows detailed view of a workout submission
 } from '../screens';
 
 // Create navigator instances
@@ -27,7 +28,7 @@ const Stack = createStackNavigator();    // Stack navigator for nested screens
 /**
  * Home Stack Navigator
  * Contains all screens related to viewing and participating in competitions
- * Includes navigation flow: ActiveCompetitions → CompetitionDetails → Leaderboard/SubmissionForm
+ * Includes navigation flow: ActiveCompetitions → CompetitionDetails → Leaderboard/SubmissionForm/WorkoutDetails
  */
 const HomeStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -39,6 +40,8 @@ const HomeStack = () => (
     <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
     {/* Form to submit workout results */}
     <Stack.Screen name="SubmissionForm" component={SubmissionFormScreen} />
+    {/* Detailed view of a workout submission */}
+    <Stack.Screen name="WorkoutDetails" component={WorkoutDetailsScreen} />
   </Stack.Navigator>
 );
 

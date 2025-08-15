@@ -1,0 +1,534 @@
+//WorkoutDetailsScreen.js
+
+import React, { useState, useEffect, useContext } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  Dimensions,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { Header } from '../components';
+import { Ionicons } from '@expo/vector-icons';
+import { AuthContext } from '../contexts/AuthContext';
+import { db } from '../firebase';
+import { doc, getDoc, deleteDoc } from 'firebase/firestore';
+
+const { width: screenWidth } = Dimensions.get('window');
+
+export default function WorkoutDetailsScreen({ route, navigation }) {
+  const { workout, competition, userName } = route.params;
+  const { user } = useContext(AuthContext);
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Check if this is the current user's workout
+  const isOwnWorkout = workout.userId === user?.uid;
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  // Get the display value and unit based on the workout's unit type
+  const getMetricDisplay = () => {
+    const { unit } = workout;
+    
+    switch (unit) {
+      case 'Kilometre':
+        return { label: 'Distance', value: workout.distance, displayUnit: 'km', icon: 'navigate' };
+      case 'Mile':
+        return { label: 'Distance', value: workout.distance, displayUnit: 'miles', icon: 'navigate' };
+      case 'Meter':
+        return { label: 'Distance', value: workout.distance, displayUnit: 'meters', icon: 'navigate' };
+      case 'Yard':
+        return { label: 'Distance', value: workout.distance, displayUnit: 'yards', icon: 'navigate' };
+      case 'Hour':
+        return { label: 'Duration', value: workout.duration, displayUnit: 'hours', icon: 'time' };
+      case 'Minute':
+        return { label: 'Duration', value: workout.duration, displayUnit: 'minutes', icon: 'time' };
+      case 'Calorie':
+        return { label: 'Calories', value: workout.calories, displayUnit: 'cal', icon: 'flame' };
+      case 'Session':
+        return { label: 'Sessions', value: workout.sessions, displayUnit: 'sessions', icon: 'refresh' };
+      case 'Class':
+        return { label: 'Classes', value: workout.sessions, displayUnit: 'classes', icon: 'school' };
+      case 'Rep':
+        return { label: 'Reps', value: workout.reps, displayUnit: 'reps', icon: 'repeat' };
+      case 'Set':
+        return { label: 'Sets', value: workout.sets, displayUnit: 'sets', icon: 'layers' };
+      case 'Step':
+        return { label: 'Steps', value: workout.steps, displayUnit: 'steps', icon: 'walk' };
+      default:
+        return { label: unit, value: workout.customValue, displayUnit: unit.toLowerCase(), icon: 'fitness' };
+    }
+  };
+
+  // Handle workout deletion
+  const handleDeleteWorkout = () => {
+    Alert.alert(
+      'Delete Workout',
+      'Are you sure you want to delete this workout? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              await deleteDoc(doc(db, 'submissions', workout.id));
+              Alert.alert('Success', 'Workout deleted successfully', [
+                { text: 'OK', onPress: () => navigation.goBack() }
+              ]);
+            } catch (error) {
+              console.error('Error deleting workout:', error);
+              Alert.alert('Error', 'Failed to delete workout. Please try again.');
+              setIsDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const metric = getMetricDisplay();
+
+  return (
+    <View style={styles.container}>
+      <Header 
+        title="Workout Details" 
+        showBackButton={true} 
+        onBackPress={() => navigation.goBack()}
+      />
+      
+      <ScrollView 
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Photo Section */}
+        {workout.photoUrl ? (
+          <View style={styles.photoContainer}>
+            {imageLoading && !imageError && (
+              <View style={styles.imageLoadingContainer}>
+                <ActivityIndicator size="large" color="#A4D65E" />
+                <Text style={styles.loadingText}>Loading photo...</Text>
+              </View>
+            )}
+            {!imageError ? (
+              <Image
+                source={{ uri: workout.photoUrl }}
+                style={styles.workoutPhoto}
+                onLoad={() => setImageLoading(false)}
+                onError={() => {
+                  setImageLoading(false);
+                  setImageError(true);
+                }}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.noPhotoContainer}>
+                <Ionicons name="image-outline" size={60} color="#999" />
+                <Text style={styles.noPhotoText}>Failed to load photo</Text>
+              </View>
+            )}
+          </View>
+        ) : (
+          <View style={styles.noPhotoContainer}>
+            <Ionicons name="image-outline" size={60} color="#999" />
+            <Text style={styles.noPhotoText}>No photo submitted</Text>
+          </View>
+        )}
+
+        {/* User Info Card */}
+        <View style={styles.userCard}>
+          <View style={styles.userInfo}>
+            <Ionicons name="person-circle" size={48} color="#A4D65E" />
+            <View style={styles.userTextContainer}>
+              <Text style={styles.userName}>{userName || 'Unknown User'}</Text>
+              <Text style={styles.userSubtext}>
+                {isOwnWorkout ? 'Your workout' : `${userName}'s workout`}
+              </Text>
+            </View>
+          </View>
+          {isOwnWorkout && (
+            <TouchableOpacity 
+              style={styles.deleteButton}
+              onPress={handleDeleteWorkout}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <ActivityIndicator size="small" color="#FF6B6B" />
+              ) : (
+                <Ionicons name="trash-outline" size={24} color="#FF6B6B" />
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Activity Type Card */}
+        <View style={styles.activityCard}>
+          <View style={styles.activityHeader}>
+            <Ionicons name="fitness" size={32} color="#A4D65E" />
+            <Text style={styles.activityType}>{workout.activityType}</Text>
+          </View>
+          <View style={styles.dateTimeContainer}>
+            <View style={styles.dateTimeItem}>
+              <Ionicons name="calendar-outline" size={20} color="#666" />
+              <Text style={styles.dateTimeText}>{formatDate(workout.date)}</Text>
+            </View>
+            <View style={styles.dateTimeItem}>
+              <Ionicons name="time-outline" size={20} color="#666" />
+              <Text style={styles.dateTimeText}>{formatTime(workout.date)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Metrics Card */}
+        <View style={styles.metricsContainer}>
+          <Text style={styles.sectionTitle}>Workout Metrics</Text>
+          
+          {/* Primary Metric */}
+          <View style={styles.primaryMetricCard}>
+            <View style={styles.metricIconContainer}>
+              <Ionicons name={metric.icon} size={40} color="#A4D65E" />
+            </View>
+            <View style={styles.metricContent}>
+              <Text style={styles.metricLabel}>{metric.label}</Text>
+              <View style={styles.metricValueContainer}>
+                <Text style={styles.metricValue}>{metric.value}</Text>
+                <Text style={styles.metricUnit}>{metric.displayUnit}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Points Earned */}
+          <View style={styles.pointsCard}>
+            <View style={styles.pointsIconContainer}>
+              <Ionicons name="star" size={32} color="#FFD700" />
+            </View>
+            <View style={styles.pointsContent}>
+              <Text style={styles.pointsLabel}>Points Earned</Text>
+              <Text style={styles.pointsValue}>{workout.points}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Notes Section */}
+        {workout.notes && workout.notes.trim() !== '' && (
+          <View style={styles.notesContainer}>
+            <Text style={styles.sectionTitle}>Notes</Text>
+            <View style={styles.notesCard}>
+              <Text style={styles.notesText}>{workout.notes}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Competition Info */}
+        <View style={styles.competitionInfoContainer}>
+          <Text style={styles.sectionTitle}>Competition</Text>
+          <TouchableOpacity 
+            style={styles.competitionCard}
+            onPress={() => navigation.navigate('CompetitionDetails', { competition })}
+          >
+            <View style={styles.competitionContent}>
+              <Ionicons name="trophy-outline" size={24} color="#A4D65E" />
+              <Text style={styles.competitionName}>{competition.name}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#666" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Bottom Spacer */}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F8F8',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  
+  // Photo Section
+  photoContainer: {
+    width: screenWidth,
+    height: screenWidth * 0.75,
+    backgroundColor: '#000',
+    position: 'relative',
+  },
+  workoutPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  imageLoadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#1A1E23',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  loadingText: {
+    color: '#A4D65E',
+    marginTop: 10,
+    fontSize: 14,
+  },
+  noPhotoContainer: {
+    width: screenWidth,
+    height: screenWidth * 0.5,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noPhotoText: {
+    color: '#999',
+    fontSize: 16,
+    marginTop: 10,
+  },
+  
+  // User Card
+  userCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  userTextContainer: {
+    marginLeft: 12,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1E23',
+  },
+  userSubtext: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
+  },
+  deleteButton: {
+    padding: 8,
+  },
+  
+  // Activity Card
+  activityCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  activityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  activityType: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1A1E23',
+    marginLeft: 12,
+  },
+  dateTimeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  dateTimeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateTimeText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 6,
+  },
+  
+  // Metrics Section
+  metricsContainer: {
+    marginHorizontal: 16,
+    marginTop: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1A1E23',
+    marginBottom: 12,
+  },
+  primaryMetricCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  metricIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F0F9E8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  metricContent: {
+    flex: 1,
+  },
+  metricLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  metricValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  metricValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#1A1E23',
+  },
+  metricUnit: {
+    fontSize: 18,
+    color: '#666',
+    marginLeft: 8,
+  },
+  
+  // Points Card
+  pointsCard: {
+    backgroundColor: '#1A1E23',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pointsIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  pointsContent: {
+    flex: 1,
+  },
+  pointsLabel: {
+    fontSize: 14,
+    color: '#999',
+    marginBottom: 4,
+  },
+  pointsValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#A4D65E',
+  },
+  
+  // Notes Section
+  notesContainer: {
+    marginHorizontal: 16,
+    marginTop: 20,
+  },
+  notesCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  notesText: {
+    fontSize: 16,
+    color: '#333',
+    lineHeight: 24,
+  },
+  
+  // Competition Info
+  competitionInfoContainer: {
+    marginHorizontal: 16,
+    marginTop: 20,
+  },
+  competitionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  competitionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  competitionName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1A1E23',
+    marginLeft: 12,
+  },
+});

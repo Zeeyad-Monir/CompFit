@@ -138,6 +138,15 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     );
   };
 
+  /* ---------------- navigation handlers ---------------- */
+  const handleWorkoutPress = (workout, userName) => {
+    navigation.navigate('WorkoutDetails', { 
+      workout, 
+      competition,
+      userName 
+    });
+  };
+
   useEffect(() => {
     if (!competition?.id) {
       stopRefreshing();
@@ -489,7 +498,12 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                 const isUserWorkout = workout.userId === user.uid;
                 
                 return (
-                  <TouchableOpacity key={workout.id} style={styles.workoutCard}>
+                  <TouchableOpacity 
+                    key={workout.id} 
+                    style={styles.workoutCard}
+                    onPress={() => handleWorkoutPress(workout, formatted.userName)}
+                    activeOpacity={0.85}
+                  >
                     {/* REMOVED: Heart icon background - no more cardBackground with heart */}
                     
                     <View style={styles.cardContent}>
