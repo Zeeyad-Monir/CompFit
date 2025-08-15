@@ -16,7 +16,8 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSUserNotificationsUsageDescription": "This app uses notifications to alert you when you receive friend requests."
+        "NSUserNotificationsUsageDescription": "This app uses notifications to alert you when you receive friend requests.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to let you attach photos to your workout submissions."
       }
     },
     "android": {
@@ -24,10 +25,16 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "permissions": ["NOTIFICATIONS"]
+      "permissions": ["NOTIFICATIONS", "READ_EXTERNAL_STORAGE"]
     },
     "plugins": [
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you attach them to workout submissions."
+        }
+      ]
     ],
     "web": {
       "favicon": "./assets/favicon.png"

@@ -1,15 +1,35 @@
-// SubmissionFormScreen.js - FINAL VERSION with proper unit handling and double-tap prevention
+// SubmissionFormScreen.js - UPDATED with Photo Attachment Feature
+
+
+// ADD THESE DEBUG LINES RIGHT AFTER THE IMPORTS:
+console.log('=== DEBUG: uploadToCloudinary Import ===');
+console.log('Type of uploadToCloudinary:', typeof uploadToCloudinary);
+console.log('uploadToCloudinary function:', uploadToCloudinary);
+console.log('========================================');
+
+
+
+
+
+
+
+
+// SubmissionFormScreen.js - CORRECTED IMPORTS
 
 import React, { useState, useContext, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
-  TouchableOpacity, Alert
+  TouchableOpacity, Alert, Image, ActivityIndicator
 } from 'react-native';
 import { Header, Button, FormInput, DatePicker } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { AuthContext } from '../contexts/AuthContext';
+import * as ImagePicker from 'expo-image-picker';  // KEEP ONLY THIS ONE
+import { uploadToCloudinary } from '../utils/uploadImage';
+
+// Remove any duplicate ImagePicker import that might be elsewhere in the file
 
 export default function SubmissionFormScreen({ route, navigation }) {
   const { competition } = route.params;
@@ -29,8 +49,13 @@ export default function SubmissionFormScreen({ route, navigation }) {
   const [currentDayPoints, setCurrentDayPoints] = useState(0);
   const [loadingDayPoints, setLoadingDayPoints] = useState(false);
   
-  // NEW: State to prevent double submissions
+  // State to prevent double submissions
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // NEW: Photo-related state
+  const [selectedImageUri, setSelectedImageUri] = useState(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState(null);
   
   // State for managing activity display
   const [showAllActivities, setShowAllActivities] = useState(false);
@@ -336,7 +361,49 @@ export default function SubmissionFormScreen({ route, navigation }) {
     return true;
   };
 
-  // FIXED: Handle submit with double-tap prevention
+  // NEW: Handle image selection from camera roll
+  const pickImage = async () => {
+    try {
+      // Clear any previous errors
+      setImageUploadError(null);
+      
+      // Request permission
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Sorry, we need camera roll permissions to attach photos!',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7, // Compress to 70% quality to reduce upload size
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setSelectedImageUri(result.assets[0].uri);
+        console.log('Image selected:', result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
+    }
+  };
+
+  // NEW: Remove selected image
+  const removeImage = () => {
+    setSelectedImageUri(null);
+    setImageUploadError(null);
+  };
+
+  // UPDATED: Handle submit with photo upload
   const handleSubmit = async () => {
     // Prevent double submissions
     if (isSubmitting) {
@@ -360,7 +427,64 @@ export default function SubmissionFormScreen({ route, navigation }) {
     const rule = getRule();
     
     try {
-      await addDoc(collection(db,'submissions'),{
+      let photoUrl = null;
+      
+      // NEW: Upload photo if selected
+      if (selectedImageUri) {
+        try {
+          setIsUploadingImage(true);
+          setImageUploadError(null);
+          console.log('Uploading photo to Cloudinary...');
+          photoUrl = await uploadToCloudinary(selectedImageUri);
+          console.log('Photo uploaded successfully:', photoUrl);
+        } catch (uploadError) {
+          console.error('Photo upload failed:', uploadError);
+          setImageUploadError(uploadError.message);
+          setIsUploadingImage(false);
+          setIsSubmitting(false);
+          
+          // Ask user if they want to continue without photo
+          Alert.alert(
+            'Photo Upload Failed',
+            'Failed to upload photo. Do you want to submit without the photo?',
+            [
+              {
+                text: 'Cancel',
+                style: 'cancel',
+                onPress: () => {
+                  setIsSubmitting(false);
+                }
+              },
+              {
+                text: 'Submit Without Photo',
+                onPress: async () => {
+                  // Continue with submission without photo
+                  await submitWorkout(points, rule, null);
+                }
+              }
+            ]
+          );
+          return;
+        } finally {
+          setIsUploadingImage(false);
+        }
+      }
+      
+      // Submit workout with or without photo
+      await submitWorkout(points, rule, photoUrl);
+      
+    } catch(e) {
+      console.error(e);
+      Alert.alert('Error','Failed to submit workout. Please try again.');
+      // Re-enable the button if there was an error
+      setIsSubmitting(false);
+    }
+  };
+
+  // NEW: Separate function to handle workout submission
+  const submitWorkout = async (points, rule, photoUrl) => {
+    try {
+      const submissionData = {
         competitionId: competition.id,
         userId: user.uid,
         activityType,
@@ -377,20 +501,27 @@ export default function SubmissionFormScreen({ route, navigation }) {
         notes,
         date: date.toISOString(),
         createdAt: serverTimestamp(),
-      });
+      };
+      
+      // Add photo URL if available
+      if (photoUrl) {
+        submissionData.photoUrl = photoUrl;
+      }
+      
+      await addDoc(collection(db,'submissions'), submissionData);
+      
+      const successMessage = photoUrl 
+        ? `Workout submitted with photo! You earned ${points.toFixed(1)} points.`
+        : `Workout submitted! You earned ${points.toFixed(1)} points.`;
       
       Alert.alert(
         'Success!',
-        `Workout submitted! You earned ${points.toFixed(1)} points.`,
+        successMessage,
         [{ text:'OK', onPress: ()=>navigation.goBack() }]
       );
-    } catch(e) {
-      console.error(e);
-      Alert.alert('Error','Failed to submit workout. Please try again.');
-      // Re-enable the button if there was an error
-      setIsSubmitting(false);
+    } catch (error) {
+      throw error;
     }
-    // Note: We don't reset isSubmitting on success because we navigate away
   };
 
   const competitionStartDate = new Date(competition.startDate);
@@ -641,26 +772,67 @@ export default function SubmissionFormScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Photo Evidence (optional) */}
+        {/* NEW: Photo Evidence Section */}
         <Text style={styles.label}>Add Photo Evidence (Optional)</Text>
-        <TouchableOpacity 
-          style={[styles.addPhotoButton, isSubmitting && styles.disabledButton]}
-          disabled={isSubmitting}
-        >
-          <Ionicons name="camera" size={40} color="#A4D65E"/>
-          <Text style={styles.addPhotoText}>Take Photo</Text>
-        </TouchableOpacity>
+        
+        {!selectedImageUri ? (
+          // Show attach photo button when no image is selected
+          <TouchableOpacity 
+            style={[styles.addPhotoButton, isSubmitting && styles.disabledButton]}
+            onPress={pickImage}
+            disabled={isSubmitting}
+          >
+            <Ionicons name="camera" size={40} color="#A4D65E"/>
+            <Text style={styles.addPhotoText}>Attach Photo from Gallery</Text>
+          </TouchableOpacity>
+        ) : (
+          // Show image preview when image is selected
+          <View style={styles.imagePreviewContainer}>
+            <Image source={{ uri: selectedImageUri }} style={styles.imagePreview} />
+            <TouchableOpacity 
+              style={styles.removeImageButton}
+              onPress={removeImage}
+              disabled={isSubmitting}
+            >
+              <Ionicons name="close-circle" size={30} color="#FF6B6B"/>
+            </TouchableOpacity>
+            <Text style={styles.imageSelectedText}>Photo attached ✓</Text>
+          </View>
+        )}
 
-        {/* FIXED: Submit button with double-tap prevention */}
+        {/* Show upload error if any */}
+        {imageUploadError && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>
+              <Ionicons name="alert-circle" size={16} color="#FF6B6B"/> {imageUploadError}
+            </Text>
+          </View>
+        )}
+
+        {/* Submit button with loading states */}
         <Button 
-          title={isSubmitting ? "Submitting..." : "Submit Workout"}
+          title={
+            isUploadingImage 
+              ? "Uploading Photo..." 
+              : isSubmitting 
+                ? "Submitting..." 
+                : "Submit Workout"
+          }
           onPress={handleSubmit} 
           style={[
             styles.submitButton,
-            isSubmitting && styles.disabledButton
+            (isSubmitting || isUploadingImage) && styles.disabledButton
           ]}
-          disabled={loadingDayPoints || isSubmitting}
+          disabled={loadingDayPoints || isSubmitting || isUploadingImage}
         />
+
+        {/* Show loading indicator when uploading */}
+        {isUploadingImage && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#A4D65E" />
+            <Text style={styles.uploadingText}>Uploading photo to cloud...</Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -742,7 +914,56 @@ const styles = StyleSheet.create({
   remainingText:   {fontSize:12,color:'#666',fontStyle:'italic'},
   loadingText:     {fontSize:12,color:'#666'},
   disabledButton:  {backgroundColor:'#CCCCCC',opacity:0.6},
-  addPhotoButton:  {flexDirection:'row',alignItems:'center',justifyContent:'center',backgroundColor:'#FFF',borderRadius:8,padding:12,marginVertical:10},
+  addPhotoButton:  {flexDirection:'row',alignItems:'center',justifyContent:'center',backgroundColor:'#FFF',borderRadius:8,padding:12,marginVertical:10,borderWidth:2,borderColor:'#A4D65E',borderStyle:'dashed'},
   addPhotoText:    {marginLeft:8,fontSize:16,color:'#1A1E23'},
   submitButton:    {marginTop:20,marginBottom:20},
+  
+  // NEW: Photo-related styles
+  imagePreviewContainer: {
+    marginVertical: 10,
+    alignItems: 'center',
+  },
+  imagePreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    resizeMode: 'cover',
+    marginBottom: 10,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 15,
+    padding: 2,
+  },
+  imageSelectedText: {
+    fontSize: 14,
+    color: '#A4D65E',
+    fontWeight: '600',
+    marginTop: 5,
+  },
+  errorContainer: {
+    backgroundColor: '#FFF2F2',
+    borderRadius: 8,
+    padding: 10,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: '#FF6B6B',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#FF6B6B',
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  uploadingText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 10,
+  },
 });
