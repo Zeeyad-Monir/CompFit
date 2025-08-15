@@ -30,12 +30,21 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
+import notificationService from '../services/notificationService';
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ route }) {
   const { user } = useContext(AuthContext);
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState('profile');
+  // Tab state - check if we should open friends tab from navigation params
+  const initialTab = route?.params?.tab === 'friends' ? 'friends' : 'profile';
+  const [activeTab, setActiveTab] = useState(initialTab);
+  
+  // Update tab when navigation params change
+  useEffect(() => {
+    if (route?.params?.tab === 'friends') {
+      setActiveTab('friends');
+    }
+  }, [route?.params?.tab]);
 
   // Profile state
   const [profile, setProfile] = useState({
@@ -379,6 +388,9 @@ export default function ProfileScreen() {
       };
       
       await addDoc(collection(db, 'users', user.uid, 'sentRequests'), sentRequestData);
+
+      // Send push notification to the recipient
+      await notificationService.sendFriendRequestNotification(targetUser.id, profile.username);
 
       setFriendUsername('');
       Alert.alert('Success', `Friend request sent to ${targetUser.username}!`);
