@@ -1,7 +1,7 @@
 //LeaderboardScreen.js
 
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert } from 'react-native';
 import { Header, Button } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { db } from '../firebase';
@@ -12,6 +12,7 @@ import {
   onSnapshot,
   doc,
   getDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import { AuthContext } from '../contexts/AuthContext';
 
@@ -48,6 +49,46 @@ const LeaderboardScreen = ({ route, navigation }) => {
       clearTimeout(refreshTimeout);
       setRefreshTimeout(null);
     }
+  };
+
+  // Handle completing the competition
+  const handleCompleteCompetition = async () => {
+    // Check if competition is already completed
+    if (competition.status === 'completed') {
+      Alert.alert('Info', 'This competition is already completed');
+      return;
+    }
+    
+    // Check if user is the owner
+    if (competition.ownerId !== user.uid) {
+      Alert.alert('Error', 'Only the competition owner can complete it');
+      return;
+    }
+    
+    Alert.alert(
+      'Complete Competition',
+      'This will finalize the results and update win/loss records. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Complete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Simply update the status - Cloud Function will handle the rest
+              await updateDoc(doc(db, 'competitions', competition.id), {
+                status: 'completed'
+              });
+              Alert.alert('Success', 'Competition completed! Stats will update shortly.');
+              navigation.goBack();
+            } catch (error) {
+              console.error('Error completing competition:', error);
+              Alert.alert('Error', 'Failed to complete competition');
+            }
+          }
+        }
+      ]
+    );
   };
 
   useEffect(() => {
@@ -212,6 +253,27 @@ const LeaderboardScreen = ({ route, navigation }) => {
           </View>
         )}
       </View>
+
+      {/* Complete Competition Button - Only show for owner if not completed */}
+      {competition.ownerId === user.uid && competition.status !== 'completed' && (
+        <View style={styles.completeButtonContainer}>
+          <TouchableOpacity 
+            style={styles.completeButton}
+            onPress={handleCompleteCompetition}
+          >
+            <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
+            <Text style={styles.completeButtonText}>Complete Competition</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Show completion status if already completed */}
+      {competition.status === 'completed' && (
+        <View style={styles.completedBanner}>
+          <Ionicons name="trophy" size={20} color="#FFD700" />
+          <Text style={styles.completedText}>Competition Completed</Text>
+        </View>
+      )}
       
       <View style={styles.rankingsContainer}>
         <Text style={styles.rankingsTitle}>Rankings</Text>
@@ -354,6 +416,37 @@ const styles = StyleSheet.create({
     color: '#A4D65E',
     fontSize: 14,
     marginLeft: 4,
+  },
+  completeButtonContainer: {
+    padding: 16,
+    backgroundColor: '#1A1E23',
+  },
+  completeButton: {
+    backgroundColor: '#A4D65E',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  completeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  completedBanner: {
+    backgroundColor: '#FFF8E1',
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  completedText: {
+    color: '#F57C00',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   rankingsContainer: {
     flex: 1,

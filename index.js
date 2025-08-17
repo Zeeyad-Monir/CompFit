@@ -4,6 +4,13 @@ import { registerRootComponent } from 'expo';
 // Import the main App component
 import App from './App';
 
+// Import all function modules
+const competitionStats = require('../utils/competitionStats');
+
+// Export all functions
+exports.updateUserStats = competitionStats.updateUserStats;
+exports.completeExpiredCompetitions = competitionStats.completeExpiredCompetitions;
+exports.manuallyCompleteCompetition = competitionStats.manuallyCompleteCompetition;
 /**
  * Entry point of the React Native application
  * 

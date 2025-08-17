@@ -46,12 +46,13 @@ export default function ProfileScreen({ route }) {
     }
   }, [route?.params?.tab]);
 
-  // Profile state
+  // Profile state - updated with losses field
   const [profile, setProfile] = useState({
     username: '',
     handle: '',
     favouriteWorkout: '',
     wins: 0,
+    losses: 0,
     totals: 0,
     friends: [],
   });
@@ -76,7 +77,12 @@ export default function ProfileScreen({ route }) {
       snap => {
         if (snap.exists()) {
           const userData = snap.data();
-          setProfile(userData);
+          setProfile({
+            ...userData,
+            losses: userData.losses || 0,
+            wins: userData.wins || 0,
+            totals: userData.totals || 0,
+          });
           // Fetch friend details when friends array changes
           if (userData.friends?.length > 0) {
             fetchFriendsDetails(userData.friends);
@@ -90,6 +96,7 @@ export default function ProfileScreen({ route }) {
             handle: (user.displayName || user.email.split('@')[0]).replace(/\s+/g, '').toLowerCase(),
             favouriteWorkout: '',
             wins: 0,
+            losses: 0,
             totals: 0,
             friends: [],
           };
@@ -274,13 +281,19 @@ export default function ProfileScreen({ route }) {
   };
 
   /* ----- profile handlers ----- */
-  const startEdit = () => { setDraft(profile); setEditing(true); };
+  const startEdit = () => { 
+    setDraft({ favouriteWorkout: profile.favouriteWorkout }); 
+    setEditing(true); 
+  };
   const cancelEdit = () => setEditing(false);
 
   const saveEdit = async () => {
     try {
       const ref = doc(db, 'users', user.uid);
-      await updateDoc(ref, draft);
+      // Only update favourite workout - wins/losses are read-only
+      await updateDoc(ref, {
+        favouriteWorkout: draft.favouriteWorkout
+      });
       setEditing(false);
     } catch (error) {
       console.error('Error saving profile:', error);
@@ -536,6 +549,14 @@ export default function ProfileScreen({ route }) {
     }
   };
 
+  // Calculate win rate
+  const getWinRate = () => {
+    const total = profile.wins + profile.losses;
+    if (total === 0) return 'N/A';
+    const rate = (profile.wins / total) * 100;
+    return `${Math.round(rate)}%`;
+  };
+
   if (loading) return null;
 
   const renderProfileTab = () => (
@@ -554,7 +575,7 @@ export default function ProfileScreen({ route }) {
         </View>
       </View>
 
-      {/* About you */}
+      {/* About you - Updated with non-editable stats */}
       <View style={styles.section}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <Text style={styles.sectionTitle}>About You</Text>
@@ -566,31 +587,65 @@ export default function ProfileScreen({ route }) {
         </View>
 
         <View style={styles.statsContainer}>
-          {renderStat(
-            'Favourite Workout', 'fitness',
-            editing, draft.favouriteWorkout,
-            t => setDraft({ ...draft, favouriteWorkout: t }),
-            profile.favouriteWorkout
-          )}
-          {renderStat(
-            'Competitions Won', 'trophy',
-            editing, String(draft.wins || 0),
-            t => setDraft({ ...draft, wins: Number(t) || 0 }),
-            `${profile.wins} Wins`
-          )}
-          {renderStat(
-            'Total Competitions', 'stats-chart',
-            editing, String(draft.totals || 0),
-            t => setDraft({ ...draft, totals: Number(t) || 0 }),
-            `${profile.totals} Total`
-          )}
+          {/* Editable favourite workout */}
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Favourite Workout</Text>
+            <View style={styles.statValueContainer}>
+              {editing ? (
+                <TextInput
+                  style={[styles.statValue, { flex: 1, paddingVertical: 0 }]}
+                  value={draft.favouriteWorkout}
+                  onChangeText={t => setDraft({ ...draft, favouriteWorkout: t })}
+                  placeholder="Enter your favourite workout"
+                />
+              ) : (
+                <Text style={styles.statValue}>
+                  {profile.favouriteWorkout || '—'}
+                </Text>
+              )}
+              <Ionicons name="fitness" size={24} color="#A4D65E" style={styles.statIcon} />
+            </View>
+          </View>
+
+          {/* Non-editable competition stats */}
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Competitions Won</Text>
+            <View style={styles.statValueContainer}>
+              <Text style={styles.statValue}>{profile.wins} Wins</Text>
+              <Ionicons name="trophy" size={24} color="#FFD700" style={styles.statIcon} />
+            </View>
+          </View>
+
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Competitions Lost</Text>
+            <View style={styles.statValueContainer}>
+              <Text style={styles.statValue}>{profile.losses} Losses</Text>
+              <Ionicons name="trending-down" size={24} color="#FF6B6B" style={styles.statIcon} />
+            </View>
+          </View>
+
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Win Rate</Text>
+            <View style={styles.statValueContainer}>
+              <Text style={styles.statValue}>{getWinRate()}</Text>
+              <Ionicons name="stats-chart" size={24} color="#A4D65E" style={styles.statIcon} />
+            </View>
+          </View>
+
+          <View style={styles.statItem}>
+            <Text style={styles.statLabel}>Total Competitions</Text>
+            <View style={styles.statValueContainer}>
+              <Text style={styles.statValue}>{profile.wins + profile.losses} Total</Text>
+              <Ionicons name="bar-chart" size={24} color="#6B7280" style={styles.statIcon} />
+            </View>
+          </View>
 
           {editing && (
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16 }}>
               <TouchableOpacity onPress={cancelEdit} style={styles.editBtn}>
                 <Text style={styles.editBtnText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={saveEdit} style={styles.editBtn}>
+              <TouchableOpacity onPress={saveEdit} style={[styles.editBtn, { marginLeft: 16 }]}>
                 <Text style={styles.editBtnText}>Save</Text>
               </TouchableOpacity>
             </View>
@@ -794,27 +849,6 @@ export default function ProfileScreen({ route }) {
   );
 }
 
-function renderStat(label, icon, editing, draftVal, onChange, displayVal) {
-  return (
-    <View style={styles.statItem}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <View style={styles.statValueContainer}>
-        {editing ? (
-          <TextInput
-            style={[styles.statValue, { flex: 1, paddingVertical: 0 }]}
-            value={draftVal}
-            onChangeText={onChange}
-            keyboardType={label.includes('Competitions') ? 'number-pad' : 'default'}
-          />
-        ) : (
-          <Text style={styles.statValue}>{displayVal || '—'}</Text>
-        )}
-        <Ionicons name={icon} size={24} color="#A4D65E" style={styles.statIcon} />
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F8F8' },
   
@@ -892,7 +926,7 @@ const styles = StyleSheet.create({
   accountOptionContent: { flex: 1 },
   accountOptionTitle: { fontSize: 16, fontWeight: '500', color: '#1A1E23' },
   accountOptionSubtitle: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  editBtn: { marginLeft: 12 },
+  editBtn: { },
   editBtnText: { color: '#A4D65E', fontWeight: '600' },
 
   // Friends Tab
