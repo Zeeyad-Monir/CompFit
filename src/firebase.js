@@ -15,6 +15,7 @@ LogBox.ignoreLogs([
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import 'firebase/compat/firestore';
+import 'firebase/compat/functions';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBL63A9pOmlvkYNq8ZPxQKZXfCMTMefYsI",
@@ -34,6 +35,7 @@ if (!firebase.apps.length) {
 // Get Firebase services
 export const auth = firebase.auth();
 export const db = firebase.firestore();
+export const functions = firebase.functions();
 
 // Export auth functions (v8 style)
 export const onAuthStateChanged = (callback) => auth.onAuthStateChanged(callback);
@@ -44,5 +46,9 @@ export const signInWithEmailAndPassword = (email, password) =>
 export const signOut = () => auth.signOut();
 export const sendPasswordResetEmail = (email) => auth.sendPasswordResetEmail(email);
 export const updateProfile = (user, profile) => user.updateProfile(profile);
+
+// Export functions helpers
+export const getFunctions = () => functions;
+export const httpsCallable = (name) => functions.httpsCallable(name);
 
 export default firebase;
