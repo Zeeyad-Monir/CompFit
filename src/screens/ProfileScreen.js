@@ -30,14 +30,14 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
-import notificationService from '../services/notificationService';
 
 export default function ProfileScreen({ route }) {
   const { user } = useContext(AuthContext);
 
   // Tab state - check if we should open friends tab from navigation params
-  const initialTab = route?.params?.tab === 'friends' ? 'friends' : 'profile';
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab, setActiveTab] = useState(() => {
+    return route?.params?.tab === 'friends' ? 'friends' : 'profile';
+  });
   
   // Update tab when navigation params change
   useEffect(() => {
@@ -46,7 +46,7 @@ export default function ProfileScreen({ route }) {
     }
   }, [route?.params?.tab]);
 
-  // Profile state - updated with losses field
+  // Profile state - with wins/losses that are READ-ONLY from Firestore
   const [profile, setProfile] = useState({
     username: '',
     handle: '',
@@ -55,6 +55,7 @@ export default function ProfileScreen({ route }) {
     losses: 0,
     totals: 0,
     friends: [],
+    lastUpdated: null,
   });
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -68,7 +69,7 @@ export default function ProfileScreen({ route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingFriends, setLoadingFriends] = useState(false);
 
-  /* ----- live profile subscription ----- */
+  /* ----- Real-time profile subscription with wins/losses ----- */
   useEffect(() => {
     if (!user) return;
     const ref = doc(db, 'users', user.uid);
@@ -78,11 +79,16 @@ export default function ProfileScreen({ route }) {
         if (snap.exists()) {
           const userData = snap.data();
           setProfile({
-            ...userData,
-            losses: userData.losses || 0,
+            username: userData.username || '',
+            handle: userData.handle || '',
+            favouriteWorkout: userData.favouriteWorkout || '',
             wins: userData.wins || 0,
+            losses: userData.losses || 0,
             totals: userData.totals || 0,
+            friends: userData.friends || [],
+            lastUpdated: userData.lastUpdated,
           });
+          
           // Fetch friend details when friends array changes
           if (userData.friends?.length > 0) {
             fetchFriendsDetails(userData.friends);
@@ -90,7 +96,7 @@ export default function ProfileScreen({ route }) {
             setFriendsList([]);
           }
         } else {
-          // create doc using the username provided at sign‑up
+          // Create initial user profile without wins/losses (backend will manage those)
           const initialData = {
             username: user.displayName || user.email.split('@')[0],
             handle: (user.displayName || user.email.split('@')[0]).replace(/\s+/g, '').toLowerCase(),
@@ -112,17 +118,17 @@ export default function ProfileScreen({ route }) {
       }
     );
 
-    // Also monitor friend requests for removal notifications
+    // Monitor friend requests for removal notifications
     const requestsRef = collection(db, 'users', user.uid, 'friendRequests');
     const requestsUnsub = onSnapshot(requestsRef, 
       async (snapshot) => {
         for (const docSnap of snapshot.docs) {
           const requestData = docSnap.data();
           
-          // Handle friend removal notifications immediately
+          // Handle friend removal notifications
           if (requestData.type === 'friend_removed') {
             try {
-              // Update the local profile state immediately
+              // Update the local profile state
               setProfile(prev => ({
                 ...prev,
                 friends: prev.friends.filter(id => id !== requestData.fromUserId)
@@ -149,7 +155,7 @@ export default function ProfileScreen({ route }) {
     };
   }, [user]);
 
-  /* ----- live friend requests subscription ----- */
+  /* ----- Friend requests subscription ----- */
   useEffect(() => {
     if (!user) return;
     
@@ -161,7 +167,7 @@ export default function ProfileScreen({ route }) {
         for (const docSnap of snapshot.docs) {
           const requestData = docSnap.data();
           
-          // Skip friend removal notifications (handled in profile subscription)
+          // Skip friend removal notifications
           if (requestData.type === 'friend_removed') {
             continue;
           }
@@ -205,7 +211,7 @@ export default function ProfileScreen({ route }) {
     return unsub;
   }, [user]);
 
-  /* ----- live sent requests subscription ----- */
+  /* ----- Sent requests subscription ----- */
   useEffect(() => {
     if (!user) return;
     
@@ -216,15 +222,15 @@ export default function ProfileScreen({ route }) {
         
         for (const docSnap of snapshot.docs) {
           const requestData = docSnap.data();
-          // Fetch recipient's details
+          
           try {
             const recipientDoc = await getDoc(doc(db, 'users', requestData.toUserId));
             if (recipientDoc.exists()) {
               const recipientData = recipientDoc.data();
               
-              // Check if we're already friends (request was accepted)
+              // Check if we're already friends
               if (profile.friends?.includes(requestData.toUserId)) {
-                // Clean up the sent request since we're now friends
+                // Clean up the sent request
                 await deleteDoc(docSnap.ref);
                 continue;
               }
@@ -235,7 +241,7 @@ export default function ProfileScreen({ route }) {
                 recipientData: recipientData,
               });
             } else {
-              // Recipient doesn't exist, clean up the request
+              // Recipient doesn't exist, clean up
               await deleteDoc(docSnap.ref);
             }
           } catch (error) {
@@ -253,7 +259,7 @@ export default function ProfileScreen({ route }) {
     return unsub;
   }, [user, profile.friends]);
 
-  /* ----- fetch friends details ----- */
+  /* ----- Fetch friends details ----- */
   const fetchFriendsDetails = async (friendIds) => {
     if (!friendIds || friendIds.length === 0) {
       setFriendsList([]);
@@ -280,46 +286,56 @@ export default function ProfileScreen({ route }) {
     }
   };
 
-  /* ----- profile handlers ----- */
+  /* ----- Profile edit handlers (only for favouriteWorkout) ----- */
   const startEdit = () => { 
     setDraft({ favouriteWorkout: profile.favouriteWorkout }); 
     setEditing(true); 
   };
+  
   const cancelEdit = () => setEditing(false);
 
   const saveEdit = async () => {
     try {
       const ref = doc(db, 'users', user.uid);
-      // Only update favourite workout - wins/losses are read-only
+      // Only update favourite workout - wins/losses are backend-managed
       await updateDoc(ref, {
-        favouriteWorkout: draft.favouriteWorkout
+        favouriteWorkout: draft.favouriteWorkout || ''
       });
       setEditing(false);
+      Alert.alert('Success', 'Profile updated successfully');
     } catch (error) {
       console.error('Error saving profile:', error);
       Alert.alert('Error', 'Failed to save profile changes');
     }
   };
 
-  const handleLogout = () => signOut(auth);
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Logout', style: 'destructive', onPress: () => signOut(auth) }
+      ]
+    );
+  };
 
-  /* ----- friends handlers ----- */
+  /* ----- Friends handlers ----- */
   const findUserByUsername = async (username) => {
     const trimmedUsername = username.trim().toLowerCase();
     if (!trimmedUsername) return null;
 
     try {
-      // First, check if username exists in usernames collection
+      // Check username in usernames collection
       const usernameDoc = await getDoc(doc(db, 'usernames', trimmedUsername));
       
       if (!usernameDoc.exists()) {
         return null;
       }
       
-      // Get the userId from the username document
       const { uid } = usernameDoc.data();
       
-      // Now fetch the full user profile
+      // Fetch full user profile
       const userDoc = await getDoc(doc(db, 'users', uid));
       
       if (!userDoc.exists()) {
@@ -361,7 +377,7 @@ export default function ProfileScreen({ route }) {
         return;
       }
 
-      // Check if request already sent by checking sent requests
+      // Check if request already sent
       let requestAlreadySent = false;
       try {
         const sentRequestsSnapshot = await getDocs(collection(db, 'users', user.uid, 'sentRequests'));
@@ -377,13 +393,7 @@ export default function ProfileScreen({ route }) {
         return;
       }
 
-      console.log('Sending friend request:', {
-        to: targetUser.id,
-        from: user.uid,
-        fromUsername: profile.username
-      });
-
-      // Send friend request to recipient
+      // Send friend request
       const friendRequestData = {
         fromUserId: user.uid,
         fromUsername: profile.username,
@@ -392,7 +402,7 @@ export default function ProfileScreen({ route }) {
       
       await addDoc(collection(db, 'users', targetUser.id, 'friendRequests'), friendRequestData);
 
-      // Store sent request in sender's collection
+      // Store sent request
       const sentRequestData = {
         toUserId: targetUser.id,
         toUsername: targetUser.username,
@@ -402,48 +412,38 @@ export default function ProfileScreen({ route }) {
       
       await addDoc(collection(db, 'users', user.uid, 'sentRequests'), sentRequestData);
 
-      // Send push notification to the recipient
-      await notificationService.sendFriendRequestNotification(targetUser.id, profile.username);
-
       setFriendUsername('');
       Alert.alert('Success', `Friend request sent to ${targetUser.username}!`);
     } catch (error) {
       console.error('Error sending friend request:', error);
-      console.error('Error details:', {
-        code: error.code,
-        message: error.message,
-        currentUserId: user.uid,
-        targetUserId: targetUser?.id
-      });
       Alert.alert('Error', 'Failed to send friend request. Please try again.');
     }
   };
 
   const acceptFriendRequest = async (request) => {
     try {
-      // Add the sender to my friends array
+      // Add to friends
       const myRef = doc(db, 'users', user.uid);
       await updateDoc(myRef, {
         friends: arrayUnion(request.fromUserId),
       });
 
-      // Delete the friend request from my collection
+      // Delete the request
       await deleteDoc(doc(db, 'users', user.uid, 'friendRequests', request.id));
 
-      // Create a reciprocal friend request that's pre-accepted
-      // This way the sender can add me to their friends list when they see it
+      // Create reciprocal accepted request
       try {
         await addDoc(collection(db, 'users', request.fromUserId, 'friendRequests'), {
           fromUserId: user.uid,
           fromUsername: profile.username,
           timestamp: serverTimestamp(),
-          accepted: true, // Mark this as already accepted
+          accepted: true,
         });
       } catch (error) {
         console.log('Could not create reciprocal request:', error);
       }
 
-      Alert.alert('Success', `You are now friends with ${request.senderData.username}! They will see you in their friends list when they refresh.`);
+      Alert.alert('Success', `You are now friends with ${request.senderData.username}!`);
     } catch (error) {
       console.error('Error accepting friend request:', error);
       Alert.alert('Error', 'Failed to accept friend request. Please try again.');
@@ -452,12 +452,7 @@ export default function ProfileScreen({ route }) {
 
   const rejectFriendRequest = async (request) => {
     try {
-      // Delete the friend request from recipient's collection
       await deleteDoc(doc(db, 'users', user.uid, 'friendRequests', request.id));
-
-      // We can't directly delete from the sender's sentRequests
-      // The sender will need to handle cleanup on their end
-
       Alert.alert('Request Declined', `Friend request from ${request.senderData.username} has been declined.`);
     } catch (error) {
       console.error('Error rejecting friend request:', error);
@@ -476,14 +471,8 @@ export default function ProfileScreen({ route }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Delete the sent request from sender's collection
               await deleteDoc(doc(db, 'users', user.uid, 'sentRequests', request.id));
-
-              // We can't directly query/delete from the recipient's friendRequests
-              // The recipient will need to handle cleanup on their end
-              // Or we could use a Cloud Function for this
-
-              Alert.alert('Request Cancelled', `Friend request to ${request.recipientData.username} has been cancelled from your side.`);
+              Alert.alert('Request Cancelled', `Friend request to ${request.recipientData.username} has been cancelled.`);
             } catch (error) {
               console.error('Error cancelling sent request:', error);
               Alert.alert('Error', 'Failed to cancel friend request. Please try again.');
@@ -505,24 +494,22 @@ export default function ProfileScreen({ route }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Only remove from my friends list
+              // Remove from friends list
               const myRef = doc(db, 'users', user.uid);
               await updateDoc(myRef, {
                 friends: arrayRemove(friend.id),
               });
 
-              // Optionally, create a "friend removal" notification for the other user
-              // So they can remove us from their list too
+              // Notify friend of removal
               try {
                 await addDoc(collection(db, 'users', friend.id, 'friendRequests'), {
                   fromUserId: user.uid,
                   fromUsername: profile.username,
                   timestamp: serverTimestamp(),
-                  type: 'friend_removed', // Special type to indicate removal
+                  type: 'friend_removed',
                 });
               } catch (error) {
                 console.log('Could not notify friend of removal:', error);
-                // Continue anyway - at least we've removed them from our list
               }
 
               Alert.alert('Success', `${friend.username} has been removed from your friends.`);
@@ -557,6 +544,25 @@ export default function ProfileScreen({ route }) {
     return `${Math.round(rate)}%`;
   };
 
+  // Format last updated time
+  const getLastUpdatedText = () => {
+    if (!profile.lastUpdated) return null;
+    
+    const date = profile.lastUpdated.toDate ? profile.lastUpdated.toDate() : new Date(profile.lastUpdated);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Updated just now';
+    if (diffMins < 60) return `Updated ${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `Updated ${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `Updated ${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+    
+    return `Updated on ${date.toLocaleDateString()}`;
+  };
+
   if (loading) return null;
 
   const renderProfileTab = () => (
@@ -575,7 +581,41 @@ export default function ProfileScreen({ route }) {
         </View>
       </View>
 
-      {/* About you - Updated with non-editable stats */}
+      {/* Competition Stats - READ ONLY, Updated by Backend */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Competition Stats</Text>
+        <View style={styles.statsGrid}>
+          <View style={[styles.statCard, styles.winsCard]}>
+            <Ionicons name="trophy" size={32} color="#FFD700" />
+            <Text style={styles.statNumber}>{profile.wins}</Text>
+            <Text style={styles.statLabel}>Wins</Text>
+          </View>
+          
+          <View style={[styles.statCard, styles.lossesCard]}>
+            <Ionicons name="trending-down" size={32} color="#FF6B6B" />
+            <Text style={styles.statNumber}>{profile.losses}</Text>
+            <Text style={styles.statLabel}>Losses</Text>
+          </View>
+          
+          <View style={[styles.statCard, styles.rateCard]}>
+            <Ionicons name="stats-chart" size={32} color="#A4D65E" />
+            <Text style={styles.statNumber}>{getWinRate()}</Text>
+            <Text style={styles.statLabel}>Win Rate</Text>
+          </View>
+          
+          <View style={[styles.statCard, styles.totalCard]}>
+            <Ionicons name="bar-chart" size={32} color="#6B7280" />
+            <Text style={styles.statNumber}>{profile.wins + profile.losses}</Text>
+            <Text style={styles.statLabel}>Total</Text>
+          </View>
+        </View>
+        
+        {profile.lastUpdated && (
+          <Text style={styles.lastUpdatedText}>{getLastUpdatedText()}</Text>
+        )}
+      </View>
+
+      {/* About You - Only favourite workout is editable */}
       <View style={styles.section}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <Text style={styles.sectionTitle}>About You</Text>
@@ -587,66 +627,33 @@ export default function ProfileScreen({ route }) {
         </View>
 
         <View style={styles.statsContainer}>
-          {/* Editable favourite workout */}
           <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Favourite Workout</Text>
+            <Text style={styles.statLabelSmall}>Favourite Workout</Text>
             <View style={styles.statValueContainer}>
               {editing ? (
                 <TextInput
-                  style={[styles.statValue, { flex: 1, paddingVertical: 0 }]}
+                  style={[styles.statValue, styles.editableInput]}
                   value={draft.favouriteWorkout}
                   onChangeText={t => setDraft({ ...draft, favouriteWorkout: t })}
                   placeholder="Enter your favourite workout"
+                  placeholderTextColor="#999"
                 />
               ) : (
                 <Text style={styles.statValue}>
-                  {profile.favouriteWorkout || '—'}
+                  {profile.favouriteWorkout || 'Not set'}
                 </Text>
               )}
               <Ionicons name="fitness" size={24} color="#A4D65E" style={styles.statIcon} />
             </View>
           </View>
 
-          {/* Non-editable competition stats */}
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Competitions Won</Text>
-            <View style={styles.statValueContainer}>
-              <Text style={styles.statValue}>{profile.wins} Wins</Text>
-              <Ionicons name="trophy" size={24} color="#FFD700" style={styles.statIcon} />
-            </View>
-          </View>
-
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Competitions Lost</Text>
-            <View style={styles.statValueContainer}>
-              <Text style={styles.statValue}>{profile.losses} Losses</Text>
-              <Ionicons name="trending-down" size={24} color="#FF6B6B" style={styles.statIcon} />
-            </View>
-          </View>
-
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Win Rate</Text>
-            <View style={styles.statValueContainer}>
-              <Text style={styles.statValue}>{getWinRate()}</Text>
-              <Ionicons name="stats-chart" size={24} color="#A4D65E" style={styles.statIcon} />
-            </View>
-          </View>
-
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Total Competitions</Text>
-            <View style={styles.statValueContainer}>
-              <Text style={styles.statValue}>{profile.wins + profile.losses} Total</Text>
-              <Ionicons name="bar-chart" size={24} color="#6B7280" style={styles.statIcon} />
-            </View>
-          </View>
-
           {editing && (
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16 }}>
+            <View style={styles.editButtons}>
               <TouchableOpacity onPress={cancelEdit} style={styles.editBtn}>
                 <Text style={styles.editBtnText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={saveEdit} style={[styles.editBtn, { marginLeft: 16 }]}>
-                <Text style={styles.editBtnText}>Save</Text>
+              <TouchableOpacity onPress={saveEdit} style={[styles.editBtn, styles.saveBtn]}>
+                <Text style={[styles.editBtnText, styles.saveBtnText]}>Save</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -705,7 +712,7 @@ export default function ProfileScreen({ route }) {
         </View>
       </View>
 
-      {/* Pending Requests Section */}
+      {/* Pending Requests */}
       {pendingRequests.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Pending Requests ({pendingRequests.length})</Text>
@@ -739,7 +746,7 @@ export default function ProfileScreen({ route }) {
         </View>
       )}
 
-      {/* Sent Requests Section */}
+      {/* Sent Requests */}
       {sentRequests.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Sent Requests ({sentRequests.length})</Text>
@@ -765,7 +772,7 @@ export default function ProfileScreen({ route }) {
         </View>
       )}
 
-      {/* Friends List Section */}
+      {/* Friends List */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Friends ({friendsList.length})</Text>
         {loadingFriends ? (
@@ -909,25 +916,132 @@ const styles = StyleSheet.create({
   loadingText: { color: '#6B7280', fontSize: 16 },
 
   // Profile Tab
-  profileCard: { backgroundColor: '#A4D65E', borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center' },
-  profileImageContainer: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  profileCard: { 
+    backgroundColor: '#A4D65E', 
+    borderRadius: 12, 
+    padding: 16, 
+    flexDirection: 'row', 
+    alignItems: 'center' 
+  },
+  profileImageContainer: { 
+    width: 60, 
+    height: 60, 
+    borderRadius: 30, 
+    backgroundColor: '#FFFFFF', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginRight: 16 
+  },
   profileInfo: { flex: 1 },
   profileName: { fontSize: 18, fontWeight: 'bold', color: '#1A1E23' },
   profileUsername: { fontSize: 14, color: '#1A1E23', opacity: 0.8 },
+  
+  // Stats Grid
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  statCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    flex: 1,
+    minWidth: '45%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  winsCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#FFD700',
+  },
+  lossesCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF6B6B',
+  },
+  rateCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#A4D65E',
+  },
+  totalCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#6B7280',
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1A1E23',
+    marginTop: 8,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  lastUpdatedText: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 12,
+    fontStyle: 'italic',
+  },
+  
+  // About You
   statsContainer: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16 },
   statItem: { marginBottom: 16 },
-  statLabel: { fontSize: 14, color: '#6B7280', marginBottom: 4 },
+  statLabelSmall: { fontSize: 14, color: '#6B7280', marginBottom: 4 },
   statValueContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  statValue: { fontSize: 16, fontWeight: '500', color: '#1A1E23' },
+  statValue: { fontSize: 16, fontWeight: '500', color: '#1A1E23', flex: 1 },
+  editableInput: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#A4D65E',
+    paddingVertical: 4,
+  },
   statIcon: { marginLeft: 8 },
+  editButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 16,
+  },
+  editBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#A4D65E',
+  },
+  saveBtn: {
+    backgroundColor: '#A4D65E',
+  },
+  editBtnText: { color: '#A4D65E', fontWeight: '600' },
+  saveBtnText: { color: '#FFFFFF' },
+  
+  // Account Options
   accountOptions: { backgroundColor: '#FFFFFF', borderRadius: 12, overflow: 'hidden' },
-  accountOption: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  accountOptionIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  accountOption: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    padding: 16, 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#F3F4F6' 
+  },
+  accountOptionIcon: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    backgroundColor: '#F3F4F6', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginRight: 12 
+  },
   accountOptionContent: { flex: 1 },
   accountOptionTitle: { fontSize: 16, fontWeight: '500', color: '#1A1E23' },
   accountOptionSubtitle: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  editBtn: { },
-  editBtnText: { color: '#A4D65E', fontWeight: '600' },
 
   // Friends Tab
   addFriendContainer: {
