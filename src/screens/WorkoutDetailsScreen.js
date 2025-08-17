@@ -1,6 +1,6 @@
-//WorkoutDetailsScreen.js
+// WorkoutDetailsScreen.js - Enhanced with Comment Section
 
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,21 +11,48 @@ import {
   Dimensions,
   ActivityIndicator,
   Alert,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  RefreshControl,
 } from 'react-native';
 import { Header } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../contexts/AuthContext';
 import { db } from '../firebase';
-import { doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { 
+  doc, 
+  getDoc, 
+  deleteDoc,
+  collection,
+  addDoc,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  serverTimestamp,
+} from 'firebase/firestore';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 export default function WorkoutDetailsScreen({ route, navigation }) {
   const { workout, competition, userName } = route.params;
   const { user } = useContext(AuthContext);
+  const scrollViewRef = useRef(null);
+  
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Comment-related state
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [isPostingComment, setIsPostingComment] = useState(false);
+  const [loadingComments, setLoadingComments] = useState(true);
+  const [userProfiles, setUserProfiles] = useState({});
+  const [deletingCommentId, setDeletingCommentId] = useState(null);
 
   // Check if this is the current user's workout
   const isOwnWorkout = workout.userId === user?.uid;
@@ -48,6 +75,167 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
       minute: '2-digit',
       hour12: true,
     });
+  };
+
+  // Format comment timestamp
+  const formatCommentTime = (timestamp) => {
+    if (!timestamp) return '';
+    
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+    
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    });
+  };
+
+  // Fetch user profiles for comments
+  const fetchUserProfile = async (userId) => {
+    if (userProfiles[userId]) return userProfiles[userId];
+    
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setUserProfiles(prev => ({
+          ...prev,
+          [userId]: userData
+        }));
+        return userData;
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+    return null;
+  };
+
+  // Load comments
+  useEffect(() => {
+    if (!workout?.id) return;
+
+    setLoadingComments(true);
+    
+    // Create comments subcollection reference
+    const commentsRef = collection(db, 'submissions', workout.id, 'comments');
+    const commentsQuery = query(commentsRef, orderBy('createdAt', 'asc'));
+    
+    const unsubscribe = onSnapshot(
+      commentsQuery,
+      async (snapshot) => {
+        const commentsData = [];
+        
+        for (const docSnap of snapshot.docs) {
+          const comment = {
+            id: docSnap.id,
+            ...docSnap.data()
+          };
+          
+          // Fetch user data for each comment
+          if (comment.userId) {
+            await fetchUserProfile(comment.userId);
+          }
+          
+          commentsData.push(comment);
+        }
+        
+        setComments(commentsData);
+        setLoadingComments(false);
+      },
+      (error) => {
+        console.error('Error fetching comments:', error);
+        setLoadingComments(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [workout?.id]);
+
+  // Handle deleting a comment
+  const handleDeleteComment = (commentId) => {
+    Alert.alert(
+      'Delete Comment',
+      'Are you sure you want to delete this comment?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingCommentId(commentId);
+            try {
+              const commentRef = doc(db, 'submissions', workout.id, 'comments', commentId);
+              await deleteDoc(commentRef);
+            } catch (error) {
+              console.error('Error deleting comment:', error);
+              Alert.alert('Error', 'Failed to delete comment. Please try again.');
+            } finally {
+              setDeletingCommentId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Handle posting a comment
+  const handlePostComment = async () => {
+    const trimmedComment = commentText.trim();
+    
+    if (!trimmedComment) {
+      return;
+    }
+    
+    if (!user) {
+      Alert.alert('Error', 'You must be logged in to post comments');
+      return;
+    }
+    
+    setIsPostingComment(true);
+    Keyboard.dismiss();
+    
+    try {
+      const commentsRef = collection(db, 'submissions', workout.id, 'comments');
+      
+      await addDoc(commentsRef, {
+        userId: user.uid,
+        text: trimmedComment,
+        createdAt: serverTimestamp(),
+      });
+      
+      setCommentText('');
+      
+      // Scroll to bottom after a short delay to ensure new comment is rendered
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+      
+    } catch (error) {
+      console.error('Error posting comment:', error);
+      Alert.alert('Error', 'Failed to post comment. Please try again.');
+    } finally {
+      setIsPostingComment(false);
+    }
+  };
+
+  // Handle refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    // Comments will refresh automatically via the listener
+    setTimeout(() => setRefreshing(false), 1000);
   };
 
   // Get the display value and unit based on the workout's unit type
@@ -125,10 +313,24 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
         onBackPress={() => navigation.goBack()}
       />
       
-      <ScrollView 
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
       >
+        <ScrollView 
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#A4D65E']}
+              tintColor="#A4D65E"
+            />
+          }
+        >
         {/* Photo Section */}
         {workout.photoUrl ? (
           <View style={styles.photoContainer}>
@@ -262,9 +464,100 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
 
+        {/* Comments Section */}
+        <View style={styles.commentsContainer}>
+          <Text style={styles.sectionTitle}>Comments</Text>
+          
+          {/* Comments List */}
+          {loadingComments ? (
+            <View style={styles.commentsLoadingContainer}>
+              <ActivityIndicator size="small" color="#A4D65E" />
+              <Text style={styles.commentsLoadingText}>Loading comments...</Text>
+            </View>
+          ) : comments.length === 0 ? (
+            <View style={styles.noCommentsContainer}>
+              <Ionicons name="chatbubble-outline" size={40} color="#C0C0C0" />
+              <Text style={styles.noCommentsText}>No comments yet</Text>
+              <Text style={styles.noCommentsSubtext}>Be the first to comment!</Text>
+            </View>
+          ) : (
+            <View style={styles.commentsList}>
+              {comments.map((comment) => {
+                const commentUser = userProfiles[comment.userId];
+                const isOwnComment = comment.userId === user?.uid;
+                
+                return (
+                  <View key={comment.id} style={styles.commentCard}>
+                    <View style={styles.commentHeader}>
+                      <View style={styles.commentUserInfo}>
+                        <Ionicons name="person-circle" size={36} color="#A4D65E" />
+                        <View style={styles.commentUserText}>
+                          <Text style={styles.commentUserName}>
+                            {commentUser?.username || 'Unknown User'}
+                            {isOwnComment && <Text style={styles.youBadge}> (You)</Text>}
+                          </Text>
+                          <Text style={styles.commentTimestamp}>
+                            {formatCommentTime(comment.createdAt)}
+                          </Text>
+                        </View>
+                      </View>
+                      {/* Delete button for own comments */}
+                      {isOwnComment && (
+                        <TouchableOpacity
+                          style={styles.commentDeleteButton}
+                          onPress={() => handleDeleteComment(comment.id)}
+                          disabled={deletingCommentId === comment.id}
+                        >
+                          {deletingCommentId === comment.id ? (
+                            <ActivityIndicator size="small" color="#FF6B6B" />
+                          ) : (
+                            <Ionicons name="trash-outline" size={18} color="#FF6B6B" />
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    <Text style={styles.commentText}>{comment.text}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+          
+          {/* Comment Input Box - Now part of the comments section */}
+          <View style={styles.commentInputSection}>
+            <View style={styles.commentInputWrapper}>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Write a comment..."
+                placeholderTextColor="#999"
+                value={commentText}
+                onChangeText={setCommentText}
+                multiline
+                maxLength={500}
+                editable={!isPostingComment}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.commentSubmitButton,
+                  (!commentText.trim() || isPostingComment) && styles.commentSubmitButtonDisabled
+                ]}
+                onPress={handlePostComment}
+                disabled={!commentText.trim() || isPostingComment}
+              >
+                {isPostingComment ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.commentSubmitText}>Comment</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
         {/* Bottom Spacer */}
         <View style={{ height: 40 }} />
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -530,5 +823,154 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#1A1E23',
     marginLeft: 12,
+  },
+
+  // Comments Section
+  commentsContainer: {
+    marginHorizontal: 16,
+    marginTop: 20,
+  },
+  commentsLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+  },
+  commentsLoadingText: {
+    marginLeft: 10,
+    color: '#666',
+    fontSize: 14,
+  },
+  noCommentsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 40,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  noCommentsText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 12,
+    fontWeight: '500',
+  },
+  noCommentsSubtext: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 4,
+  },
+  commentsList: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  commentCard: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  commentUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  commentUserText: {
+    marginLeft: 10,
+    flex: 1,
+  },
+  commentUserName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1E23',
+  },
+  youBadge: {
+    fontSize: 12,
+    color: '#A4D65E',
+    fontWeight: 'normal',
+  },
+  commentTimestamp: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  commentText: {
+    fontSize: 15,
+    color: '#333',
+    lineHeight: 22,
+    marginLeft: 46,
+  },
+  commentDeleteButton: {
+    padding: 8,
+    marginRight: -4,
+  },
+
+  // Comment Input Section (now part of scrollable content)
+  commentInputSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  commentInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    backgroundColor: '#F8F8F8',
+    borderRadius: 25,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  commentInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1A1E23',
+    maxHeight: 100,
+    minHeight: 36,
+    paddingTop: 8,
+    paddingBottom: 8,
+    marginRight: 10,
+  },
+  commentSubmitButton: {
+    backgroundColor: '#A4D65E',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 85,
+  },
+  commentSubmitButtonDisabled: {
+    backgroundColor: '#C0C0C0',
+    opacity: 0.6,
+  },
+  commentSubmitText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
