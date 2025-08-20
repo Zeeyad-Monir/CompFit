@@ -14,7 +14,6 @@ import {
   getDoc,
   updateDoc,
 } from 'firebase/firestore';
-// Functions import is handled through firebase.js
 import { AuthContext } from '../contexts/AuthContext';
 
 const LeaderboardScreen = ({ route, navigation }) => {
@@ -25,7 +24,6 @@ const LeaderboardScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshTimeout, setRefreshTimeout] = useState(null);
-  const [isCompleting, setIsCompleting] = useState(false);
 
   /* ---------------- refresh handler -------------------- */
   const onRefresh = () => {
@@ -53,7 +51,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
     }
   };
 
-  // Handle completing the competition using Cloud Function
+  // Handle completing the competition
   const handleCompleteCompetition = async () => {
     // Check if competition is already completed
     if (competition.status === 'completed') {
@@ -76,41 +74,16 @@ const LeaderboardScreen = ({ route, navigation }) => {
           text: 'Complete',
           style: 'destructive',
           onPress: async () => {
-            setIsCompleting(true);
             try {
-              // Call the Cloud Function to complete the competition
-              const { functions } = await import('../firebase');
-              const completeCompetition = functions.httpsCallable('manuallyCompleteCompetition');
-              
-              const result = await completeCompetition({ 
-                competitionId: competition.id 
+              // Simply update the status - Cloud Function will handle the rest
+              await updateDoc(doc(db, 'competitions', competition.id), {
+                status: 'completed'
               });
-              
-              if (result.data.success) {
-                Alert.alert(
-                  'Success', 
-                  'Competition completed! Stats will update within 1-2 seconds.',
-                  [{ text: 'OK', onPress: () => navigation.goBack() }]
-                );
-              }
+              Alert.alert('Success', 'Competition completed! Stats will update shortly.');
+              navigation.goBack();
             } catch (error) {
               console.error('Error completing competition:', error);
-              
-              // Fallback to direct update if Cloud Function fails
-              try {
-                await updateDoc(doc(db, 'competitions', competition.id), {
-                  status: 'completed'
-                });
-                Alert.alert(
-                  'Success', 
-                  'Competition completed! Stats will update shortly.',
-                  [{ text: 'OK', onPress: () => navigation.goBack() }]
-                );
-              } catch (fallbackError) {
-                Alert.alert('Error', 'Failed to complete competition. Please try again.');
-              }
-            } finally {
-              setIsCompleting(false);
+              Alert.alert('Error', 'Failed to complete competition');
             }
           }
         }
@@ -158,8 +131,6 @@ const LeaderboardScreen = ({ route, navigation }) => {
                 name: userData.username || 'Unknown User',
                 points: pointsByUser[uid] || 0,
                 isCurrentUser: uid === user.uid,
-                wins: userData.wins || 0,
-                losses: userData.losses || 0,
               };
             } catch (error) {
               console.error('Error fetching user:', error);
@@ -168,8 +139,6 @@ const LeaderboardScreen = ({ route, navigation }) => {
                 name: 'Unknown User',
                 points: pointsByUser[uid] || 0,
                 isCurrentUser: uid === user.uid,
-                wins: 0,
-                losses: 0,
               };
             }
           });
@@ -278,10 +247,6 @@ const LeaderboardScreen = ({ route, navigation }) => {
                     <Ionicons name="star" size={14} color="#A4D65E" />
                     <Text style={styles.pointsText}>{user.points.toFixed(0)} pts</Text>
                   </View>
-                  {/* Show user's total record */}
-                  <Text style={styles.recordText}>
-                    {user.wins}W - {user.losses}L
-                  </Text>
                 </View>
               );
             })}
@@ -293,18 +258,11 @@ const LeaderboardScreen = ({ route, navigation }) => {
       {competition.ownerId === user.uid && competition.status !== 'completed' && (
         <View style={styles.completeButtonContainer}>
           <TouchableOpacity 
-            style={[styles.completeButton, isCompleting && styles.disabledButton]}
+            style={styles.completeButton}
             onPress={handleCompleteCompetition}
-            disabled={isCompleting}
           >
-            {isCompleting ? (
-              <Text style={styles.completeButtonText}>Completing...</Text>
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
-                <Text style={styles.completeButtonText}>Complete Competition</Text>
-              </>
-            )}
+            <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
+            <Text style={styles.completeButtonText}>Complete Competition</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -314,16 +272,11 @@ const LeaderboardScreen = ({ route, navigation }) => {
         <View style={styles.completedBanner}>
           <Ionicons name="trophy" size={20} color="#FFD700" />
           <Text style={styles.completedText}>Competition Completed</Text>
-          {competition.winnerId && (
-            <Text style={styles.winnerText}>
-              Winner: {rankings.find(r => r.id === competition.winnerId)?.name || 'Unknown'}
-            </Text>
-          )}
         </View>
       )}
       
       <View style={styles.rankingsContainer}>
-        <Text style={styles.rankingsTitle}>Full Rankings</Text>
+        <Text style={styles.rankingsTitle}>Rankings</Text>
         <ScrollView 
           style={styles.rankingsList}
           refreshControl={
@@ -338,7 +291,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
           {rankings.length === 0 ? (
             <Text style={styles.emptyText}>No submissions yet. Be the first to earn points!</Text>
           ) : (
-            rankings.map(user => (
+            restOfRankings.map(user => (
               <View 
                 key={user.id} 
                 style={[
@@ -350,17 +303,12 @@ const LeaderboardScreen = ({ route, navigation }) => {
                 <View style={styles.rankingUserImageContainer}>
                   <Ionicons name="person-circle" size={36} color="#777" />
                 </View>
-                <View style={styles.rankingUserInfo}>
-                  <Text style={[
-                    styles.rankingUserName,
-                    user.isCurrentUser && styles.currentUserText
-                  ]}>
-                    {user.isCurrentUser ? 'You' : user.name}
-                  </Text>
-                  <Text style={styles.userRecord}>
-                    {user.wins}W - {user.losses}L
-                  </Text>
-                </View>
+                <Text style={[
+                  styles.rankingUserName,
+                  user.isCurrentUser && styles.currentUserText
+                ]}>
+                  {user.isCurrentUser ? 'You' : user.name}
+                </Text>
                 <Text style={[
                   styles.rankingPoints,
                   user.isCurrentUser && styles.currentUserText
@@ -469,11 +417,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 4,
   },
-  recordText: {
-    color: '#999',
-    fontSize: 12,
-    marginTop: 2,
-  },
   completeButtonContainer: {
     padding: 16,
     backgroundColor: '#1A1E23',
@@ -485,9 +428,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  disabledButton: {
-    opacity: 0.6,
   },
   completeButtonText: {
     color: '#FFFFFF',
@@ -501,17 +441,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flexWrap: 'wrap',
   },
   completedText: {
     color: '#F57C00',
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 8,
-  },
-  winnerText: {
-    color: '#F57C00',
-    fontSize: 14,
     marginLeft: 8,
   },
   rankingsContainer: {
@@ -548,18 +482,10 @@ const styles = StyleSheet.create({
   rankingUserImageContainer: {
     marginRight: 12,
   },
-  rankingUserInfo: {
-    flex: 1,
-  },
   rankingUserName: {
+    flex: 1,
     fontSize: 16,
     color: '#1A1E23',
-    fontWeight: '500',
-  },
-  userRecord: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
   },
   rankingPoints: {
     fontSize: 16,
@@ -570,3 +496,5 @@ const styles = StyleSheet.create({
     color: '#1A1E23',
   },
 });
+
+export default LeaderboardScreen;
