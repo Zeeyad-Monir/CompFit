@@ -26,6 +26,8 @@ import {
   updateDoc,
   arrayUnion,
   arrayRemove,
+  serverTimestamp,
+  getDoc,
 } from 'firebase/firestore';
 import { AuthContext } from '../contexts/AuthContext';
 
@@ -39,23 +41,22 @@ export default function ActiveCompetitionsScreen({ navigation }) {
   /* ---------------- live Firestore data ---------------- */
   const [activeCompetitions, setActiveCompetitions] = useState([]);
   const [pendingInvitations, setPendingInvitations] = useState([]);
-  const [removedCompetitions, setRemovedCompetitions] = useState(new Set()); // Track locally removed competitions
+  const [removedCompetitions, setRemovedCompetitions] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshTimeout, setRefreshTimeout] = useState(null);
+  const [processedCompetitions, setProcessedCompetitions] = useState(new Set());
 
   /* ---------------- refresh handler -------------------- */
   const onRefresh = () => {
     setRefreshing(true);
-    // Clear removed competitions cache on refresh
     setRemovedCompetitions(new Set());
+    setProcessedCompetitions(new Set()); // Reset processed competitions on refresh
     
-    // Clear any existing timeout
     if (refreshTimeout) {
       clearTimeout(refreshTimeout);
     }
     
-    // Set timeout fallback to stop refreshing after 3 seconds
     const timeout = setTimeout(() => {
       setRefreshing(false);
     }, 3000);
@@ -63,12 +64,168 @@ export default function ActiveCompetitionsScreen({ navigation }) {
     setRefreshTimeout(timeout);
   };
 
-  // Helper function to stop refreshing and clear timeout
   const stopRefreshing = () => {
     setRefreshing(false);
     if (refreshTimeout) {
       clearTimeout(refreshTimeout);
       setRefreshTimeout(null);
+    }
+  };
+
+  // Auto-complete expired competitions (only for competitions user owns)
+  const checkAndCompleteExpiredCompetitions = async (competitions) => {
+    const now = new Date();
+    
+    // Filter to only competitions that:
+    // 1. Are expired
+    // 2. User is the owner
+    // 3. Haven't been processed yet
+    // 4. Aren't already completed
+    const expiredOwnedCompetitions = competitions.filter(comp => {
+      const endDate = new Date(comp.endDate);
+      return now > endDate && 
+             comp.ownerId === user.uid && // Only process if user is owner
+             comp.status !== 'completed' && 
+             !processedCompetitions.has(comp.id);
+    });
+
+    for (const competition of expiredOwnedCompetitions) {
+      try {
+        console.log(`Auto-completing expired competition: ${competition.name}`);
+        
+        // Mark as processed to avoid multiple attempts
+        setProcessedCompetitions(prev => new Set([...prev, competition.id]));
+        
+        // Get all submissions for this competition
+        const submissionsQuery = query(
+          collection(db, 'submissions'),
+          where('competitionId', '==', competition.id)
+        );
+        
+        const snapshot = await new Promise((resolve, reject) => {
+          const unsubscribe = onSnapshot(
+            submissionsQuery,
+            (snap) => {
+              unsubscribe();
+              resolve(snap);
+            },
+            reject
+          );
+        });
+        
+        // Calculate total points per user
+        const userPoints = {};
+        snapshot.docs.forEach(doc => {
+          const submission = doc.data();
+          const userId = submission.userId;
+          userPoints[userId] = (userPoints[userId] || 0) + (submission.points || 0);
+        });
+        
+        // Sort users by points to determine rankings
+        const sortedRankings = Object.entries(userPoints)
+          .sort(([, pointsA], [, pointsB]) => pointsB - pointsA);
+        
+        if (sortedRankings.length > 0) {
+          // Determine winner
+          const winnerId = sortedRankings[0][0];
+          const winnerPoints = sortedRankings[0][1];
+          
+          // Update the competition document
+          await updateDoc(doc(db, 'competitions', competition.id), {
+            status: 'completed',
+            winnerId: winnerId,
+            winnerPoints: winnerPoints,
+            completedAt: serverTimestamp(),
+            autoCompleted: true,
+            finalRankings: sortedRankings.map(([userId, points], index) => ({
+              userId,
+              points,
+              position: index + 1
+            }))
+          });
+          
+          console.log(`Auto-completed competition: ${competition.name} - Winner: ${winnerId}`);
+        } else {
+          // No submissions, just mark as completed
+          await updateDoc(doc(db, 'competitions', competition.id), {
+            status: 'completed',
+            completedAt: serverTimestamp(),
+            autoCompleted: true,
+            noSubmissions: true
+          });
+          
+          console.log(`Auto-completed competition: ${competition.name} - No submissions`);
+        }
+      } catch (error) {
+        console.error(`Error auto-completing competition ${competition.name}:`, error);
+        // Remove from processed set so it can be retried
+        setProcessedCompetitions(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(competition.id);
+          return newSet;
+        });
+      }
+    }
+  };
+
+  // Update user's own stats based on completed competitions
+  const updateUserOwnStats = async () => {
+    if (!user) return;
+    
+    try {
+      // Query all completed competitions where user participated
+      const completedQuery = query(
+        collection(db, 'competitions'),
+        where('status', '==', 'completed'),
+        where('participants', 'array-contains', user.uid)
+      );
+      
+      const snapshot = await new Promise((resolve, reject) => {
+        const unsubscribe = onSnapshot(
+          completedQuery,
+          (snap) => {
+            unsubscribe();
+            resolve(snap);
+          },
+          reject
+        );
+      });
+      
+      // Count wins and losses
+      let wins = 0;
+      let losses = 0;
+      
+      snapshot.docs.forEach(doc => {
+        const competition = doc.data();
+        if (competition.winnerId === user.uid) {
+          wins++;
+        } else if (competition.winnerId && competition.finalRankings) {
+          // Check if user participated (had submissions)
+          const userRanking = competition.finalRankings.find(r => r.userId === user.uid);
+          if (userRanking) {
+            losses++;
+          }
+        }
+      });
+      
+      // Update user's own document with calculated stats
+      const userRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const currentData = userDoc.data();
+        // Only update if stats have changed
+        if (currentData.wins !== wins || currentData.losses !== losses) {
+          await updateDoc(userRef, {
+            wins: wins,
+            losses: losses,
+            lastUpdated: serverTimestamp(),
+          });
+          console.log(`Updated user stats: ${wins} wins, ${losses} losses`);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating user stats:', error);
     }
   };
 
@@ -95,20 +252,25 @@ export default function ActiveCompetitionsScreen({ navigation }) {
 
     const activeUnsub = onSnapshot(
       activeQuery, 
-      (snap) => {
+      async (snap) => {
         const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-          // Filter out competitions where user is not in participants (unless they're the owner)
           .filter(comp => comp.ownerId === user.uid || comp.participants?.includes(user.uid))
-          // Also filter out locally removed competitions
           .filter(comp => !removedCompetitions.has(comp.id));
+        
         setActiveCompetitions(data);
         setLoading(false);
-        stopRefreshing(); // Stop refresh spinner when data loads
+        stopRefreshing();
+        
+        // Check for expired competitions and auto-complete them
+        await checkAndCompleteExpiredCompetitions(data);
+        
+        // Update user's own stats based on completed competitions
+        await updateUserOwnStats();
       },
       (error) => {
         console.error('Error fetching active competitions:', error);
         setLoading(false);
-        stopRefreshing(); // Stop refresh spinner on error
+        stopRefreshing();
       }
     );
 
@@ -126,25 +288,24 @@ export default function ActiveCompetitionsScreen({ navigation }) {
     return () => {
       activeUnsub();
       pendingUnsub();
-      // Clear timeout on cleanup
       if (refreshTimeout) {
         clearTimeout(refreshTimeout);
       }
     };
-  }, [user, removedCompetitions]); // Add removedCompetitions to dependency array
+  }, [user, removedCompetitions]);
 
   /* ---------------- competition status helpers ---------- */
   const isCompetitionCompleted = (competition) => {
     const now = new Date();
     const endDate = new Date(competition.endDate);
-    return now > endDate;
+    return now > endDate || competition.status === 'completed';
   };
 
   const isCompetitionActive = (competition) => {
     const now = new Date();
     const startDate = new Date(competition.startDate);
     const endDate = new Date(competition.endDate);
-    return now >= startDate && now <= endDate;
+    return now >= startDate && now <= endDate && competition.status !== 'completed';
   };
 
   const isCompetitionUpcoming = (competition) => {
@@ -288,20 +449,16 @@ export default function ActiveCompetitionsScreen({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Immediately remove from local state for instant UI update
               setRemovedCompetitions(prev => new Set([...prev, competition.id]));
               
               const compRef = doc(db, 'competitions', competition.id);
               
-              // Handle both owner and participant cases
               if (competition.ownerId === user.uid) {
-                // If user is the owner, remove them from both owner and participants
                 await updateDoc(compRef, {
                   participants: arrayRemove(user.uid),
-                  ownerId: null, // Or you could transfer ownership, but for now we'll just remove them
+                  ownerId: null,
                 });
               } else {
-                // If user is just a participant, remove them from participants
                 await updateDoc(compRef, {
                   participants: arrayRemove(user.uid),
                 });
@@ -309,7 +466,6 @@ export default function ActiveCompetitionsScreen({ navigation }) {
               
               Alert.alert('Success', 'You have left the competition');
             } catch (error) {
-              // If there's an error, restore the competition to the UI
               setRemovedCompetitions(prev => {
                 const newSet = new Set(prev);
                 newSet.delete(competition.id);
@@ -329,10 +485,8 @@ export default function ActiveCompetitionsScreen({ navigation }) {
     const status = getCompetitionStatus(competition);
     
     if (status === 'completed') {
-      // Navigate directly to leaderboard for completed competitions
       navigation.navigate('Leaderboard', { competition });
     } else {
-      // Navigate to competition details for active/upcoming competitions
       navigation.navigate('CompetitionDetails', { competition });
     }
   };
@@ -421,6 +575,9 @@ export default function ActiveCompetitionsScreen({ navigation }) {
             >
               <Text style={styles.cardTitle}>{comp.name}</Text>
               <Text style={styles.metaText}>Ended: {formattedDate}</Text>
+              {comp.winnerId && (
+                <Text style={styles.winnerText}>Winner determined ✓</Text>
+              )}
               <TouchableOpacity 
                 style={styles.actionLinkContainer}
                 onPress={() => navigation.navigate('Leaderboard', { competition: comp })}
@@ -440,19 +597,15 @@ export default function ActiveCompetitionsScreen({ navigation }) {
 
   return (
     <>
-      {/* Paint the status‑bar / notch area solid black */}
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#1C2125' }}>
         <StatusBar style="light" translucent={false} />
       </SafeAreaView>
 
-      {/* Main content */}
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.root}>
-        {/* Dark header band */}
         <View style={styles.header}>
           <View style={styles.headerCapsule} />
         </View>
 
-        {/* Tab Navigation */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'active' && styles.activeTabStyle]}
@@ -473,7 +626,6 @@ export default function ActiveCompetitionsScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Search bar */}
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#9EA5AC" style={styles.searchIcon} />
           <TextInput
@@ -486,7 +638,6 @@ export default function ActiveCompetitionsScreen({ navigation }) {
           />
         </View>
 
-        {/* Tab content */}
         <ScrollView
           style={styles.scroll}
           showsVerticalScrollIndicator={false}
@@ -495,8 +646,8 @@ export default function ActiveCompetitionsScreen({ navigation }) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#93D13C']} // Android
-              tintColor="#93D13C" // iOS
+              colors={['#93D13C']}
+              tintColor="#93D13C"
             />
           }
         >
@@ -512,28 +663,19 @@ export default function ActiveCompetitionsScreen({ navigation }) {
   );
 }
 
-/* ───────────── styles ───────────── */
 const styles = StyleSheet.create({
   root: { 
     flex: 1, 
     backgroundColor: '#F8F9F8' 
   },
 
-  // Dark header band
   header: {
     height: 1,
     backgroundColor: '#1C2125',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // headerCapsule: {
-  //   width: '62%',
-  //   height: 44,
-  //   borderRadius: 22,
-  //   backgroundColor: '#55585A',
-  // },
 
-  // Tab Navigation
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#F3F3F3',
@@ -562,7 +704,6 @@ const styles = StyleSheet.create({
     color: '#93D13C',
   },
 
-  // Search field
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -584,7 +725,6 @@ const styles = StyleSheet.create({
     color: '#333' 
   },
 
-  // Scroll and content
   scroll: { 
     flex: 1, 
     paddingHorizontal: 24 
@@ -612,7 +752,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
-  // Competition cards
   card: {
     backgroundColor: '#262626',
     borderRadius: 24,
@@ -637,6 +776,14 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 
+  winnerText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: '#93D13C',
+    marginTop: 4,
+  },
+
   actionLinkContainer: {
     marginTop: 14,
   },
@@ -648,7 +795,6 @@ const styles = StyleSheet.create({
     color: '#93D13C',
   },
 
-  // Invite actions
   inviteActions: {
     flexDirection: 'row',
     gap: 12,

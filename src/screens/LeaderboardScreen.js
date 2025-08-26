@@ -13,6 +13,9 @@ import {
   doc,
   getDoc,
   updateDoc,
+  writeBatch,
+  increment,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { AuthContext } from '../contexts/AuthContext';
 
@@ -24,6 +27,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshTimeout, setRefreshTimeout] = useState(null);
+  const [isCompleting, setIsCompleting] = useState(false);
 
   /* ---------------- refresh handler -------------------- */
   const onRefresh = () => {
@@ -51,7 +55,108 @@ const LeaderboardScreen = ({ route, navigation }) => {
     }
   };
 
-  // Handle completing the competition
+  // Calculate and update win/loss stats
+  const calculateAndUpdateStats = async () => {
+    try {
+      console.log('Calculating competition stats...');
+      
+      // Get all submissions for this competition
+      const submissionsQuery = query(
+        collection(db, 'submissions'),
+        where('competitionId', '==', competition.id)
+      );
+      
+      const snapshot = await new Promise((resolve, reject) => {
+        const unsubscribe = onSnapshot(
+          submissionsQuery,
+          (snap) => {
+            unsubscribe();
+            resolve(snap);
+          },
+          reject
+        );
+      });
+      
+      // Calculate total points per user
+      const userPoints = {};
+      snapshot.docs.forEach(doc => {
+        const submission = doc.data();
+        const userId = submission.userId;
+        userPoints[userId] = (userPoints[userId] || 0) + (submission.points || 0);
+      });
+      
+      // Sort users by points to determine rankings
+      const sortedRankings = Object.entries(userPoints)
+        .sort(([, pointsA], [, pointsB]) => pointsB - pointsA);
+      
+      if (sortedRankings.length === 0) {
+        console.log('No submissions found for competition');
+        return { success: false, message: 'No submissions found' };
+      }
+      
+      // Determine winner (highest points)
+      const winnerId = sortedRankings[0][0];
+      const winnerPoints = sortedRankings[0][1];
+      
+      // Get all participants except winner
+      const participants = competition.participants || [];
+      const losers = participants.filter(uid => uid !== winnerId);
+      
+      console.log(`Winner: ${winnerId} with ${winnerPoints} points`);
+      console.log(`Losers: ${losers.length} participants`);
+      
+      // Update stats using batch write for atomicity
+      const batch = writeBatch(db);
+      
+      // Update winner
+      const winnerRef = doc(db, 'users', winnerId);
+      batch.update(winnerRef, {
+        wins: increment(1),
+        lastUpdated: serverTimestamp(),
+      });
+      
+      // Update losers
+      losers.forEach(loserId => {
+        // Only update if they actually participated (have submissions)
+        if (userPoints[loserId] !== undefined) {
+          const loserRef = doc(db, 'users', loserId);
+          batch.update(loserRef, {
+            losses: increment(1),
+            lastUpdated: serverTimestamp(),
+          });
+        }
+      });
+      
+      // Also update the competition with the calculated winner
+      const competitionRef = doc(db, 'competitions', competition.id);
+      batch.update(competitionRef, {
+        winnerId: winnerId,
+        winnerPoints: winnerPoints,
+        completedAt: serverTimestamp(),
+        finalRankings: sortedRankings.map(([userId, points], index) => ({
+          userId,
+          points,
+          position: index + 1
+        }))
+      });
+      
+      await batch.commit();
+      console.log('Stats updated successfully');
+      
+      return {
+        success: true,
+        winnerId,
+        winnerPoints,
+        totalParticipants: sortedRankings.length
+      };
+      
+    } catch (error) {
+      console.error('Error calculating stats:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Handle completing the competition with stats update
   const handleCompleteCompetition = async () => {
     // Check if competition is already completed
     if (competition.status === 'completed') {
@@ -74,16 +179,47 @@ const LeaderboardScreen = ({ route, navigation }) => {
           text: 'Complete',
           style: 'destructive',
           onPress: async () => {
+            setIsCompleting(true);
             try {
-              // Simply update the status - Cloud Function will handle the rest
+              // First calculate and update stats
+              const statsResult = await calculateAndUpdateStats();
+              
+              if (!statsResult.success) {
+                if (statsResult.message === 'No submissions found') {
+                  Alert.alert('Cannot Complete', 'No submissions found. At least one participant must submit a workout.');
+                } else {
+                  Alert.alert('Error', statsResult.error || 'Failed to calculate competition results');
+                }
+                setIsCompleting(false);
+                return;
+              }
+              
+              // Update competition status to completed
               await updateDoc(doc(db, 'competitions', competition.id), {
                 status: 'completed'
               });
-              Alert.alert('Success', 'Competition completed! Stats will update shortly.');
-              navigation.goBack();
+              
+              // Get winner's username for the success message
+              let winnerName = 'Unknown';
+              try {
+                const winnerDoc = await getDoc(doc(db, 'users', statsResult.winnerId));
+                if (winnerDoc.exists()) {
+                  winnerName = winnerDoc.data().username || 'Unknown';
+                }
+              } catch (error) {
+                console.log('Could not fetch winner name:', error);
+              }
+              
+              Alert.alert(
+                'Competition Completed!', 
+                `Winner: ${winnerName} with ${statsResult.winnerPoints} points!\n\nAll participant stats have been updated.`,
+                [{ text: 'OK', onPress: () => navigation.goBack() }]
+              );
             } catch (error) {
               console.error('Error completing competition:', error);
-              Alert.alert('Error', 'Failed to complete competition');
+              Alert.alert('Error', 'Failed to complete competition. Please try again.');
+            } finally {
+              setIsCompleting(false);
             }
           }
         }
@@ -258,11 +394,23 @@ const LeaderboardScreen = ({ route, navigation }) => {
       {competition.ownerId === user.uid && competition.status !== 'completed' && (
         <View style={styles.completeButtonContainer}>
           <TouchableOpacity 
-            style={styles.completeButton}
+            style={[
+              styles.completeButton,
+              isCompleting && styles.completingButton
+            ]}
             onPress={handleCompleteCompetition}
+            disabled={isCompleting}
           >
-            <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
-            <Text style={styles.completeButtonText}>Complete Competition</Text>
+            {isCompleting ? (
+              <>
+                <Text style={styles.completeButtonText}>Calculating Results...</Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
+                <Text style={styles.completeButtonText}>Complete Competition</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       )}
@@ -272,6 +420,11 @@ const LeaderboardScreen = ({ route, navigation }) => {
         <View style={styles.completedBanner}>
           <Ionicons name="trophy" size={20} color="#FFD700" />
           <Text style={styles.completedText}>Competition Completed</Text>
+          {competition.winnerId && rankings.length > 0 && (
+            <Text style={styles.winnerText}>
+              Winner: {rankings.find(r => r.id === competition.winnerId)?.name}
+            </Text>
+          )}
         </View>
       )}
       
@@ -429,6 +582,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  completingButton: {
+    backgroundColor: '#7A9B47',
+    opacity: 0.8,
+  },
   completeButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
@@ -441,12 +598,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    flexWrap: 'wrap',
   },
   completedText: {
     color: '#F57C00',
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  winnerText: {
+    color: '#F57C00',
+    fontSize: 14,
+    fontWeight: '500',
+    width: '100%',
+    textAlign: 'center',
+    marginTop: 4,
   },
   rankingsContainer: {
     flex: 1,
