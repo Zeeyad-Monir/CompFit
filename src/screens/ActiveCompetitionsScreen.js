@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
 
   // Dark header band
   header: {
-    height: 0,
+    height: 1,
     backgroundColor: '#1C2125',
     justifyContent: 'center',
     alignItems: 'center',
