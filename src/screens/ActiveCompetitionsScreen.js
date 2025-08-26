@@ -490,7 +490,7 @@ export default function ActiveCompetitionsScreen({ navigation }) {
         <ScrollView
           style={styles.scroll}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 100 }}
+          contentContainerStyle={{ paddingBottom: 60 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
