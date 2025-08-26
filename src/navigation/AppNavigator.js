@@ -92,9 +92,8 @@ const AppNavigator = () => (
         tabBarIcon: ({ focused }) => (
           <Ionicons
             name="home"
-            size={30}
-            // Green when active, gray when inactive
-            color={focused ? '#A4D65E' : '#777777'}
+            size={28}
+            color="#A4D65E"
           />
         ),
       }}
@@ -106,10 +105,10 @@ const AppNavigator = () => (
       component={CreateStack}
       options={{
         tabBarIcon: () => (
-          // Custom container for the elevated "+" button
+          // Custom container for the "+" button
           <View style={styles.addButtonContainer}>
             <View style={styles.addButton}>
-              <Ionicons name="add" size={34} color="#FFFFFF" />
+              <Ionicons name="add" size={30} color="#A4D65E" />
             </View>
           </View>
         ),
@@ -124,9 +123,8 @@ const AppNavigator = () => (
         tabBarIcon: ({ focused }) => (
           <Ionicons
             name="person"
-            size={30}
-            // Green when active, gray when inactive
-            color={focused ? '#A4D65E' : '#777777'}
+            size={28}
+            color="#A4D65E"
           />
         ),
       }}
@@ -138,17 +136,31 @@ const AppNavigator = () => (
  * Styles for the tab bar and custom "+" button
  */
 const styles = StyleSheet.create({
-  // Main tab bar styling
+  // Main tab bar styling with floating effect
   tabBar: {
-    height: 90,                   // Taller tab bar to accommodate custom button
-    backgroundColor: '#192126',   // Dark background to match app theme
+    position: 'absolute',         // Float above content
+    bottom: 20,                   // Distance from bottom of screen
+    left: 20,                     // Distance from left edge
+    right: 20,                    // Distance from right edge
+    height: 70,                   // Tab bar height
+    backgroundColor: '#1B2125',   // Dark background color
+    borderRadius: 35,             // Rounded corners (half of height for pill shape)
     borderTopWidth: 0,            // Remove default border
+    paddingBottom: 0,             // Remove default padding
+    paddingTop: 0,                // Remove default padding
+    // Shadow properties for floating effect
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 15,                // Android shadow
   },
   
   // Container for the custom "+" button
   addButtonContainer: {
-    position: 'absolute',         // Position absolutely within tab bar
-    bottom: 0,                    // Align to bottom of tab bar
     alignItems: 'center',         // Center horizontally
     justifyContent: 'center',     // Center vertically
     width: '100%',                // Full width of tab item
@@ -157,15 +169,14 @@ const styles = StyleSheet.create({
   
   // Styling for the circular "+" button
   addButton: {
-    backgroundColor: '#A4D65E',   // Green background (app's primary color)
-    width: 45,                    // Fixed width
-    height: 45,                   // Fixed height (makes it circular)
-    borderRadius: 50,             // Circular shape
-    borderWidth: 2,               // Border around button
-    borderColor: '#000',          // Black border
+    width: 50,                    // Circle width
+    height: 50,                   // Circle height
+    borderRadius: 25,             // Perfect circle
+    borderWidth: 2,               // Border width
+    borderColor: '#A4D65E',       // Green border
     alignItems: 'center',         // Center icon horizontally
     justifyContent: 'center',     // Center icon vertically
-    bottom: -5,                   // Slightly elevate button above tab bar
+    backgroundColor: 'transparent', // Transparent background
   },
 });
 

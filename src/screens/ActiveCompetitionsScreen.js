@@ -345,31 +345,22 @@ export default function ActiveCompetitionsScreen({ navigation }) {
         <>
           <Text style={styles.sectionTitle}>Pending Invitations</Text>
           {filteredPending.map(comp => (
-            <View key={comp.id} style={styles.inviteCard}>
-              <Ionicons
-                name="mail"
-                size={90}
-                color="rgba(255,255,255,0.08)"
-                style={styles.bgIcon}
-              />
-
-              <View style={styles.inviteContent}>
-                <Text style={styles.cardTitle}>{comp.name}</Text>
-                <Text style={styles.inviteText}>You've been invited to join!</Text>
-                <View style={styles.inviteActions}>
-                  <TouchableOpacity
-                    style={[styles.inviteButton, styles.acceptButton]}
-                    onPress={() => handleAcceptInvite(comp.id)}
-                  >
-                    <Text style={styles.acceptButtonText}>Accept</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.inviteButton, styles.declineButton]}
-                    onPress={() => handleDeclineInvite(comp.id)}
-                  >
-                    <Text style={styles.declineButtonText}>Decline</Text>
-                  </TouchableOpacity>
-                </View>
+            <View key={comp.id} style={styles.card}>
+              <Text style={styles.cardTitle}>{comp.name}</Text>
+              <Text style={styles.metaText}>You've been invited to join!</Text>
+              <View style={styles.inviteActions}>
+                <TouchableOpacity
+                  style={[styles.inviteButton, styles.acceptButton]}
+                  onPress={() => handleAcceptInvite(comp.id)}
+                >
+                  <Text style={styles.acceptButtonText}>Accept</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.inviteButton, styles.declineButton]}
+                  onPress={() => handleDeclineInvite(comp.id)}
+                >
+                  <Text style={styles.declineButtonText}>Decline</Text>
+                </TouchableOpacity>
               </View>
             </View>
           ))}
@@ -379,7 +370,11 @@ export default function ActiveCompetitionsScreen({ navigation }) {
       {/* Active Competitions */}
       {filteredActive.length > 0 ? (
         filteredActive.map(comp => {
-          const status = getCompetitionStatus(comp);
+          const endDate = new Date(comp.endDate);
+          const formattedDate = endDate.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric' 
+          });
           
           return (
             <TouchableOpacity
@@ -388,38 +383,14 @@ export default function ActiveCompetitionsScreen({ navigation }) {
               activeOpacity={0.85}
               onPress={() => handleCompetitionPress(comp)}
             >
-              <Ionicons
-                name="fitness"
-                size={90}
-                color="rgba(255,255,255,0.08)"
-                style={styles.bgIcon}
-              />
-
-              <View style={styles.cardContent}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>
-                    {comp.name}
-                  </Text>
-                  <View style={[
-                    styles.statusBadge,
-                    status === 'active' && styles.activeBadge,
-                    status === 'upcoming' && styles.upcomingBadge,
-                  ]}>
-                    <Text style={styles.statusText}>
-                      {getCompetitionStatusText(comp)}
-                    </Text>
-                  </View>
-                </View>
-
-                <Text style={styles.timeRemainingText}>
-                  {getTimeRemaining(comp)}
-                </Text>
-
-                <View style={styles.seeMoreRow}>
-                  <Text style={styles.seeMoreText}>See more</Text>
-                  <Text style={styles.seeMoreArrow}>›</Text>
-                </View>
-              </View>
+              <Text style={styles.cardTitle}>{comp.name}</Text>
+              <Text style={styles.metaText}>Ends: {formattedDate}</Text>
+              <TouchableOpacity 
+                style={styles.actionLinkContainer}
+                onPress={() => handleCompetitionPress(comp)}
+              >
+                <Text style={styles.actionLink}>View More {'>'}</Text>
+              </TouchableOpacity>
             </TouchableOpacity>
           );
         })
@@ -435,54 +406,27 @@ export default function ActiveCompetitionsScreen({ navigation }) {
     <>
       {filteredCompleted.length > 0 ? (
         filteredCompleted.map(comp => {
+          const endDate = new Date(comp.endDate);
+          const formattedDate = endDate.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric' 
+          });
+          
           return (
             <TouchableOpacity
               key={comp.id}
-              style={[styles.card, styles.completedCard]}
+              style={styles.card}
               activeOpacity={0.85}
               onPress={() => handleCompetitionPress(comp)}
             >
-              {/* Centered Trophy Background Icon */}
-              <View style={styles.completedTrophyBackground}>
-                <Ionicons
-                  name="trophy"
-                  size={64}
-                  color="rgba(164, 214, 94, 0.2)"
-                />
-              </View>
-
-              {/* Leave Competition Button */}
-              <TouchableOpacity
-                style={styles.leaveButton}
-                onPress={(e) => {
-                  e.stopPropagation(); // Prevent card press
-                  handleLeaveCompetition(comp);
-                }}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              <Text style={styles.cardTitle}>{comp.name}</Text>
+              <Text style={styles.metaText}>Ended: {formattedDate}</Text>
+              <TouchableOpacity 
+                style={styles.actionLinkContainer}
+                onPress={() => navigation.navigate('Leaderboard', { competition: comp })}
               >
-                <Ionicons name="close" size={16} color="#FFFFFF" />
+                <Text style={styles.actionLink}>View Results {'>'}</Text>
               </TouchableOpacity>
-
-              <View style={styles.cardContent}>
-                <View style={styles.cardHeader}>
-                  <Text style={[styles.cardTitle, styles.completedCardTitle]}>
-                    {comp.name}
-                  </Text>
-                </View>
-
-                <Text style={[styles.timeRemainingText, styles.completedTimeText]}>
-                  {getTimeRemaining(comp)}
-                </Text>
-
-                <View style={styles.viewResultsContainer}>
-                  <Button
-                    title="View Results"
-                    style={styles.viewResultsButton}
-                    textStyle={styles.viewResultsButtonText}
-                    onPress={() => navigation.navigate('Leaderboard', { competition: comp })}
-                  />
-                </View>
-              </View>
             </TouchableOpacity>
           );
         })
@@ -497,15 +441,15 @@ export default function ActiveCompetitionsScreen({ navigation }) {
   return (
     <>
       {/* Paint the status‑bar / notch area solid black */}
-      <SafeAreaView edges={['top']} style={{ backgroundColor: '#192126' }}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#1C2125' }}>
         <StatusBar style="light" translucent={false} />
       </SafeAreaView>
 
       {/* Main content */}
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.root}>
-        {/* Custom Header with Prominent Title */}
+        {/* Dark header band */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>CompFit</Text>
+          <View style={styles.headerCapsule} />
         </View>
 
         {/* Tab Navigation */}
@@ -514,11 +458,6 @@ export default function ActiveCompetitionsScreen({ navigation }) {
             style={[styles.tab, activeTab === 'active' && styles.activeTabStyle]}
             onPress={() => setActiveTab('active')}
           >
-            <Ionicons 
-              name="fitness" 
-              size={20} 
-              color={activeTab === 'active' ? '#A4D65E' : '#6B7280'} 
-            />
             <Text style={[styles.tabText, activeTab === 'active' && styles.activeTabText]}>
               Active
             </Text>
@@ -528,11 +467,6 @@ export default function ActiveCompetitionsScreen({ navigation }) {
             style={[styles.tab, activeTab === 'completed' && styles.activeTabStyle]}
             onPress={() => setActiveTab('completed')}
           >
-            <Ionicons 
-              name="trophy" 
-              size={20} 
-              color={activeTab === 'completed' ? '#A4D65E' : '#6B7280'} 
-            />
             <Text style={[styles.tabText, activeTab === 'completed' && styles.activeTabText]}>
               Completed
             </Text>
@@ -541,11 +475,11 @@ export default function ActiveCompetitionsScreen({ navigation }) {
 
         {/* Search bar */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={18} color="#999" style={styles.searchIcon} />
+          <Ionicons name="search" size={20} color="#9EA5AC" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="name of competition"
-            placeholderTextColor="#999"
+            placeholder="Name of competition"
+            placeholderTextColor="#9EA5AC"
             value={queryText}
             onChangeText={setQueryText}
             returnKeyType="search"
@@ -556,13 +490,13 @@ export default function ActiveCompetitionsScreen({ navigation }) {
         <ScrollView
           style={styles.scroll}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 150 }}
+          contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#A4D65E']} // Android
-              tintColor="#A4D65E" // iOS
+              colors={['#93D13C']} // Android
+              tintColor="#93D13C" // iOS
             />
           }
         >
@@ -580,70 +514,81 @@ export default function ActiveCompetitionsScreen({ navigation }) {
 
 /* ───────────── styles ───────────── */
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F8F8F8' },
+  root: { 
+    flex: 1, 
+    backgroundColor: '#F8F9F8' 
+  },
 
-  // Custom Header
+  // Dark header band
   header: {
-    height: 60,
-    backgroundColor: '#192126',
+    height: 0,
+    backgroundColor: '#1C2125',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
   },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#A4D65E',
-    letterSpacing: -0.5,
-  },
+  // headerCapsule: {
+  //   width: '62%',
+  //   height: 44,
+  //   borderRadius: 22,
+  //   backgroundColor: '#55585A',
+  // },
 
-  // Tab Navigation (matching ProfileScreen style)
+  // Tab Navigation
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
+    backgroundColor: '#F3F3F3',
+    marginHorizontal: 24,
     marginTop: 16,
-    borderRadius: 12,
+    height: 64,
+    borderRadius: 16,
     padding: 4,
   },
   tab: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 14,
+    
   },
   activeTabStyle: {
-    backgroundColor: '#F0F9E8',
+    backgroundColor: '#F3F9EA',
   },
   tabText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginLeft: 8,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#CACCCF',
   },
   activeTabText: {
-    color: '#A4D65E',
-    fontWeight: '600',
+    color: '#93D13C',
   },
 
+  // Search field
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EAEAEA',
-    borderRadius: 28,
-    marginHorizontal: 16,
+    backgroundColor: '#EFEEEE',
+    borderRadius: 20,
+    marginHorizontal: 24,
     marginTop: 16,
-    marginBottom: 20,
+    marginBottom: 24,
     paddingHorizontal: 16,
-    height: 52,
+    height: 56,
   },
-  searchIcon: { marginRight: 10 },
-  searchInput: { flex: 1, fontSize: 16, color: '#333' },
+  searchIcon: { 
+    marginRight: 10 
+  },
+  searchInput: { 
+    flex: 1, 
+    fontSize: 16, 
+    fontWeight: '500',
+    color: '#333' 
+  },
 
-  scroll: { flex: 1, paddingHorizontal: 16 },
+  // Scroll and content
+  scroll: { 
+    flex: 1, 
+    paddingHorizontal: 24 
+  },
 
   loadingText: {
     textAlign: 'center',
@@ -667,180 +612,75 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
+  // Competition cards
   card: {
     backgroundColor: '#262626',
-    borderRadius: 16,
-    minHeight: 180,
+    borderRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 22,
     marginBottom: 24,
-    overflow: 'hidden',
-  },
-
-  completedCard: {
-    backgroundColor: '#262626',
-    borderWidth: 2,
-    borderColor: '#A4D65E',
-  },
-
-  inviteCard: {
-    backgroundColor: '#A4D65E',
-    borderRadius: 16,
-    minHeight: 160,
-    marginBottom: 24,
-    overflow: 'hidden',
-  },
-
-  bgIcon: { position: 'absolute', right: 12, bottom: 12 },
-
-  cardContent: { 
-    flex: 1, 
-    padding: 20, 
-    justifyContent: 'space-between' 
-  },
-  
-  inviteContent: { 
-    flex: 1, 
-    padding: 20, 
-    justifyContent: 'space-between' 
-  },
-
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
   },
 
   cardTitle: { 
-    fontSize: 24, 
+    fontSize: 23, 
+    lineHeight: 34,
     fontWeight: '700', 
-    color: '#fff',
-    flex: 1,
-    marginRight: 12,
+    color: '#FFFFFF',
   },
 
-  completedCardTitle: {
-    color: '#A4D65E',
-  },
-
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-
-  activeBadge: {
-    backgroundColor: '#4CAF50',
-  },
-
-  upcomingBadge: {
-    backgroundColor: '#FF9800',
-  },
-
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#fff',
-  },
-
-  timeRemainingText: {
+  metaText: {
     fontSize: 14,
-    color: '#ccc',
-    marginBottom: 12,
+    lineHeight: 20,
+    fontWeight: '500',
+    color: '#B8C0C7',
+    marginTop: 6,
   },
 
-  completedTimeText: {
-    color: '#A4D65E',
+  actionLinkContainer: {
+    marginTop: 14,
   },
 
-  completedTrophyBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  viewResultsContainer: {
-    alignItems: 'center',
-    marginTop: 8,
-  },
-
-  viewResultsButton: {
-    backgroundColor: '#A4D65E',
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-    minWidth: 120,
-  },
-
-  viewResultsButtonText: {
-    fontSize: 14,
+  actionLink: {
+    fontSize: 16,
+    lineHeight: 22,
     fontWeight: '600',
+    color: '#93D13C',
   },
 
-  leaveButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-
-  inviteText: { 
-    fontSize: 16, 
-    color: '#1A1E23', 
-    marginTop: 8,
-    marginBottom: 16,
-  },
-
+  // Invite actions
   inviteActions: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 14,
   },
 
   inviteButton: {
     flex: 1,
     paddingVertical: 10,
-    paddingHorizontal: 20,
     borderRadius: 8,
     alignItems: 'center',
   },
 
   acceptButton: {
-    backgroundColor: '#1A1E23',
+    backgroundColor: '#93D13C',
   },
 
   declineButton: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#1A1E23',
+    borderColor: '#93D13C',
   },
 
   acceptButtonText: {
-    color: '#fff',
+    color: '#262626',
     fontWeight: '600',
     fontSize: 16,
   },
 
   declineButtonText: {
-    color: '#1A1E23',
+    color: '#93D13C',
     fontWeight: '600',
     fontSize: 16,
   },
-
-  seeMoreRow: { flexDirection: 'row', alignItems: 'center' },
-  seeMoreText: { fontSize: 16, fontWeight: '700', color: '#A4D65E' },
-  seeMoreArrow: { fontSize: 20, fontWeight: '700', color: '#A4D65E', marginLeft: 4 },
 });
