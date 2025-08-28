@@ -12,6 +12,8 @@ import notificationService from './src/services/notificationService';
  * This component wraps the entire app with authentication and navigation providers
  * @returns {JSX.Element} The main app component
  */
+// In src/App.js, update the Root component section:
+
 export default function App() {
   const navigationRef = useRef();
 
@@ -20,18 +22,18 @@ export default function App() {
     <AuthProvider>
       {/* NavigationContainer enables navigation throughout the app */}
       <NavigationContainer ref={navigationRef}>
-        <Root navigationRef={navigationRef} />
+        <RootNavigator navigationRef={navigationRef} />
       </NavigationContainer>
     </AuthProvider>
   );
 }
 
 /**
- * Root component that handles conditional rendering based on authentication state
+ * RootNavigator component that handles conditional rendering based on authentication state
  * This component decides whether to show the authenticated or unauthenticated experience
  * @returns {JSX.Element} Either AppNavigator (for authenticated users) or AuthNavigator (for unauthenticated users)
  */
-function Root({ navigationRef }) {
+function RootNavigator({ navigationRef }) {
   // Get the current user from the authentication context
   const { user } = useContext(AuthContext);
   

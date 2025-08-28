@@ -481,15 +481,20 @@ export default function ActiveCompetitionsScreen({ navigation }) {
   };
 
   /* ---------------- navigation handlers ---------------- */
-  const handleCompetitionPress = (competition) => {
-    const status = getCompetitionStatus(competition);
-    
-    if (status === 'completed') {
-      navigation.navigate('Leaderboard', { competition });
-    } else {
-      navigation.navigate('CompetitionDetails', { competition });
-    }
-  };
+ // In src/screens/ActiveCompetitionsScreen.js, update the handleCompetitionPress function:
+
+const handleCompetitionPress = (competition) => {
+  const status = getCompetitionStatus(competition);
+  
+  if (status === 'completed') {
+    navigation.navigate('Leaderboard', { competition });
+  } else if (status === 'upcoming') {
+    // Navigate to lobby for competitions that haven't started
+    navigation.navigate('CompetitionLobby', { competition });
+  } else {
+    navigation.navigate('CompetitionDetails', { competition });
+  }
+};
 
   /* ---------------- render tab content ---------------- */
   const renderActiveTab = () => (

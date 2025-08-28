@@ -19,6 +19,8 @@ import {
   SubmissionFormScreen,        // Form to submit workout results
   ProfileScreen,               // User profile and settings
   WorkoutDetailsScreen,        // Shows detailed view of a workout submission
+  CompetitionLobbyScreen,  // Make sure this is here
+
 } from '../screens';
 
 // Create navigator instances
@@ -30,10 +32,14 @@ const Stack = createStackNavigator();    // Stack navigator for nested screens
  * Contains all screens related to viewing and participating in competitions
  * Includes navigation flow: ActiveCompetitions → CompetitionDetails → Leaderboard/SubmissionForm/WorkoutDetails
  */
+// In src/navigation/AppNavigator.js, the HomeStack should look like this:
+
 const HomeStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     {/* Main screen showing all active competitions */}
     <Stack.Screen name="ActiveCompetitions" component={ActiveCompetitionsScreen} />
+    {/* Competition lobby for upcoming competitions */}
+    <Stack.Screen name="CompetitionLobby" component={CompetitionLobbyScreen} />
     {/* Individual competition details view */}
     <Stack.Screen name="CompetitionDetails" component={CompetitionDetailsScreen} />
     {/* Competition leaderboard view */}
