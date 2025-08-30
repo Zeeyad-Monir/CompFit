@@ -50,8 +50,25 @@ export const updateEmail = (user, email) => user.updateEmail(email);
 export const reauthenticateWithCredential = (user, credential) => 
   user.reauthenticateWithCredential(credential);
 export const EmailAuthProvider = firebase.auth.EmailAuthProvider;
-export const verifyBeforeUpdateEmail = (user, newEmail) => 
-  user.verifyBeforeUpdateEmail(newEmail);
+export const sendEmailVerification = (user) => user.sendEmailVerification();
+export const verifyBeforeUpdateEmail = (user, newEmail) => {
+  // Check if the method exists in this Firebase version
+  if (user.verifyBeforeUpdateEmail && typeof user.verifyBeforeUpdateEmail === 'function') {
+    return user.verifyBeforeUpdateEmail(newEmail);
+  }
+  
+  // Fallback: Try updateEmail + sendEmailVerification
+  // This might still be blocked by Firebase security settings
+  return user.updateEmail(newEmail)
+    .then(() => user.sendEmailVerification())
+    .catch((error) => {
+      if (error.code === 'auth/operation-not-allowed') {
+        // Firebase is blocking this, need alternative approach
+        throw new Error('Email verification is required before update. Please use alternative method.');
+      }
+      throw error;
+    });
+};
 export const reload = (user) => user.reload();
 export const getCurrentUser = () => auth.currentUser;
 

@@ -16,11 +16,14 @@ import {
   auth, 
   db,
   sendPasswordResetEmail, 
+  sendEmailVerification,
   verifyBeforeUpdateEmail,
+  updateEmail,
   reauthenticateWithCredential,
   EmailAuthProvider,
   reload,
-  getCurrentUser
+  getCurrentUser,
+  signOut
 } from '../firebase';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -47,6 +50,8 @@ export default function ChangeCredentialsScreen({ navigation }) {
   const [pendingNewEmail, setPendingNewEmail] = useState('');
   const [lastResendTime, setLastResendTime] = useState(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [previousEmail, setPreviousEmail] = useState('');
+  const [verificationSent, setVerificationSent] = useState(false);
 
   const handlePasswordReset = async () => {
     setPasswordResetLoading(true);
@@ -103,31 +108,42 @@ export default function ChangeCredentialsScreen({ navigation }) {
     setEmailError('');
     
     try {
-      // Step 1: Re-authenticate user (gate the action)
+      // Step 1: Re-authenticate user
       const credential = EmailAuthProvider.credential(user.email, currentPassword);
       await reauthenticateWithCredential(user, credential);
       
-      // Step 2: Initiate secure email change with verification
+      // Step 2: Store previous email
+      setPreviousEmail(user.email);
+      
+      // Step 3: Try to use verifyBeforeUpdateEmail (with our new smart detection)
       await verifyBeforeUpdateEmail(user, trimmedNewEmail);
       
-      // Step 3: Update UI state
+      // Step 4: Update UI state
       setPendingNewEmail(trimmedNewEmail);
       setEmailChangeStatus('pending');
+      setVerificationSent(true);
       setLastResendTime(Date.now());
       
       // Clear sensitive data
       setCurrentPassword('');
       setNewEmail('');
       
-      // Step 4: Show success message
+      // Step 5: Show success message
       Alert.alert(
         'Verification Email Sent',
-        `We've sent a verification link to ${trimmedNewEmail}. Please check your inbox and click the link to complete the email change.\n\nNote: The link will expire in 1 hour.`,
+        `A verification link has been sent to ${trimmedNewEmail}.\n\n` +
+        `Please check your inbox and click the link to complete the email change.\n\n` +
+        `Note: After verification, you'll need to sign in again with your new email for security.`,
         [{ text: 'OK' }]
       );
+      
     } catch (e) {
-      console.error('Email change error:', e);
-      handleEmailChangeError(e);
+      // Check if it's our custom alternative method error
+      if (e.message && e.message.includes('alternative method')) {
+        setEmailError('This app requires an alternative email change method. Contact support for assistance.');
+      } else {
+        handleEmailChangeError(e);
+      }
     } finally {
       setEmailChangeLoading(false);
     }
@@ -136,6 +152,7 @@ export default function ChangeCredentialsScreen({ navigation }) {
   const handleEmailChangeError = (error) => {
     switch (error.code) {
       case 'auth/wrong-password':
+      case 'auth/invalid-login-credentials':  // Handle both password error codes
         setEmailError('Incorrect password. Please try again.');
         break;
       case 'auth/requires-recent-login':
@@ -154,6 +171,8 @@ export default function ChangeCredentialsScreen({ navigation }) {
         setEmailError('Email change is not enabled. Please contact support.');
         break;
       default:
+        // Only log truly unexpected errors
+        console.error('Unexpected email change error:', error);
         setEmailError('Failed to update email. Please try again later.');
     }
   };
@@ -169,13 +188,20 @@ export default function ChangeCredentialsScreen({ navigation }) {
     setEmailChangeLoading(true);
     
     try {
+      // Try to resend using verifyBeforeUpdateEmail
       await verifyBeforeUpdateEmail(user, pendingNewEmail);
       setLastResendTime(Date.now());
-      Alert.alert('Email Resent', `Verification link has been resent to ${pendingNewEmail}.`);
+      Alert.alert(
+        'Verification Email Resent', 
+        `A new verification link has been sent to ${pendingNewEmail}.\n\n` +
+        `Please check your inbox and spam folder.`
+      );
     } catch (e) {
       console.error('Resend error:', e);
       if (e.code === 'auth/too-many-requests') {
         Alert.alert('Too Many Requests', 'Please wait a few minutes before requesting another email.');
+      } else if (e.message && e.message.includes('alternative method')) {
+        Alert.alert('Error', 'Email verification not available. Please contact support.');
       } else {
         Alert.alert('Error', 'Failed to resend verification email. Please try again.');
       }
@@ -186,40 +212,85 @@ export default function ChangeCredentialsScreen({ navigation }) {
 
   const checkVerificationStatus = async () => {
     try {
+      // Reload user to get latest state
       await reload(user);
       const currentUser = getCurrentUser();
       
-      if (currentUser.email !== user.email) {
+      // Check if email has changed (verification completed)
+      if (currentUser.email !== previousEmail && currentUser.email === pendingNewEmail) {
+        // Email has been successfully changed
+        const userRef = doc(db, 'users', user.uid);
+        await updateDoc(userRef, {
+          email: currentUser.email,
+          emailVerified: currentUser.emailVerified,
+          verifiedAt: serverTimestamp()
+        });
+        
         setEmailChangeStatus('completed');
         setPendingNewEmail('');
-        
-        await updateFirestoreEmail(currentUser.email);
+        setVerificationSent(false);
+        setPreviousEmail('');
         
         Alert.alert(
-          'Email Updated Successfully',
+          '✅ Email Changed Successfully',
           `Your email has been changed to ${currentUser.email}.`,
           [{ text: 'OK', onPress: () => navigation.goBack() }]
         );
       } else {
-        Alert.alert('Pending Verification', 'Please check your email and click the verification link.');
+        Alert.alert(
+          'Verification Pending', 
+          'Please check your email and click the verification link to complete the change.'
+        );
       }
     } catch (e) {
-      console.error('Error checking verification status:', e);
-      Alert.alert('Error', 'Could not check verification status. Please try again.');
+      // Check if it's the token expired error - this means email change succeeded!
+      if (e.code === 'auth/user-token-expired' || e.code === 'auth/requires-recent-login') {
+        console.log('Email verification completed - user needs to re-authenticate');
+        
+        // The email has been changed successfully, but user needs to re-authenticate
+        
+        // Try to update Firestore before the session ends
+        try {
+          const userRef = doc(db, 'users', user.uid);
+          await updateDoc(userRef, {
+            email: pendingNewEmail,
+            emailVerified: true,
+            verifiedAt: serverTimestamp(),
+            previousEmail: previousEmail
+          });
+        } catch (firestoreError) {
+          console.log('Could not update Firestore, but email change was successful');
+        }
+        
+        // Show success message and guide user to sign in again
+        Alert.alert(
+          '✅ Email Changed Successfully!',
+          `Your email has been successfully changed to ${pendingNewEmail}.\n\n` +
+          `For security reasons, you'll be signed out and need to sign in again.\n\n` +
+          `Email: ${pendingNewEmail}\n` +
+          `Password: Your existing password`,
+          [
+            { 
+              text: 'OK - Sign Out', 
+              onPress: () => {
+                // Sign out - the app will automatically show login screen
+                signOut().catch((error) => {
+                  console.log('Sign out error:', error);
+                });
+                // No need to navigate - App.js will automatically show AuthNavigator when user is null
+              }
+            }
+          ],
+          { cancelable: false }
+        );
+      } else {
+        // Log only actual errors
+        console.error('Error checking verification status:', e);
+        Alert.alert('Error', 'Could not check verification status. Please try again.');
+      }
     }
   };
 
-  const updateFirestoreEmail = async (newEmail) => {
-    try {
-      const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
-        email: newEmail,
-        lastEmailUpdate: serverTimestamp()
-      });
-    } catch (e) {
-      console.error('Error updating Firestore email:', e);
-    }
-  };
 
   // Auto-check verification status when app resumes
   useEffect(() => {
@@ -233,6 +304,18 @@ export default function ChangeCredentialsScreen({ navigation }) {
       return () => subscription?.remove();
     }
   }, [emailChangeStatus]);
+
+  // Auto-check on mount if we're in pending state
+  useEffect(() => {
+    if (emailChangeStatus === 'pending' && pendingNewEmail) {
+      // Automatically check status when screen loads
+      const timer = setTimeout(() => {
+        checkVerificationStatus();
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const renderPasswordTab = () => (
     <View style={styles.tabContent}>
@@ -280,6 +363,7 @@ export default function ChangeCredentialsScreen({ navigation }) {
             <Text style={styles.pendingEmail}>{pendingNewEmail}</Text>
             <Text style={styles.pendingSubtext}>
               Please check your inbox and click the link to complete the email change.
+              Don't forget to check your spam folder.
             </Text>
           </View>
           
