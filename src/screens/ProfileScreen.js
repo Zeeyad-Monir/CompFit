@@ -31,7 +31,7 @@ import {
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 
-export default function ProfileScreen({ route }) {
+export default function ProfileScreen({ route, navigation }) {
   const { user } = useContext(AuthContext);
 
   // Tab state - check if we should open friends tab from navigation params
@@ -664,7 +664,20 @@ export default function ProfileScreen({ route }) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.accountOptions}>
-          <TouchableOpacity style={styles.accountOption} onPress={handleLogout}>
+          <TouchableOpacity 
+            style={styles.accountOption} 
+            onPress={() => navigation.navigate('ChangeCredentials')}
+          >
+            <View style={styles.accountOptionIcon}>
+              <Ionicons name="key" size={24} color="#6B7280" />
+            </View>
+            <View style={styles.accountOptionContent}>
+              <Text style={styles.accountOptionTitle}>Change Password/Email</Text>
+              <Text style={styles.accountOptionSubtitle}>Update your account credentials</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.accountOption, { borderBottomWidth: 0 }]} onPress={handleLogout}>
             <View style={styles.accountOptionIcon}>
               <Ionicons name="log-out" size={24} color="#6B7280" />
             </View>

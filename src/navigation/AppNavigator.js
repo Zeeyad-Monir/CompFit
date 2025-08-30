@@ -19,8 +19,8 @@ import {
   SubmissionFormScreen,        // Form to submit workout results
   ProfileScreen,               // User profile and settings
   WorkoutDetailsScreen,        // Shows detailed view of a workout submission
-  CompetitionLobbyScreen,  // Make sure this is here
-
+  CompetitionLobbyScreen,      // Competition lobby for upcoming competitions
+  ChangeCredentialsScreen,     // Change password/email screen
 } from '../screens';
 
 // Create navigator instances
@@ -72,6 +72,8 @@ const ProfileStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     {/* User profile and settings screen */}
     <Stack.Screen name="Profile" component={ProfileScreen} />
+    {/* Change password/email screen */}
+    <Stack.Screen name="ChangeCredentials" component={ChangeCredentialsScreen} />
   </Stack.Navigator>
 );
 

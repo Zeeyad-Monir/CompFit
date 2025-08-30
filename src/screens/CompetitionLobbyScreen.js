@@ -13,7 +13,7 @@ import { Header } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../contexts/AuthContext';
 import { db } from '../firebase';
-import { doc, getDoc, onSnapshot, updateDoc, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, updateDoc, arrayRemove, serverTimestamp } from 'firebase/firestore';
 
 export default function CompetitionLobbyScreen({ route, navigation }) {
   const { competition: initialCompetition } = route.params;
@@ -34,6 +34,79 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
     return now >= startDate;
   };
 
+  // Check if all invitations have been resolved (accepted or declined)
+  const allInvitationsResolved = () => {
+    // Use both state and competition object to ensure accuracy
+    const pending = pendingParticipants || competition?.pendingParticipants || [];
+    return pending.length === 0;
+  };
+
+  // Check if competition can start (considering grace period)
+  const canCompetitionStart = () => {
+    if (!hasCompetitionStarted()) return false;
+    
+    // All invitations resolved - can start
+    if (allInvitationsResolved()) return true;
+    
+    // Grace period expired with pending invites - trigger auto-removal
+    if (hasGracePeriodExpired()) return true;
+    
+    // Still in grace period - wait
+    return false;
+  };
+
+  // ==================== GRACE PERIOD LOGIC ====================
+  const GRACE_PERIOD_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+  // Calculate grace period end time
+  const getGracePeriodEndTime = () => {
+    if (!competition?.startDate) return null;
+    const startDate = new Date(competition.startDate);
+    return new Date(startDate.getTime() + GRACE_PERIOD_MS);
+  };
+
+  // Check if currently in grace period
+  const isInGracePeriod = () => {
+    if (!hasCompetitionStarted()) return false;
+    if (allInvitationsResolved()) return false;
+    
+    const now = new Date();
+    const gracePeriodEnd = getGracePeriodEndTime();
+    return gracePeriodEnd && now < gracePeriodEnd;
+  };
+
+  // Check if grace period has expired
+  const hasGracePeriodExpired = () => {
+    if (!hasCompetitionStarted()) return false;
+    
+    const now = new Date();
+    const gracePeriodEnd = getGracePeriodEndTime();
+    return gracePeriodEnd && now >= gracePeriodEnd;
+  };
+
+  // Get remaining time in grace period (milliseconds)
+  const getGracePeriodRemainingMs = () => {
+    const gracePeriodEnd = getGracePeriodEndTime();
+    if (!gracePeriodEnd) return 0;
+    
+    const now = new Date();
+    const remaining = gracePeriodEnd - now;
+    return Math.max(0, remaining);
+  };
+
+  // Format remaining time for display
+  const formatGracePeriodRemaining = () => {
+    const ms = getGracePeriodRemainingMs();
+    
+    const hours = Math.floor(ms / (1000 * 60 * 60));
+    const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours >= 20) return `${hours} hours`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes} minutes`;
+    return 'Expiring soon';
+  };
+
   // Format dates
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
@@ -48,32 +121,99 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
     });
   };
 
-  // Calculate countdown
+  // Calculate and display countdown
   const updateCountdown = () => {
     const now = new Date();
     const startDate = new Date(competition.startDate);
-    const diff = startDate - now;
-
-    if (diff <= 0) {
-      // Competition has started, navigate to details
-      navigation.replace('CompetitionDetails', { competition });
+    const timeUntilStart = startDate - now;
+    
+    // SCENARIO 1: Before start time
+    if (timeUntilStart > 0) {
+      const days = Math.floor(timeUntilStart / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((timeUntilStart % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((timeUntilStart % (1000 * 60 * 60)) / (1000 * 60));
+      
+      let countdown = '';
+      if (days > 0) {
+        countdown = `${days} day${days !== 1 ? 's' : ''}, ${hours} hour${hours !== 1 ? 's' : ''}`;
+      } else if (hours > 0) {
+        countdown = `${hours} hour${hours !== 1 ? 's' : ''}, ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+      } else {
+        countdown = `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+      }
+      
+      setCountdownTimer(countdown);
       return;
     }
-
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     
-    let countdown = '';
-    if (days > 0) {
-      countdown = `${days} day${days !== 1 ? 's' : ''}, ${hours} hour${hours !== 1 ? 's' : ''}`;
-    } else if (hours > 0) {
-      countdown = `${hours} hour${hours !== 1 ? 's' : ''}, ${minutes} minute${minutes !== 1 ? 's' : ''}`;
-    } else {
-      countdown = `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+    // SCENARIO 2: After start time
+    const pending = competition?.pendingParticipants || pendingParticipants || [];
+    
+    // No pending - ready to start
+    if (pending.length === 0) {
+      if (!competition?.gracePeriodHandled) {
+        navigation.replace('CompetitionDetails', { competition });
+      }
+      return;
     }
     
-    setCountdownTimer(countdown);
+    // In grace period - show countdown
+    if (isInGracePeriod()) {
+      const remaining = formatGracePeriodRemaining();
+      setCountdownTimer(`Grace period: ${remaining}`);
+      return;
+    }
+    
+    // Grace period expired - initiate auto-removal
+    if (hasGracePeriodExpired()) {
+      if (competition.ownerId === user?.uid && !competition.gracePeriodHandled) {
+        setCountdownTimer('Starting competition...');
+        performAutoRemoval();
+      } else {
+        setCountdownTimer('Waiting for host...');
+      }
+      return;
+    }
+    
+    setCountdownTimer('Processing...');
+  };
+
+  // Handle automatic removal of pending participants after grace period
+  const performAutoRemoval = async () => {
+    // Safety checks
+    if (!competition?.id) return;
+    if (!hasGracePeriodExpired()) return;
+    if (competition.gracePeriodHandled) return; // Already processed
+    
+    // Only owner performs the removal
+    if (competition.ownerId !== user?.uid) {
+      console.log('Non-owner waiting for auto-removal...');
+      return;
+    }
+    
+    const pendingUsers = competition.pendingParticipants || [];
+    if (pendingUsers.length === 0) return;
+    
+    console.log(`Grace period expired. Auto-removing ${pendingUsers.length} pending participants.`);
+    
+    try {
+      // Perform the auto-removal
+      await updateDoc(doc(db, 'competitions', competition.id), {
+        pendingParticipants: [],
+        gracePeriodHandled: true,
+        gracePeriodExpiredAt: serverTimestamp(),
+        autoRemovedUsers: pendingUsers,
+      });
+      
+      console.log('Auto-removal successful');
+    } catch (error) {
+      console.error('Auto-removal failed:', error);
+      Alert.alert(
+        'Grace Period Expired',
+        'Failed to automatically start the competition. Please try manually.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   // Fetch participant details
@@ -99,12 +239,9 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
   // Load competition data
   useEffect(() => {
     if (!competition?.id) return;
-
-    // Check if competition has started on mount
-    if (hasCompetitionStarted()) {
-      navigation.replace('CompetitionDetails', { competition });
-      return;
-    }
+    
+    // Don't check here - wait for Firebase data to load
+    let hasCheckedStart = false;
 
     // Listen to competition updates
     const unsubscribe = onSnapshot(
@@ -112,6 +249,21 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
       async (snapshot) => {
         if (snapshot.exists()) {
           const updatedCompetition = { id: snapshot.id, ...snapshot.data() };
+          
+          // Check if competition was cancelled
+          if (updatedCompetition.status === 'cancelled') {
+            // Navigate away if competition was cancelled
+            const isCompetitionOwner = updatedCompetition.ownerId === user?.uid;
+            Alert.alert(
+              'Competition Cancelled',
+              isCompetitionOwner 
+                ? 'You have ended this competition.' 
+                : 'The host has cancelled this competition.',
+              [{ text: 'OK', onPress: () => navigation.navigate('ActiveCompetitions') }]
+            );
+            return;
+          }
+          
           setCompetition(updatedCompetition);
           
           // Fetch participant details
@@ -122,6 +274,34 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
           setPendingParticipants(pendingUsers);
           setLoading(false);
           setRefreshing(false);
+          
+          // Check competition start conditions
+          if (!hasCheckedStart) {
+            const now = new Date();
+            const startDate = new Date(updatedCompetition.startDate);
+            const hasStarted = now >= startDate;
+            const pending = updatedCompetition.pendingParticipants || [];
+            
+            // CASE 1: Ready to start (no pending or grace handled)
+            if (hasStarted && (pending.length === 0 || updatedCompetition.gracePeriodHandled)) {
+              hasCheckedStart = true;
+              navigation.replace('CompetitionDetails', { competition: updatedCompetition });
+              return;
+            }
+            
+            // CASE 2: Check for grace period expiration
+            if (hasStarted && pending.length > 0 && !updatedCompetition.gracePeriodHandled) {
+              const gracePeriodEnd = new Date(startDate.getTime() + GRACE_PERIOD_MS);
+              
+              if (now >= gracePeriodEnd) {
+                // Grace period expired - owner should handle
+                if (updatedCompetition.ownerId === user?.uid) {
+                  console.log('Grace period expired - initiating auto-removal');
+                  performAutoRemoval();
+                }
+              }
+            }
+          }
         }
       },
       (error) => {
@@ -131,9 +311,20 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
       }
     );
 
-    // Update countdown every minute
+    // Set up dynamic interval based on state
     updateCountdown();
-    const interval = setInterval(updateCountdown, 60000);
+    
+    // Determine interval based on state
+    let intervalTime = 60000; // Default: 1 minute
+    if (isInGracePeriod()) {
+      // During grace period: update every minute
+      intervalTime = 60000;
+    } else if (hasCompetitionStarted() && !allInvitationsResolved()) {
+      // Waiting to start: check frequently
+      intervalTime = 5000;
+    }
+    
+    const interval = setInterval(updateCountdown, intervalTime);
 
     return () => {
       unsubscribe();
@@ -162,9 +353,43 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
               await updateDoc(doc(db, 'competitions', competition.id), {
                 participants: arrayRemove(user.uid),
               });
-              navigation.goBack();
+              navigation.navigate('ActiveCompetitions');
             } catch (error) {
               Alert.alert('Error', 'Failed to leave competition');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Handle end competition (owner only)
+  const handleEndCompetition = () => {
+    Alert.alert(
+      'End Competition',
+      'Are you sure you want to end this competition? This will:\n\n• Cancel the competition permanently\n• Remove all participants\n• Decline all pending invitations\n\nThis action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End Competition',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Update competition to cancelled status
+              await updateDoc(doc(db, 'competitions', competition.id), {
+                status: 'cancelled',
+                participants: [],
+                pendingParticipants: [],
+                cancelledAt: serverTimestamp(),
+                cancelledBy: user.uid,
+              });
+              
+              Alert.alert('Competition Ended', 'The competition has been cancelled.', [
+                { text: 'OK', onPress: () => navigation.navigate('ActiveCompetitions') }
+              ]);
+            } catch (error) {
+              console.error('Error ending competition:', error);
+              Alert.alert('Error', 'Failed to end competition. Please try again.');
             }
           },
         },
@@ -179,7 +404,14 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
       <Header 
         title="Competition Lobby" 
         showBackButton={true} 
-        onBackPress={() => navigation.goBack()}
+        onBackPress={() => {
+          // Try to go back, but fallback to ActiveCompetitions if can't
+          if (navigation.canGoBack && navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            navigation.navigate('ActiveCompetitions');
+          }
+        }}
       />
       
       <ScrollView
@@ -199,13 +431,68 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
           <Text style={styles.competitionDescription}>{competition.description}</Text>
         </View>
 
+        {/* Competition Status Warning */}
+        {hasCompetitionStarted() && !allInvitationsResolved() && (
+          <View style={[
+            styles.warningCard,
+            isInGracePeriod() ? styles.gracePeriodCard : null
+          ]}>
+            <View style={styles.warningHeader}>
+              <Ionicons 
+                name={isInGracePeriod() ? "timer-outline" : "warning"} 
+                size={24} 
+                color={isInGracePeriod() ? "#007AFF" : "#FFA500"} 
+              />
+              <Text style={[
+                styles.warningTitle,
+                isInGracePeriod() ? styles.gracePeriodTitle : null
+              ]}>
+                {isInGracePeriod() 
+                  ? "Grace Period Active" 
+                  : "Waiting for Participants"}
+              </Text>
+            </View>
+            
+            <Text style={[
+              styles.warningText,
+              isInGracePeriod() ? styles.gracePeriodText : null
+            ]}>
+              {isInGracePeriod() 
+                ? `Participants have ${formatGracePeriodRemaining()} to respond. After this time, pending invitations will be automatically declined and the competition will start.`
+                : "The competition cannot start until all participants respond to their invitations."}
+            </Text>
+            
+            <View style={styles.warningStats}>
+              <Text style={[
+                styles.warningSubtext,
+                isInGracePeriod() ? styles.gracePeriodSubtext : null
+              ]}>
+                {pendingParticipants.length} pending • {participants.length} accepted
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Countdown Timer */}
         <View style={styles.countdownCard}>
           <View style={styles.countdownHeader}>
-            <Ionicons name="hourglass" size={24} color="#A4D65E" />
-            <Text style={styles.countdownLabel}>Competition Starts In</Text>
+            <Ionicons 
+              name={hasCompetitionStarted() && !allInvitationsResolved() ? "time" : "hourglass"} 
+              size={24} 
+              color={hasCompetitionStarted() && !allInvitationsResolved() ? "#FFA500" : "#A4D65E"} 
+            />
+            <Text style={styles.countdownLabel}>
+              {hasCompetitionStarted() && !allInvitationsResolved() 
+                ? "Competition Status" 
+                : "Competition Starts In"}
+            </Text>
           </View>
-          <Text style={styles.countdownTimer}>{countdownTimer}</Text>
+          <Text style={[
+            styles.countdownTimer,
+            hasCompetitionStarted() && !allInvitationsResolved() && styles.countdownTimerWaiting
+          ]}>
+            {countdownTimer}
+          </Text>
         </View>
 
         {/* Competition Dates */}
@@ -325,7 +612,16 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
                     <Text style={[styles.participantName, styles.pendingName]}>
                       {participant.username}
                     </Text>
-                    <Text style={styles.pendingStatus}>Invitation pending</Text>
+                    <Text style={[
+                      styles.pendingStatus,
+                      isInGracePeriod() ? styles.gracePeriodStatus : null
+                    ]}>
+                      {(() => {
+                        if (!hasCompetitionStarted()) return 'Invitation pending';
+                        if (isInGracePeriod()) return `⏱️ ${formatGracePeriodRemaining()} to respond`;
+                        return '⚠️ Response required';
+                      })()}
+                    </Text>
                   </View>
                 </View>
                 <View style={styles.statusIndicator}>
@@ -335,6 +631,17 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
             ))}
           </View>
         </View>
+
+        {/* End Competition Button - Only for Owner */}
+        {isOwner && (
+          <TouchableOpacity 
+            style={styles.endCompetitionButton}
+            onPress={handleEndCompetition}
+          >
+            <Ionicons name="close-circle-outline" size={20} color="#FF3B30" />
+            <Text style={styles.endCompetitionButtonText}>End Competition</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Leave Competition Button */}
         {!isOwner && (
@@ -383,6 +690,72 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   
+  // Warning Card
+  warningCard: {
+    backgroundColor: '#FFF9E6',
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFA500',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  warningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1E23',
+    marginLeft: 8,
+  },
+  warningText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  warningSubtext: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#FFA500',
+    marginTop: 4,
+  },
+  
+  // Grace Period Styles
+  gracePeriodCard: {
+    backgroundColor: '#E8F4FF',
+    borderColor: '#007AFF',
+  },
+  gracePeriodTitle: {
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  gracePeriodText: {
+    color: '#333',
+    lineHeight: 20,
+  },
+  gracePeriodSubtext: {
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  gracePeriodStatus: {
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  warningStats: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  
   // Countdown Card
   countdownCard: {
     backgroundColor: '#FFFFFF',
@@ -411,6 +784,10 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#1A1E23',
+  },
+  countdownTimerWaiting: {
+    fontSize: 18,
+    color: '#FFA500',
   },
   
   // Dates Card
@@ -639,6 +1016,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FF6B6B',
+    marginLeft: 8,
+  },
+  
+  // End Competition Button
+  endCompetitionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFE5E5',
+    marginHorizontal: 16,
+    marginTop: 20,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FF3B30',
+  },
+  endCompetitionButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF3B30',
     marginLeft: 8,
   },
 });

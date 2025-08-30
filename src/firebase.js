@@ -46,6 +46,14 @@ export const signInWithEmailAndPassword = (email, password) =>
 export const signOut = () => auth.signOut();
 export const sendPasswordResetEmail = (email) => auth.sendPasswordResetEmail(email);
 export const updateProfile = (user, profile) => user.updateProfile(profile);
+export const updateEmail = (user, email) => user.updateEmail(email);
+export const reauthenticateWithCredential = (user, credential) => 
+  user.reauthenticateWithCredential(credential);
+export const EmailAuthProvider = firebase.auth.EmailAuthProvider;
+export const verifyBeforeUpdateEmail = (user, newEmail) => 
+  user.verifyBeforeUpdateEmail(newEmail);
+export const reload = (user) => user.reload();
+export const getCurrentUser = () => auth.currentUser;
 
 // Export functions helpers
 export const getFunctions = () => functions;

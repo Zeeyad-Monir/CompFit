@@ -295,17 +295,21 @@ export default function ActiveCompetitionsScreen({ navigation }) {
   }, [user, removedCompetitions]);
 
   /* ---------------- competition status helpers ---------- */
+  const isCompetitionCancelled = (competition) => {
+    return competition.status === 'cancelled';
+  };
+
   const isCompetitionCompleted = (competition) => {
     const now = new Date();
     const endDate = new Date(competition.endDate);
-    return now > endDate || competition.status === 'completed';
+    return now > endDate || competition.status === 'completed' || competition.status === 'cancelled';
   };
 
   const isCompetitionActive = (competition) => {
     const now = new Date();
     const startDate = new Date(competition.startDate);
     const endDate = new Date(competition.endDate);
-    return now >= startDate && now <= endDate && competition.status !== 'completed';
+    return now >= startDate && now <= endDate && competition.status !== 'completed' && competition.status !== 'cancelled';
   };
 
   const isCompetitionUpcoming = (competition) => {
@@ -484,6 +488,16 @@ export default function ActiveCompetitionsScreen({ navigation }) {
  // In src/screens/ActiveCompetitionsScreen.js, update the handleCompetitionPress function:
 
 const handleCompetitionPress = (competition) => {
+  // Check if cancelled first
+  if (competition.status === 'cancelled') {
+    Alert.alert(
+      'Competition Cancelled',
+      'This competition has been cancelled by the host.',
+      [{ text: 'OK' }]
+    );
+    return;
+  }
+  
   const status = getCompetitionStatus(competition);
   
   if (status === 'completed') {
@@ -492,7 +506,17 @@ const handleCompetitionPress = (competition) => {
     // Navigate to lobby for competitions that haven't started
     navigation.navigate('CompetitionLobby', { competition });
   } else {
-    navigation.navigate('CompetitionDetails', { competition });
+    // For active competitions, check if invitations are resolved
+    const hasPendingInvitations = competition.pendingParticipants && 
+                                  competition.pendingParticipants.length > 0;
+    
+    if (hasPendingInvitations) {
+      // Still has unresolved invitations, go to lobby
+      navigation.navigate('CompetitionLobby', { competition });
+    } else {
+      // All invitations resolved, go to details
+      navigation.navigate('CompetitionDetails', { competition });
+    }
   }
 };
 
@@ -543,6 +567,11 @@ const handleCompetitionPress = (competition) => {
               onPress={() => handleCompetitionPress(comp)}
             >
               <Text style={styles.cardTitle}>{comp.name}</Text>
+              {comp.status === 'cancelled' && (
+                <View style={styles.cancelledBadge}>
+                  <Text style={styles.cancelledText}>CANCELLED</Text>
+                </View>
+              )}
               <Text style={styles.metaText}>Ends: {formattedDate}</Text>
               <TouchableOpacity 
                 style={styles.actionLinkContainer}
@@ -579,8 +608,13 @@ const handleCompetitionPress = (competition) => {
               onPress={() => handleCompetitionPress(comp)}
             >
               <Text style={styles.cardTitle}>{comp.name}</Text>
+              {comp.status === 'cancelled' && (
+                <View style={styles.cancelledBadge}>
+                  <Text style={styles.cancelledText}>CANCELLED</Text>
+                </View>
+              )}
               <Text style={styles.metaText}>Ended: {formattedDate}</Text>
-              {comp.winnerId && (
+              {comp.winnerId && comp.status !== 'cancelled' && (
                 <Text style={styles.winnerText}>Winner determined ✓</Text>
               )}
               <TouchableOpacity 
@@ -833,5 +867,20 @@ const styles = StyleSheet.create({
     color: '#93D13C',
     fontWeight: '600',
     fontSize: 16,
+  },
+  
+  // Cancelled indicator styles
+  cancelledBadge: {
+    backgroundColor: '#FF3B30',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  cancelledText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
