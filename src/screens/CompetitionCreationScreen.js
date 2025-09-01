@@ -10,7 +10,10 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  Switch,
+  Modal,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { Header, Button, FormInput, Dropdown, DatePicker } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { db } from '../firebase';
@@ -178,6 +181,9 @@ export default function CompetitionCreationScreen({ navigation }) {
   // Tab state - dynamic based on preset selection
   const [selectedPreset, setSelectedPreset] = useState(null);
   const [activeTab, setActiveTab] = useState('presets'); // 'presets', 'manual', 'friends', 'rules'
+  
+  // Track which activity cards have expanded "More" sections
+  const [expandedCards, setExpandedCards] = useState({});
 
   // Helper function to get initial form values
   const getInitialFormValues = () => {
@@ -189,7 +195,17 @@ export default function CompetitionCreationScreen({ navigation }) {
       endDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 23, 59),
       endTime: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 23, 59),
       dailyCap: '',
-      activities: [{ type: 'Walking', unit: 'Minute', points: '1', unitsPerPoint: '1', customType: '', customUnit: '' }],
+      photoProofRequired: false,
+      invitationGracePeriod: true,  // Default to allowing grace period
+      leaderboardUpdateDays: 0,  // Default to live updates
+      activities: [{ 
+        type: 'Walking', unit: 'Minute', points: '1', unitsPerPoint: '1', 
+        customType: '', customUnit: '',
+        // NEW FIELDS for activity-specific limits
+        maxSubmissionsPerDay: null,
+        maxPointsPerWeek: null,
+        perSubmissionCap: null
+      }],
       inviteUsername: '', invitedFriends: []
     };
   };
@@ -203,8 +219,20 @@ export default function CompetitionCreationScreen({ navigation }) {
   const [endDate, setEnd] = useState(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 23, 59));
   const [endTime, setEndTime] = useState(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 23, 59));
   const [dailyCap, setDailyCap] = useState('');
+  const [photoProofRequired, setPhotoProofRequired] = useState(false);
+  const [invitationGracePeriod, setInvitationGracePeriod] = useState(true); // Default ON
+  const [leaderboardUpdateDays, setLeaderboardUpdateDays] = useState(0); // 0 means live updates
+  const [showLeaderboardPicker, setShowLeaderboardPicker] = useState(false);
+  const [tempLeaderboardDays, setTempLeaderboardDays] = useState(0); // Temporary state for picker
   const [activities, setActs] = useState([
-    { type: 'Walking', unit: 'Minute', points: '1', unitsPerPoint: '1', customType: '', customUnit: '' }
+    { 
+      type: 'Walking', unit: 'Minute', points: '1', unitsPerPoint: '1', 
+      customType: '', customUnit: '',
+      // NEW FIELDS for activity-specific limits
+      maxSubmissionsPerDay: null,
+      maxPointsPerWeek: null,
+      perSubmissionCap: null
+    }
   ]);
 
   // Shared state for both tabs
@@ -212,6 +240,14 @@ export default function CompetitionCreationScreen({ navigation }) {
   const [invitedFriends, setInvitedFriends] = useState([]);
   const [userFriends, setUserFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
+  
+  // Toggle expansion state for a card
+  const toggleCardExpansion = (index) => {
+    setExpandedCards(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
 
   /* ---------- DUPLICATE PREVENTION LOGIC ---------- */
   const getAvailableActivityTypes = (currentIndex) => {
@@ -305,9 +341,38 @@ export default function CompetitionCreationScreen({ navigation }) {
     setName(initialValues.name); setDesc(initialValues.description);
     setStart(initialValues.startDate); setStartTime(initialValues.startTime);
     setEnd(initialValues.endDate); setEndTime(initialValues.endTime);
-    setDailyCap(initialValues.dailyCap); setActs(initialValues.activities);
+    setDailyCap(initialValues.dailyCap); setPhotoProofRequired(initialValues.photoProofRequired); 
+    setInvitationGracePeriod(initialValues.invitationGracePeriod);
+    setLeaderboardUpdateDays(initialValues.leaderboardUpdateDays);
+    setTempLeaderboardDays(initialValues.leaderboardUpdateDays);
+    setActs(initialValues.activities);
     setInviteUsername(initialValues.inviteUsername); setInvitedFriends(initialValues.invitedFriends);
     setSelectedPreset(null); setActiveTab('presets');
+    setExpandedCards({}); // Reset expanded cards state
+  };
+
+  /* ---------- leaderboard helpers ---------- */
+  const getCompetitionDays = () => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const getLeaderboardUpdateOptions = () => {
+    const totalDays = getCompetitionDays();
+    const options = [{ label: 'Live Updates', value: 0 }];
+    
+    // Generate options up to total competition days
+    for (let i = 1; i <= Math.min(totalDays, 30); i++) {
+      options.push({
+        label: `Every ${i} day${i > 1 ? 's' : ''}`,
+        value: i
+      });
+    }
+    
+    return options;
   };
 
   /* ---------- date/time helpers ---------- */
@@ -389,7 +454,11 @@ export default function CompetitionCreationScreen({ navigation }) {
     
     setActs([...activities, { 
       type: defaultType, unit: 'Minute', points: '1', unitsPerPoint: '1',
-      customType: '', customUnit: ''
+      customType: '', customUnit: '',
+      // NEW FIELDS for activity-specific limits
+      maxSubmissionsPerDay: null,
+      maxPointsPerWeek: null,
+      perSubmissionCap: null
     }]);
   };
 
@@ -505,6 +574,10 @@ export default function CompetitionCreationScreen({ navigation }) {
       const rules = selectedPreset.activities.map(a => ({
         type: a.type, unit: a.unit, pointsPerUnit: a.pointsPerUnit,
         unitsPerPoint: a.unitsPerPoint, isCustomActivity: false, isCustomUnit: false,
+        // Default limit fields for presets (no individual limits)
+        maxSubmissionsPerDay: null,
+        maxPointsPerWeek: null,
+        perSubmissionCap: null
       }));
 
       await addDoc(collection(db,'competitions'), {
@@ -512,7 +585,12 @@ export default function CompetitionCreationScreen({ navigation }) {
         startDate: startDateTime.toISOString(), endDate: endDateTime.toISOString(),
         ownerId: user.uid, participants: [user.uid],
         pendingParticipants: invitedFriends.map(f=>f.uid),
-        rules: rules, dailyCap: selectedPreset.dailyCap, bonuses: [],
+        rules: rules, 
+        dailyCap: selectedPreset.dailyCap, 
+        photoProofRequired: false,  // Presets don't require photos by default
+        invitationGracePeriod: true,  // Presets allow grace period by default
+        leaderboardUpdateDays: 0,  // Presets use live updates by default
+        bonuses: [],
         createdAt: serverTimestamp(),
       });
       
@@ -553,6 +631,20 @@ export default function CompetitionCreationScreen({ navigation }) {
         return;
       }
       
+      // Validate new limit fields
+      if (activity.maxSubmissionsPerDay && activity.maxSubmissionsPerDay < 1) {
+        Alert.alert('Validation', `Invalid max submissions per day for ${getActivityDisplayName(activity)}`);
+        return;
+      }
+      if (activity.maxPointsPerWeek && activity.maxPointsPerWeek <= 0) {
+        Alert.alert('Validation', `Invalid weekly points cap for ${getActivityDisplayName(activity)}`);
+        return;
+      }
+      if (activity.perSubmissionCap && activity.perSubmissionCap <= 0) {
+        Alert.alert('Validation', `Invalid per-submission cap for ${getActivityDisplayName(activity)}`);
+        return;
+      }
+      
       if (activity.type === 'Custom') {
         if (!activity.customType || !activity.customType.trim()) {
           Alert.alert('Validation', 'Please provide a name for all custom activities');
@@ -576,6 +668,10 @@ export default function CompetitionCreationScreen({ navigation }) {
         type: getFinalActivityType(a), unit: getFinalUnitType(a),
         pointsPerUnit: Number(a.points), unitsPerPoint: Number(a.unitsPerPoint),
         isCustomActivity: a.type === 'Custom', isCustomUnit: a.unit === 'Custom',
+        // NEW FIELDS for activity-specific limits
+        maxSubmissionsPerDay: a.maxSubmissionsPerDay || null,
+        maxPointsPerWeek: a.maxPointsPerWeek || null,
+        perSubmissionCap: a.perSubmissionCap || null
       }));
 
       await addDoc(collection(db,'competitions'), {
@@ -583,7 +679,12 @@ export default function CompetitionCreationScreen({ navigation }) {
         startDate: finalStartDateTime.toISOString(), endDate: finalEndDateTime.toISOString(),
         ownerId: user.uid, participants: [user.uid],
         pendingParticipants: invitedFriends.map(f=>f.uid),
-        rules: rules, dailyCap: dailyCap ? Number(dailyCap) : null, bonuses: [],
+        rules: rules, 
+        dailyCap: dailyCap ? Number(dailyCap) : null, 
+        photoProofRequired: photoProofRequired,
+        invitationGracePeriod: invitationGracePeriod,
+        leaderboardUpdateDays: leaderboardUpdateDays,
+        bonuses: [],
         createdAt: serverTimestamp(),
       });
       
@@ -959,6 +1060,90 @@ export default function CompetitionCreationScreen({ navigation }) {
               </Text>
             </View>
 
+            {/* MORE SECTION - Collapsible advanced settings */}
+            <TouchableOpacity 
+              style={styles.moreSectionHeader}
+              onPress={() => toggleCardExpansion(idx)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.moreSectionTitleContainer}>
+                <Text style={styles.moreSectionTitle}>More settings</Text>
+                <Text style={styles.moreSectionSubtitle}>Optional limits for fairness and balance</Text>
+              </View>
+              <Ionicons 
+                name={expandedCards[idx] ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color="#6B7280" 
+              />
+            </TouchableOpacity>
+
+            {expandedCards[idx] && (
+              <View style={styles.moreSectionContent}>
+                {/* Max Submissions Per Day */}
+                <View style={styles.limitControl}>
+                  <FormInput
+                    label="Max submissions per day"
+                    keyboardType="numeric"
+                    value={act.maxSubmissionsPerDay?.toString() || ''}
+                    onChangeText={(value) => {
+                      const updated = [...activities];
+                      updated[idx] = {
+                        ...updated[idx],
+                        maxSubmissionsPerDay: value ? parseInt(value) : null
+                      };
+                      setActs(updated);
+                    }}
+                    placeholder="Unlimited"
+                  />
+                  <Text style={styles.limitHelper}>
+                    Leave empty for unlimited daily submissions (use "1" for once per day)
+                  </Text>
+                </View>
+
+                {/* Max Points Per Week */}
+                <View style={styles.limitControl}>
+                  <FormInput
+                    label="Max points per week for this activity"
+                    keyboardType="numeric"
+                    value={act.maxPointsPerWeek?.toString() || ''}
+                    onChangeText={(value) => {
+                      const updated = [...activities];
+                      updated[idx] = {
+                        ...updated[idx],
+                        maxPointsPerWeek: value ? parseFloat(value) : null
+                      };
+                      setActs(updated);
+                    }}
+                    placeholder="Unlimited"
+                  />
+                  <Text style={styles.limitHelper}>
+                    Total weekly points cap for {getActivityDisplayName(act)}
+                  </Text>
+                </View>
+
+                {/* Per-Submission Point Cap */}
+                <View style={styles.limitControl}>
+                  <FormInput
+                    label="Per-submission point cap"
+                    keyboardType="numeric"
+                    value={act.perSubmissionCap?.toString() || ''}
+                    onChangeText={(value) => {
+                      const updated = [...activities];
+                      updated[idx] = {
+                        ...updated[idx],
+                        perSubmissionCap: value ? parseFloat(value) : null
+                      };
+                      setActs(updated);
+                    }}
+                    placeholder="Unlimited"
+                  />
+                  <Text style={styles.limitHelper}>
+                    Maximum points per single submission
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {activities.length>1 && (
               <TouchableOpacity onPress={()=>removeAct(idx)} style={styles.trashBtn}>
                 <Ionicons name="trash" size={20} color="#FF6B6B"/>
@@ -982,6 +1167,84 @@ export default function CompetitionCreationScreen({ navigation }) {
         keyboardType="numeric"
         placeholder="Leave blank for unlimited"
       />
+
+      {/* Leaderboard Update Frequency */}
+      <View style={styles.leaderboardUpdateSection}>
+        <View style={styles.leaderboardUpdateHeader}>
+          <View style={styles.leaderboardUpdateInfo}>
+            <Text style={styles.leaderboardUpdateLabel}>Leaderboard Update Frequency</Text>
+            <Text style={styles.leaderboardUpdateHelper}>
+              Delay score reveals to reduce competition anxiety
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.leaderboardUpdateButton}
+            onPress={() => {
+              setTempLeaderboardDays(leaderboardUpdateDays);
+              setShowLeaderboardPicker(true);
+            }}
+          >
+            <Text style={styles.leaderboardUpdateButtonText}>
+              {leaderboardUpdateDays === 0 
+                ? 'Live Updates' 
+                : `Every ${leaderboardUpdateDays} day${leaderboardUpdateDays > 1 ? 's' : ''}`}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
+        {leaderboardUpdateDays > 0 && (
+          <View style={styles.leaderboardUpdateNotice}>
+            <Ionicons name="information-circle" size={16} color="#3B82F6" />
+            <Text style={styles.leaderboardUpdateNoticeText}>
+              Scores and submissions will be hidden for {leaderboardUpdateDays} day{leaderboardUpdateDays > 1 ? 's' : ''} at a time
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Photo Proof Requirement */}
+      <View style={styles.photoProofSection}>
+        <View style={styles.photoProofHeader}>
+          <View style={styles.photoProofInfo}>
+            <Text style={styles.photoProofLabel}>Photo Proof Required</Text>
+            <Text style={styles.photoProofHelper}>
+              Participants must attach a photo with every submission
+            </Text>
+          </View>
+          <Switch
+            value={photoProofRequired}
+            onValueChange={setPhotoProofRequired}
+            trackColor={{ false: "#E5E7EB", true: "#C7E89F" }}
+            thumbColor={photoProofRequired ? "#A4D65E" : "#9CA3AF"}
+          />
+        </View>
+      </View>
+
+      {/* 24 Hour Invitation Grace Period */}
+      <View style={styles.gracePeriodSection}>
+        <View style={styles.gracePeriodHeader}>
+          <View style={styles.gracePeriodInfo}>
+            <Text style={styles.gracePeriodLabel}>24 Hour Invitation Grace Period</Text>
+            <Text style={styles.gracePeriodHelper}>
+              Allow pending invites to join within 24 hours after competition starts
+            </Text>
+          </View>
+          <Switch
+            value={invitationGracePeriod}
+            onValueChange={setInvitationGracePeriod}
+            trackColor={{ false: "#E5E7EB", true: "#C7E89F" }}
+            thumbColor={invitationGracePeriod ? "#A4D65E" : "#9CA3AF"}
+          />
+        </View>
+        {!invitationGracePeriod && (
+          <View style={styles.gracePeriodWarning}>
+            <Ionicons name="warning" size={16} color="#F59E0B" />
+            <Text style={styles.gracePeriodWarningText}>
+              Pending invitations will be cancelled when competition starts
+            </Text>
+          </View>
+        )}
+      </View>
 
       <Text style={styles.sectionTitle}>Invite Participants</Text>
       <Text style={styles.sectionSubtext}>Invite friends by their registered username</Text>
@@ -1145,6 +1408,73 @@ export default function CompetitionCreationScreen({ navigation }) {
       {activeTab === 'manual' && renderManualTab()}
       {activeTab === 'friends' && renderFriendsTab()}
       {activeTab === 'rules' && renderRulesTab()}
+
+      {/* Leaderboard Update Picker Modal */}
+      <Modal
+        visible={showLeaderboardPicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowLeaderboardPicker(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowLeaderboardPicker(false)}
+        >
+          <View style={styles.pickerContainer}>
+            <View style={styles.pickerHeader}>
+              <TouchableOpacity onPress={() => {
+                setTempLeaderboardDays(leaderboardUpdateDays); // Reset to original
+                setShowLeaderboardPicker(false);
+              }}>
+                <Text style={styles.pickerCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={styles.pickerTitle}>Update Frequency</Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  // Validate that update days don't exceed competition duration
+                  const totalDays = getCompetitionDays();
+                  if (tempLeaderboardDays > totalDays) {
+                    Alert.alert(
+                      'Invalid Selection',
+                      `Update frequency cannot exceed competition duration (${totalDays} days)`
+                    );
+                    setTempLeaderboardDays(Math.min(tempLeaderboardDays, totalDays));
+                    return; // Don't close modal
+                  }
+                  setLeaderboardUpdateDays(tempLeaderboardDays); // Apply changes
+                  setShowLeaderboardPicker(false);
+                }}
+              >
+                <Text style={styles.pickerDone}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <Picker
+              selectedValue={tempLeaderboardDays}
+              onValueChange={(value) => {
+                const totalDays = getCompetitionDays();
+                if (value <= totalDays) {
+                  setTempLeaderboardDays(value);
+                } else {
+                  Alert.alert(
+                    'Invalid Selection',
+                    `Update frequency cannot exceed competition duration (${totalDays} days)`
+                  );
+                }
+              }}
+              style={styles.picker}
+            >
+              {getLeaderboardUpdateOptions().map(option => (
+                <Picker.Item 
+                  key={option.value} 
+                  label={option.label} 
+                  value={option.value} 
+                />
+              ))}
+            </Picker>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -1424,4 +1754,215 @@ const styles = StyleSheet.create({
   invitedFriendButton: { backgroundColor: '#E5E7EB' },
   inviteFriendButtonText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   invitedFriendButtonText: { color: '#6B7280' },
+  
+  // More Section Styles
+  moreSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  moreSectionTitleContainer: {
+    flex: 1,
+  },
+  moreSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1E23',
+    marginBottom: 2,
+  },
+  moreSectionSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  moreSectionContent: {
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  limitControl: {
+    marginBottom: 12,
+  },
+  limitLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1A1E23',
+    marginBottom: 2,
+  },
+  limitHelper: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  
+  // Photo Proof Styles
+  photoProofSection: {
+    marginTop: 16,
+    marginBottom: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  photoProofHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  photoProofInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  photoProofLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1E23',
+    marginBottom: 4,
+  },
+  photoProofHelper: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  
+  // Grace Period Styles
+  gracePeriodSection: {
+    marginTop: 16,
+    marginBottom: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  gracePeriodHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  gracePeriodInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  gracePeriodLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1E23',
+    marginBottom: 4,
+  },
+  gracePeriodHelper: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  gracePeriodWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 6,
+  },
+  gracePeriodWarningText: {
+    fontSize: 12,
+    color: '#92400E',
+    marginLeft: 8,
+    flex: 1,
+  },
+  
+  // Leaderboard Update Styles
+  leaderboardUpdateSection: {
+    marginTop: 16,
+    marginBottom: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  leaderboardUpdateHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  leaderboardUpdateInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  leaderboardUpdateLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1E23',
+    marginBottom: 4,
+  },
+  leaderboardUpdateHelper: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  leaderboardUpdateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  leaderboardUpdateButtonText: {
+    fontSize: 14,
+    color: '#1A1E23',
+    marginRight: 4,
+  },
+  leaderboardUpdateNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 6,
+  },
+  leaderboardUpdateNoticeText: {
+    fontSize: 12,
+    color: '#1E40AF',
+    marginLeft: 8,
+    flex: 1,
+  },
+  
+  // Modal and Picker Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  pickerContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  pickerCancel: {
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1E23',
+  },
+  pickerDone: {
+    fontSize: 16,
+    color: '#A4D65E',
+    fontWeight: '600',
+  },
+  picker: {
+    height: 200,
+  },
 });

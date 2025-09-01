@@ -349,6 +349,44 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
               </View>
             </View>
           )}
+          
+          {competition.photoProofRequired && (
+            <View style={styles.photoRequirementItem}>
+              <View style={styles.dateIcon}>
+                <Ionicons name="camera" size={24} color="#4CAF50" />
+              </View>
+              <View style={styles.dateInfo}>
+                <Text style={styles.dateLabel}>Photo Proof</Text>
+                <Text style={styles.dateValue}>Required for all submissions</Text>
+              </View>
+            </View>
+          )}
+          
+          {competition.invitationGracePeriod === false && (
+            <View style={styles.gracePeriodItem}>
+              <View style={styles.dateIcon}>
+                <Ionicons name="time" size={24} color="#FF9800" />
+              </View>
+              <View style={styles.dateInfo}>
+                <Text style={styles.dateLabel}>Grace Period</Text>
+                <Text style={styles.dateValue}>No late joins allowed</Text>
+              </View>
+            </View>
+          )}
+          
+          {competition.leaderboardUpdateDays && competition.leaderboardUpdateDays > 0 && (
+            <View style={styles.leaderboardUpdateItem}>
+              <View style={styles.dateIcon}>
+                <Ionicons name="eye-off" size={24} color="#3B82F6" />
+              </View>
+              <View style={styles.dateInfo}>
+                <Text style={styles.dateLabel}>Leaderboard Updates</Text>
+                <Text style={styles.dateValue}>
+                  Every {competition.leaderboardUpdateDays} day{competition.leaderboardUpdateDays > 1 ? 's' : ''}
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
       </View>
 
@@ -369,6 +407,27 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                   <Text style={styles.activityScoring}>
                     {rule.unitsPerPoint} {rule.unit.toLowerCase()}{rule.unitsPerPoint !== 1 ? 's' : ''} = {rule.pointsPerUnit} point{rule.pointsPerUnit !== 1 ? 's' : ''}
                   </Text>
+                  {/* Display activity limits if any exist */}
+                  {(rule.maxSubmissionsPerDay || 
+                    rule.maxPointsPerWeek || rule.perSubmissionCap) && (
+                    <View style={styles.activityLimits}>
+                      {rule.maxSubmissionsPerDay && (
+                        <Text style={styles.activityLimit}>
+                          • Max {rule.maxSubmissionsPerDay} submission{rule.maxSubmissionsPerDay !== 1 ? 's' : ''}/day
+                        </Text>
+                      )}
+                      {rule.maxPointsPerWeek && (
+                        <Text style={styles.activityLimit}>
+                          • Max {rule.maxPointsPerWeek} pts/week
+                        </Text>
+                      )}
+                      {rule.perSubmissionCap && (
+                        <Text style={styles.activityLimit}>
+                          • Max {rule.perSubmissionCap} pts per submission
+                        </Text>
+                      )}
+                    </View>
+                  )}
                 </View>
               </View>
             ))
@@ -776,6 +835,21 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
   },
+  photoRequirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  gracePeriodItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  leaderboardUpdateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+  },
   dateIcon: {
     width: 40,
     height: 40,
@@ -878,6 +952,20 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     paddingVertical: 20,
+    fontStyle: 'italic',
+  },
+  
+  // Activity Limits Styles
+  activityLimits: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  activityLimit: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
     fontStyle: 'italic',
   },
 });

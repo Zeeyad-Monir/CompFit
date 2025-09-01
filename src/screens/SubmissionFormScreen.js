@@ -24,7 +24,7 @@ import {
 import { Header, Button, FormInput, DatePicker } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { AuthContext } from '../contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';  // KEEP ONLY THIS ONE
 import { uploadToCloudinary } from '../utils/uploadImage';
@@ -59,6 +59,11 @@ export default function SubmissionFormScreen({ route, navigation }) {
   
   // State for managing activity display
   const [showAllActivities, setShowAllActivities] = useState(false);
+  
+  // NEW: Activity-specific limits state
+  const [activityDailySubmissions, setActivityDailySubmissions] = useState(0);
+  const [activityWeeklyPoints, setActivityWeeklyPoints] = useState(0);
+  const [activityLimits, setActivityLimits] = useState(null);
 
   // Grab types
   const activityTypes = competition?.rules?.map(r=>r.type)||[];
@@ -96,6 +101,68 @@ export default function SubmissionFormScreen({ route, navigation }) {
   useEffect(() => {
     fetchCurrentDayPoints();
   }, [date, user, competition]);
+
+  // Get activity-specific limits from competition rules
+  useEffect(() => {
+    if (activityType && competition?.rules) {
+      const rule = competition.rules.find(r => r.type === activityType);
+      if (rule) {
+        setActivityLimits({
+          maxSubmissionsPerDay: rule.maxSubmissionsPerDay || null,
+          maxPointsPerWeek: rule.maxPointsPerWeek || null,
+          perSubmissionCap: rule.perSubmissionCap || null
+        });
+      } else {
+        setActivityLimits(null);
+      }
+    }
+  }, [activityType, competition]);
+
+  // Query activity-specific daily submissions
+  useEffect(() => {
+    if (!user || !competition || !activityType || !date) return;
+
+    const { start, end } = getDayBounds(date);
+
+    const q = query(
+      collection(db, 'submissions'),
+      where('competitionId', '==', competition.id),
+      where('userId', '==', user.uid),
+      where('activityType', '==', activityType),
+      where('date', '>=', start),
+      where('date', '<=', end)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setActivityDailySubmissions(snapshot.size);
+    });
+
+    return () => unsubscribe();
+  }, [user, competition, activityType, date]);
+
+  // Query activity-specific weekly points
+  useEffect(() => {
+    if (!user || !competition || !activityType) return;
+
+    const weekStart = new Date(date);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+
+    const q = query(
+      collection(db, 'submissions'),
+      where('competitionId', '==', competition.id),
+      where('userId', '==', user.uid),
+      where('activityType', '==', activityType),
+      where('date', '>=', weekStart.toISOString())
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const totalPoints = snapshot.docs.reduce((sum, doc) => sum + (doc.data().points || 0), 0);
+      setActivityWeeklyPoints(totalPoints);
+    });
+
+    return () => unsubscribe();
+  }, [user, competition, activityType, date]);
 
   // Helper function to get start and end of day in ISO format
   const getDayBounds = (selectedDate) => {
@@ -227,6 +294,70 @@ export default function SubmissionFormScreen({ route, navigation }) {
     return Math.max(0, competition.dailyCap - currentDayPoints);
   };
 
+  // Check if we're in a leaderboard delay period
+  const isInLeaderboardDelayPeriod = () => {
+    if (!competition.leaderboardUpdateDays || competition.leaderboardUpdateDays === 0) {
+      return false; // Live updates, no delay
+    }
+    
+    const now = new Date();
+    const startDate = new Date(competition.startDate);
+    const daysSinceStart = Math.floor((now - startDate) / (1000 * 60 * 60 * 24));
+    
+    // We're in a delay period if the current period hasn't completed yet
+    const currentPeriod = Math.floor(daysSinceStart / competition.leaderboardUpdateDays);
+    const nextUpdateDay = (currentPeriod + 1) * competition.leaderboardUpdateDays;
+    const daysUntilUpdate = nextUpdateDay - daysSinceStart;
+    
+    return daysUntilUpdate > 0;
+  };
+
+  // Check if activity daily submission limit is reached
+  const isActivityDailyLimitReached = () => {
+    if (!activityLimits) return false;
+    
+    if (activityLimits.maxSubmissionsPerDay && 
+        activityDailySubmissions >= activityLimits.maxSubmissionsPerDay) {
+      return true;
+    }
+    
+    return false;
+  };
+
+  // Check if activity weekly points cap would be exceeded
+  const wouldExceedWeeklyCap = (newPoints) => {
+    if (!activityLimits?.maxPointsPerWeek) return false;
+    return (activityWeeklyPoints + newPoints) > activityLimits.maxPointsPerWeek;
+  };
+
+  // Apply per-submission cap if needed
+  const applyPerSubmissionCap = (calculatedPoints) => {
+    if (!activityLimits?.perSubmissionCap) return calculatedPoints;
+    return Math.min(calculatedPoints, activityLimits.perSubmissionCap);
+  };
+
+  // Get final points with all caps applied
+  const getFinalPointsWithActivityLimits = () => {
+    let points = calculatePoints();
+    
+    // Apply per-submission cap first
+    points = applyPerSubmissionCap(points);
+    
+    // Apply weekly cap if needed
+    if (activityLimits?.maxPointsPerWeek) {
+      const remainingWeekly = activityLimits.maxPointsPerWeek - activityWeeklyPoints;
+      points = Math.min(points, Math.max(0, remainingWeekly));
+    }
+    
+    // Apply daily cap (existing logic)
+    if (competition.dailyCap) {
+      const remainingDaily = competition.dailyCap - currentDayPoints;
+      points = Math.min(points, Math.max(0, remainingDaily));
+    }
+    
+    return points;
+  };
+
   // Determine which input fields to show based on the unit
   const shouldShowField = (field) => {
     const { unit } = getRule();
@@ -313,6 +444,16 @@ export default function SubmissionFormScreen({ route, navigation }) {
 
   // Validation to ensure required fields are filled
   const validateSubmission = () => {
+    // Check activity daily limit first
+    if (isActivityDailyLimitReached()) {
+      const limit = activityLimits.maxSubmissionsPerDay;
+      const message = limit === 1 
+        ? `You can only submit ${activityType} once per day`
+        : `You've reached the maximum ${limit} submissions per day for ${activityType}`;
+      Alert.alert('Limit Reached', message);
+      return false;
+    }
+    
     const rule = getRule();
     const { unit } = rule;
     
@@ -355,6 +496,12 @@ export default function SubmissionFormScreen({ route, navigation }) {
     
     if (shouldShowField('customValue') && (!customValue || customValue === '0')) {
       Alert.alert('Validation Error', `Please enter the ${getFieldLabel('customValue').toLowerCase()}`);
+      return false;
+    }
+    
+    // Check if photo is required
+    if (competition.photoProofRequired && !selectedImageUri) {
+      Alert.alert('Photo Required', 'This competition requires a photo with every submission');
       return false;
     }
     
@@ -422,8 +569,8 @@ export default function SubmissionFormScreen({ route, navigation }) {
     // Set submitting state to prevent double taps
     setIsSubmitting(true);
 
-    // Allow submission but use capped points
-    const points = getFinalPoints();
+    // Allow submission but use capped points with all activity limits
+    const points = getFinalPointsWithActivityLimits();
     const rule = getRule();
     
     try {
@@ -731,8 +878,61 @@ export default function SubmissionFormScreen({ route, navigation }) {
         {competition.dailyCap && wouldExceedDailyCap() && (
           <View style={styles.pointsWarning}>
             <Text style={styles.pointsWarningText}>
-              Only {getFinalPoints().toFixed(1)} points will count toward your daily limit.
+              Only {getFinalPointsWithActivityLimits().toFixed(1)} points will count due to limits.
             </Text>
+          </View>
+        )}
+
+        {/* Activity-Specific Limits Info */}
+        {activityType && activityLimits && (activityLimits.maxSubmissionsPerDay || 
+          activityLimits.maxPointsPerWeek || activityLimits.perSubmissionCap) && (
+          <View style={styles.activityLimitsInfo}>
+            <View style={styles.limitHeader}>
+              <Text style={styles.limitTitle}>Activity Limits for {activityType}</Text>
+              <Ionicons name="information-circle" size={20} color="#6B7280" />
+            </View>
+            
+            {/* Max submissions per day */}
+            {activityLimits.maxSubmissionsPerDay && (
+              <View style={styles.limitRow}>
+                <Text style={styles.limitLabel}>Daily Submissions:</Text>
+                <Text style={[
+                  styles.limitValue,
+                  isActivityDailyLimitReached() && styles.limitReached
+                ]}>
+                  {activityDailySubmissions} / {activityLimits.maxSubmissionsPerDay}
+                </Text>
+              </View>
+            )}
+            
+            {/* Weekly points cap */}
+            {activityLimits.maxPointsPerWeek && (
+              <View style={styles.limitRow}>
+                <Text style={styles.limitLabel}>Weekly Points:</Text>
+                <Text style={[
+                  styles.limitValue,
+                  activityWeeklyPoints >= activityLimits.maxPointsPerWeek && styles.limitReached
+                ]}>
+                  {activityWeeklyPoints.toFixed(1)} / {activityLimits.maxPointsPerWeek}
+                </Text>
+              </View>
+            )}
+            
+            {/* Per-submission cap */}
+            {activityLimits.perSubmissionCap && (
+              <View style={styles.limitRow}>
+                <Text style={styles.limitLabel}>Max per submission:</Text>
+                <Text style={styles.limitValue}>{activityLimits.perSubmissionCap} pts</Text>
+              </View>
+            )}
+            
+            {/* Warning if limits affect current submission */}
+            {(wouldExceedWeeklyCap(calculatePoints()) || 
+              (activityLimits.perSubmissionCap && calculatePoints() > activityLimits.perSubmissionCap)) && (
+              <Text style={styles.limitWarning}>
+                ⚠️ Points will be capped due to activity limits
+              </Text>
+            )}
           </View>
         )}
 
@@ -757,23 +957,37 @@ export default function SubmissionFormScreen({ route, navigation }) {
               styles.dailyCapText,
               wouldExceedDailyCap() && styles.dailyCapWarningText
             ]}>
-              {currentDayPoints} / {competition.dailyCap} points used today
+              {isInLeaderboardDelayPeriod() 
+                ? `-- / ${competition.dailyCap} points (scores hidden)`
+                : `${currentDayPoints} / ${competition.dailyCap} points used today`}
             </Text>
-            {wouldExceedDailyCap() && (
+            {!isInLeaderboardDelayPeriod() && wouldExceedDailyCap() && (
               <Text style={styles.warningText}>
                 ⚠️ This submission would exceed your daily limit!
               </Text>
             )}
-            {getRemainingDailyPoints() !== null && getRemainingDailyPoints() > 0 && (
+            {!isInLeaderboardDelayPeriod() && getRemainingDailyPoints() !== null && getRemainingDailyPoints() > 0 && (
               <Text style={styles.remainingText}>
                 {getRemainingDailyPoints()} points remaining today
+              </Text>
+            )}
+            {isInLeaderboardDelayPeriod() && (
+              <Text style={styles.delayPeriodText}>
+                📊 Scores hidden during delay period
               </Text>
             )}
           </View>
         )}
 
         {/* NEW: Photo Evidence Section */}
-        <Text style={styles.label}>Add Photo Evidence (Optional)</Text>
+        <Text style={styles.label}>
+          Add Photo Evidence {competition.photoProofRequired ? '(Required)' : '(Optional)'}
+        </Text>
+        {competition.photoProofRequired && (
+          <Text style={styles.photoRequiredText}>
+            ⚠️ Photo proof is required for this competition
+          </Text>
+        )}
         
         {!selectedImageUri ? (
           // Show attach photo button when no image is selected
@@ -912,6 +1126,7 @@ const styles = StyleSheet.create({
   dailyCapWarningText:{color:'#D32F2F'},
   warningText:     {fontSize:14,color:'#D32F2F',fontWeight:'500',marginTop:4},
   remainingText:   {fontSize:12,color:'#666',fontStyle:'italic'},
+  delayPeriodText: {fontSize:12,color:'#3B82F6',marginTop:4,fontStyle:'italic'},
   loadingText:     {fontSize:12,color:'#666'},
   disabledButton:  {backgroundColor:'#CCCCCC',opacity:0.6},
   addPhotoButton:  {flexDirection:'row',alignItems:'center',justifyContent:'center',backgroundColor:'#FFF',borderRadius:8,padding:12,marginVertical:10,borderWidth:2,borderColor:'#A4D65E',borderStyle:'dashed'},
@@ -965,5 +1180,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 10,
+  },
+  
+  // Activity Limits Styles
+  activityLimitsInfo: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  limitHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  limitTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1A1E23',
+  },
+  limitRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  limitLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  limitValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1E23',
+  },
+  limitReached: {
+    color: '#EF4444',
+  },
+  limitWarning: {
+    fontSize: 13,
+    color: '#F59E0B',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  
+  // Photo Required Styles
+  photoRequiredText: {
+    fontSize: 13,
+    color: '#F59E0B',
+    marginTop: 4,
+    marginBottom: 8,
+    fontStyle: 'italic',
   },
 });

@@ -70,6 +70,9 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
     if (!hasCompetitionStarted()) return false;
     if (allInvitationsResolved()) return false;
     
+    // If grace period is disabled, no grace period exists
+    if (competition?.invitationGracePeriod === false) return false;
+    
     const now = new Date();
     const gracePeriodEnd = getGracePeriodEndTime();
     return gracePeriodEnd && now < gracePeriodEnd;
@@ -78,6 +81,9 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
   // Check if grace period has expired
   const hasGracePeriodExpired = () => {
     if (!hasCompetitionStarted()) return false;
+    
+    // If grace period is disabled, it's immediately "expired" when competition starts
+    if (competition?.invitationGracePeriod === false) return true;
     
     const now = new Date();
     const gracePeriodEnd = getGracePeriodEndTime();
@@ -157,17 +163,22 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
       return;
     }
     
-    // In grace period - show countdown
+    // In grace period - show countdown (only if grace period is enabled)
     if (isInGracePeriod()) {
       const remaining = formatGracePeriodRemaining();
       setCountdownTimer(`Grace period: ${remaining}`);
       return;
     }
     
-    // Grace period expired - initiate auto-removal
+    // Grace period expired or disabled - initiate auto-removal
     if (hasGracePeriodExpired()) {
+      // If grace period is disabled, show different message
+      const message = competition?.invitationGracePeriod === false 
+        ? 'No grace period - removing pending invites...'
+        : 'Starting competition...';
+        
       if (competition.ownerId === user?.uid && !competition.gracePeriodHandled) {
-        setCountdownTimer('Starting competition...');
+        setCountdownTimer(message);
         performAutoRemoval();
       } else {
         setCountdownTimer('Waiting for host...');
@@ -554,6 +565,21 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
               </View>
             )}
 
+            {/* Leaderboard Update Frequency */}
+            {competition.leaderboardUpdateDays && competition.leaderboardUpdateDays > 0 && (
+              <View style={styles.ruleItem}>
+                <View style={styles.ruleIcon}>
+                  <Ionicons name="eye-off" size={20} color="#3B82F6" />
+                </View>
+                <View style={styles.ruleInfo}>
+                  <Text style={styles.ruleTitle}>Leaderboard Updates</Text>
+                  <Text style={styles.ruleValue}>
+                    Scores revealed every {competition.leaderboardUpdateDays} day{competition.leaderboardUpdateDays > 1 ? 's' : ''}
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {/* Activity Rules */}
             <View style={styles.activitiesSection}>
               <Text style={styles.activitiesSectionTitle}>Activity Scoring</Text>
@@ -617,7 +643,12 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
                       isInGracePeriod() ? styles.gracePeriodStatus : null
                     ]}>
                       {(() => {
-                        if (!hasCompetitionStarted()) return 'Invitation pending';
+                        if (!hasCompetitionStarted()) {
+                          // Before competition starts
+                          return competition?.invitationGracePeriod === false 
+                            ? 'Must accept before start' 
+                            : 'Invitation pending';
+                        }
                         if (isInGracePeriod()) return `⏱️ ${formatGracePeriodRemaining()} to respond`;
                         return '⚠️ Response required';
                       })()}
