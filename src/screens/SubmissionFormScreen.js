@@ -28,6 +28,7 @@ import { collection, addDoc, serverTimestamp, query, where, getDocs, onSnapshot 
 import { AuthContext } from '../contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';  // KEEP ONLY THIS ONE
 import { uploadToCloudinary } from '../utils/uploadImage';
+import { getScoreVisibility, filterVisibleSubmissionsWithSelf } from '../utils/scoreVisibility';
 
 // Remove any duplicate ImagePicker import that might be elsewhere in the file
 
@@ -957,16 +958,15 @@ export default function SubmissionFormScreen({ route, navigation }) {
               styles.dailyCapText,
               wouldExceedDailyCap() && styles.dailyCapWarningText
             ]}>
-              {isInLeaderboardDelayPeriod() 
-                ? `-- / ${competition.dailyCap} points (scores hidden)`
-                : `${currentDayPoints} / ${competition.dailyCap} points used today`}
+              {`${currentDayPoints} / ${competition.dailyCap} points used today`}
+              {isInLeaderboardDelayPeriod() && ' (your submissions only)'}
             </Text>
-            {!isInLeaderboardDelayPeriod() && wouldExceedDailyCap() && (
+            {wouldExceedDailyCap() && (
               <Text style={styles.warningText}>
                 ⚠️ This submission would exceed your daily limit!
               </Text>
             )}
-            {!isInLeaderboardDelayPeriod() && getRemainingDailyPoints() !== null && getRemainingDailyPoints() > 0 && (
+            {getRemainingDailyPoints() !== null && getRemainingDailyPoints() > 0 && (
               <Text style={styles.remainingText}>
                 {getRemainingDailyPoints()} points remaining today
               </Text>

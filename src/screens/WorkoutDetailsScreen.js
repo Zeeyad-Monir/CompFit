@@ -454,10 +454,10 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
             </View>
             <View style={styles.pointsContent}>
               <Text style={styles.pointsLabel}>
-                {visibility?.isInHiddenPeriod ? 'Points Hidden' : 'Points Earned'}
+                {visibility?.isInHiddenPeriod && workout.userId !== user.uid ? 'Points Hidden' : 'Points Earned'}
               </Text>
               <Text style={styles.pointsValue}>
-                {visibility?.isInHiddenPeriod ? '---' : workout.points}
+                {visibility?.isInHiddenPeriod && workout.userId !== user.uid ? '---' : workout.points}
               </Text>
             </View>
           </View>

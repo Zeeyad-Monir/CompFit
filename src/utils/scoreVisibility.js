@@ -208,3 +208,45 @@ export const getVisibilityMessage = (visibility) => {
   
   return `Scores hidden • ${formatTimeUntilReveal(visibility.daysUntilReveal)}`;
 };
+
+/**
+ * Filters submissions based on visibility rules, but always shows user's own submissions
+ * @param {Array} submissions - Array of submission objects with createdAt timestamps
+ * @param {Object} competition - The competition object
+ * @param {string} currentUserId - The ID of the current user
+ * @returns {Array} Filtered submissions that should be visible
+ */
+export const filterVisibleSubmissionsWithSelf = (submissions, competition, currentUserId) => {
+  const cutoffDate = getScoreCutoffDate(competition);
+  
+  // If no cutoff (live updates or competition ended), show all
+  if (!cutoffDate) {
+    return submissions;
+  }
+  
+  // Filter submissions - always include user's own
+  return submissions.filter(submission => {
+    // Always show current user's own submissions
+    if (submission.userId === currentUserId) {
+      return true;
+    }
+    
+    // For others, apply the visibility rules
+    const submissionDate = submission.createdAt?.toDate ? 
+      submission.createdAt.toDate() : 
+      new Date(submission.createdAt);
+    return submissionDate <= cutoffDate;
+  });
+};
+
+/**
+ * Calculates visible points for a user based on filtered submissions with self always visible
+ * @param {Array} submissions - All submissions for a user
+ * @param {Object} competition - The competition object
+ * @param {string} currentUserId - The ID of the current user
+ * @returns {number} Total visible points
+ */
+export const calculateVisiblePointsWithSelf = (submissions, competition, currentUserId) => {
+  const visibleSubmissions = filterVisibleSubmissionsWithSelf(submissions, competition, currentUserId);
+  return visibleSubmissions.reduce((total, sub) => total + (sub.points || 0), 0);
+};

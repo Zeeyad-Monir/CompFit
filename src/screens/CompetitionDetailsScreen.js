@@ -17,6 +17,7 @@ import { AuthContext } from '../contexts/AuthContext';
 import { 
   getScoreVisibility, 
   filterVisibleSubmissions,
+  filterVisibleSubmissionsWithSelf,
   getVisibilityMessage 
 } from '../utils/scoreVisibility';
 
@@ -186,8 +187,8 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                          doc.data().createdAt?.toDate() > new Date(Date.now() - 3600000) // Last hour
         }));
         
-        // Filter submissions based on visibility rules
-        const visibleSubmissions = filterVisibleSubmissions(allSubmissions, competition);
+        // Filter submissions based on visibility rules, always showing user's own
+        const visibleSubmissions = filterVisibleSubmissionsWithSelf(allSubmissions, competition, user.uid);
         
         setWorkouts(visibilityStatus.isInHiddenPeriod ? visibleSubmissions : allSubmissions);
         setLoading(false);
@@ -352,7 +353,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
             </View>
           </View>
 
-          {competition.dailyCap && (
+          {competition.dailyCap > 0 && (
             <View style={styles.dailyCapItem}>
               <View style={styles.dateIcon}>
                 <Ionicons name="speedometer" size={24} color="#FF9800" />
@@ -388,7 +389,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
             </View>
           )}
           
-          {competition.leaderboardUpdateDays && competition.leaderboardUpdateDays > 0 && (
+          {competition.leaderboardUpdateDays > 0 && (
             <View style={styles.leaderboardUpdateItem}>
               <View style={styles.dateIcon}>
                 <Ionicons name="eye-off" size={24} color="#3B82F6" />
@@ -606,7 +607,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                           <View style={styles.detailItem}>
                             <Text style={styles.detailIcon}>★</Text>
                             <Text style={styles.detailText}>
-                              {visibility?.isInHiddenPeriod ? '---' : `${workout.points} Points`}
+                              {visibility?.isInHiddenPeriod && workout.userId !== user.uid ? '---' : `${workout.points} Points`}
                             </Text>
                           </View>
                         </View>

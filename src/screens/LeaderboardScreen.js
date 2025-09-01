@@ -21,7 +21,9 @@ import { AuthContext } from '../contexts/AuthContext';
 import { 
   getScoreVisibility, 
   filterVisibleSubmissions, 
+  filterVisibleSubmissionsWithSelf,
   calculateVisiblePoints,
+  calculateVisiblePointsWithSelf,
   getVisibilityMessage 
 } from '../utils/scoreVisibility';
 
@@ -260,8 +262,8 @@ const LeaderboardScreen = ({ route, navigation }) => {
             ...doc.data()
           }));
           
-          // Filter submissions based on visibility rules
-          const visibleSubmissions = filterVisibleSubmissions(allSubmissions, competition);
+          // Filter submissions based on visibility rules, always showing user's own
+          const visibleSubmissions = filterVisibleSubmissionsWithSelf(allSubmissions, competition, user.uid);
           
           // Aggregate points by user (only from visible submissions)
           const pointsByUser = {};
@@ -411,7 +413,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
                   <View style={styles.pointsContainer}>
                     <Ionicons name="star" size={14} color="#A4D65E" />
                     <Text style={styles.pointsText}>
-                      {visibility?.isInHiddenPeriod ? '---' : `${user.points.toFixed(0)} pts`}
+                      {visibility?.isInHiddenPeriod && !user.isCurrentUser ? '---' : `${user.points.toFixed(0)} pts`}
                     </Text>
                   </View>
                 </View>
@@ -497,7 +499,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
                   styles.rankingPoints,
                   user.isCurrentUser && styles.currentUserText
                 ]}>
-                  {visibility?.isInHiddenPeriod ? '---' : `${user.points.toFixed(0)} pts`}
+                  {visibility?.isInHiddenPeriod && !user.isCurrentUser ? '---' : `${user.points.toFixed(0)} pts`}
                 </Text>
               </View>
             ))
