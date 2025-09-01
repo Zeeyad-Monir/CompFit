@@ -20,6 +20,7 @@ import {
 import { Header } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../contexts/AuthContext';
+import { getScoreVisibility, getVisibilityMessage } from '../utils/scoreVisibility';
 import { db } from '../firebase';
 import { 
   doc, 
@@ -48,11 +49,20 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
   
   // Comment-related state
   const [comments, setComments] = useState([]);
+  const [visibility, setVisibility] = useState(null);
   const [commentText, setCommentText] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [loadingComments, setLoadingComments] = useState(true);
   const [userProfiles, setUserProfiles] = useState({});
   const [deletingCommentId, setDeletingCommentId] = useState(null);
+
+  // Calculate visibility status
+  useEffect(() => {
+    if (competition) {
+      const visibilityStatus = getScoreVisibility(competition);
+      setVisibility(visibilityStatus);
+    }
+  }, [competition]);
 
   // Check if this is the current user's workout
   const isOwnWorkout = workout.userId === user?.uid;
@@ -313,6 +323,16 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
         onBackPress={() => navigation.goBack()}
       />
       
+      {/* Visibility Status Banner */}
+      {visibility && visibility.isInHiddenPeriod && (
+        <View style={styles.visibilityBanner}>
+          <Ionicons name="eye-off" size={20} color="#FFF" />
+          <Text style={styles.visibilityText}>
+            {getVisibilityMessage(visibility)}
+          </Text>
+        </View>
+      )}
+      
       <KeyboardAvoidingView 
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -433,8 +453,12 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
               <Ionicons name="star" size={32} color="#FFD700" />
             </View>
             <View style={styles.pointsContent}>
-              <Text style={styles.pointsLabel}>Points Earned</Text>
-              <Text style={styles.pointsValue}>{workout.points}</Text>
+              <Text style={styles.pointsLabel}>
+                {visibility?.isInHiddenPeriod ? 'Points Hidden' : 'Points Earned'}
+              </Text>
+              <Text style={styles.pointsValue}>
+                {visibility?.isInHiddenPeriod ? '---' : workout.points}
+              </Text>
             </View>
           </View>
         </View>
@@ -972,5 +996,19 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  visibilityBanner: {
+    backgroundColor: '#FF9800',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  visibilityText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });

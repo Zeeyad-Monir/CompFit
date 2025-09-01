@@ -14,6 +14,11 @@ import {
   deleteDoc,
 } from 'firebase/firestore';
 import { AuthContext } from '../contexts/AuthContext';
+import { 
+  getScoreVisibility, 
+  filterVisibleSubmissions,
+  getVisibilityMessage 
+} from '../utils/scoreVisibility';
 
 const CompetitionDetailsScreen = ({ route, navigation }) => {
   const [activeTab, setActiveTab] = useState('all');
@@ -27,6 +32,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshTimeout, setRefreshTimeout] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [visibility, setVisibility] = useState(null);
 
   // Reset to 'all' tab when returning from submission
   useEffect(() => {
@@ -153,6 +159,10 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
       return;
     }
 
+    // Calculate visibility status
+    const visibilityStatus = getScoreVisibility(competition);
+    setVisibility(visibilityStatus);
+
     // Fetch user data for all participants
     fetchUsers();
     fetchParticipants();
@@ -168,14 +178,18 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     const unsubscribe = onSnapshot(
       submissionsQuery, 
       (snapshot) => {
-        const submissionsData = snapshot.docs.map(doc => ({
+        const allSubmissions = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
           // Mark as notification if it's a new submission from someone else
           isNotification: doc.data().userId !== user.uid && 
                          doc.data().createdAt?.toDate() > new Date(Date.now() - 3600000) // Last hour
         }));
-        setWorkouts(submissionsData);
+        
+        // Filter submissions based on visibility rules
+        const visibleSubmissions = filterVisibleSubmissions(allSubmissions, competition);
+        
+        setWorkouts(visibilityStatus.isInHiddenPeriod ? visibleSubmissions : allSubmissions);
         setLoading(false);
         stopRefreshing(); // Stop refresh spinner when data loads
       },
@@ -482,6 +496,16 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         onBackPress={() => navigation.goBack()}
       />
       
+      {/* Visibility Status Banner */}
+      {visibility && visibility.isInHiddenPeriod && (
+        <View style={styles.visibilityBanner}>
+          <Ionicons name="eye-off" size={20} color="#FFF" />
+          <Text style={styles.visibilityText}>
+            {getVisibilityMessage(visibility)}
+          </Text>
+        </View>
+      )}
+      
       <View style={styles.tabContainer}>
         <TouchableOpacity 
           style={[styles.tab, activeTab === 'all' && styles.activeTab]} 
@@ -578,10 +602,12 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                             </Text>
                           </View>
                           
-                          {/* Always show points */}
+                          {/* Show points based on visibility */}
                           <View style={styles.detailItem}>
                             <Text style={styles.detailIcon}>★</Text>
-                            <Text style={styles.detailText}>{workout.points} Points</Text>
+                            <Text style={styles.detailText}>
+                              {visibility?.isInHiddenPeriod ? '---' : `${workout.points} Points`}
+                            </Text>
                           </View>
                         </View>
                       </View>
@@ -967,6 +993,20 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 2,
     fontStyle: 'italic',
+  },
+  visibilityBanner: {
+    backgroundColor: '#FF9800',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  visibilityText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
 

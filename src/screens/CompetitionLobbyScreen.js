@@ -553,7 +553,7 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
         {rulesExpanded && (
           <View style={styles.rulesContent}>
             {/* Daily Cap */}
-            {competition.dailyCap && (
+            {competition.dailyCap > 0 && (
               <View style={styles.ruleItem}>
                 <View style={styles.ruleIcon}>
                   <Ionicons name="speedometer" size={20} color="#FF9800" />
@@ -566,7 +566,7 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
             )}
 
             {/* Leaderboard Update Frequency */}
-            {competition.leaderboardUpdateDays && competition.leaderboardUpdateDays > 0 && (
+            {competition.leaderboardUpdateDays > 0 && (
               <View style={styles.ruleItem}>
                 <View style={styles.ruleIcon}>
                   <Ionicons name="eye-off" size={20} color="#3B82F6" />
@@ -649,8 +649,8 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
                             ? 'Must accept before start' 
                             : 'Invitation pending';
                         }
-                        if (isInGracePeriod()) return `⏱️ ${formatGracePeriodRemaining()} to respond`;
-                        return '⚠️ Response required';
+                        if (isInGracePeriod()) return `${formatGracePeriodRemaining()} to respond`;
+                        return 'Response required';
                       })()}
                     </Text>
                   </View>

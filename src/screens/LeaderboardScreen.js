@@ -18,6 +18,12 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { AuthContext } from '../contexts/AuthContext';
+import { 
+  getScoreVisibility, 
+  filterVisibleSubmissions, 
+  calculateVisiblePoints,
+  getVisibilityMessage 
+} from '../utils/scoreVisibility';
 
 const LeaderboardScreen = ({ route, navigation }) => {
   const { competition } = route.params;
@@ -28,6 +34,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshTimeout, setRefreshTimeout] = useState(null);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [visibility, setVisibility] = useState(null);
 
   /* ---------------- refresh handler -------------------- */
   const onRefresh = () => {
@@ -233,6 +240,10 @@ const LeaderboardScreen = ({ route, navigation }) => {
       return;
     }
 
+    // Calculate visibility status
+    const visibilityStatus = getScoreVisibility(competition);
+    setVisibility(visibilityStatus);
+
     // Listen to submissions for this competition
     const submissionsQuery = query(
       collection(db, 'submissions'),
@@ -243,11 +254,19 @@ const LeaderboardScreen = ({ route, navigation }) => {
       submissionsQuery, 
       async (snapshot) => {
         try {
-          // Aggregate points by user
+          // Get all submissions
+          const allSubmissions = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          // Filter submissions based on visibility rules
+          const visibleSubmissions = filterVisibleSubmissions(allSubmissions, competition);
+          
+          // Aggregate points by user (only from visible submissions)
           const pointsByUser = {};
           
-          snapshot.docs.forEach(doc => {
-            const submission = doc.data();
+          visibleSubmissions.forEach(submission => {
             const userId = submission.userId;
             
             if (!pointsByUser[userId]) {
@@ -341,6 +360,16 @@ const LeaderboardScreen = ({ route, navigation }) => {
         onBackPress={() => navigation.goBack()}
       />
       
+      {/* Visibility Status Banner */}
+      {visibility && visibility.isInHiddenPeriod && (
+        <View style={styles.visibilityBanner}>
+          <Ionicons name="eye-off" size={20} color="#FFF" />
+          <Text style={styles.visibilityText}>
+            {getVisibilityMessage(visibility)}
+          </Text>
+        </View>
+      )}
+      
       <View style={styles.podiumContainer}>
         <View style={styles.podiumIcon}>
           <Ionicons name="trophy" size={40} color="#A4D65E" />
@@ -381,7 +410,9 @@ const LeaderboardScreen = ({ route, navigation }) => {
                   <Text style={styles.userName}>{user.name}</Text>
                   <View style={styles.pointsContainer}>
                     <Ionicons name="star" size={14} color="#A4D65E" />
-                    <Text style={styles.pointsText}>{user.points.toFixed(0)} pts</Text>
+                    <Text style={styles.pointsText}>
+                      {visibility?.isInHiddenPeriod ? '---' : `${user.points.toFixed(0)} pts`}
+                    </Text>
                   </View>
                 </View>
               );
@@ -466,7 +497,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
                   styles.rankingPoints,
                   user.isCurrentUser && styles.currentUserText
                 ]}>
-                  {user.points.toFixed(0)} pts
+                  {visibility?.isInHiddenPeriod ? '---' : `${user.points.toFixed(0)} pts`}
                 </Text>
               </View>
             ))
@@ -660,6 +691,20 @@ const styles = StyleSheet.create({
   },
   currentUserText: {
     color: '#1A1E23',
+  },
+  visibilityBanner: {
+    backgroundColor: '#FF9800',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  visibilityText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
 

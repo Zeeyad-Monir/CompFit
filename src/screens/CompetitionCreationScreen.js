@@ -11,10 +11,8 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
-  Modal,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import { Header, Button, FormInput, Dropdown, DatePicker } from '../components';
+import { Header, Button, FormInput, Dropdown, DatePicker, LeaderboardUpdatePicker } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { db } from '../firebase';
 import {
@@ -222,8 +220,6 @@ export default function CompetitionCreationScreen({ navigation }) {
   const [photoProofRequired, setPhotoProofRequired] = useState(false);
   const [invitationGracePeriod, setInvitationGracePeriod] = useState(true); // Default ON
   const [leaderboardUpdateDays, setLeaderboardUpdateDays] = useState(0); // 0 means live updates
-  const [showLeaderboardPicker, setShowLeaderboardPicker] = useState(false);
-  const [tempLeaderboardDays, setTempLeaderboardDays] = useState(0); // Temporary state for picker
   const [activities, setActs] = useState([
     { 
       type: 'Walking', unit: 'Minute', points: '1', unitsPerPoint: '1', 
@@ -344,7 +340,6 @@ export default function CompetitionCreationScreen({ navigation }) {
     setDailyCap(initialValues.dailyCap); setPhotoProofRequired(initialValues.photoProofRequired); 
     setInvitationGracePeriod(initialValues.invitationGracePeriod);
     setLeaderboardUpdateDays(initialValues.leaderboardUpdateDays);
-    setTempLeaderboardDays(initialValues.leaderboardUpdateDays);
     setActs(initialValues.activities);
     setInviteUsername(initialValues.inviteUsername); setInvitedFriends(initialValues.invitedFriends);
     setSelectedPreset(null); setActiveTab('presets');
@@ -360,20 +355,6 @@ export default function CompetitionCreationScreen({ navigation }) {
     return diffDays;
   };
 
-  const getLeaderboardUpdateOptions = () => {
-    const totalDays = getCompetitionDays();
-    const options = [{ label: 'Live Updates', value: 0 }];
-    
-    // Generate options up to total competition days
-    for (let i = 1; i <= Math.min(totalDays, 30); i++) {
-      options.push({
-        label: `Every ${i} day${i > 1 ? 's' : ''}`,
-        value: i
-      });
-    }
-    
-    return options;
-  };
 
   /* ---------- date/time helpers ---------- */
   const handleStartDateChange = (selectedDate) => {
@@ -1169,38 +1150,11 @@ export default function CompetitionCreationScreen({ navigation }) {
       />
 
       {/* Leaderboard Update Frequency */}
-      <View style={styles.leaderboardUpdateSection}>
-        <View style={styles.leaderboardUpdateHeader}>
-          <View style={styles.leaderboardUpdateInfo}>
-            <Text style={styles.leaderboardUpdateLabel}>Leaderboard Update Frequency</Text>
-            <Text style={styles.leaderboardUpdateHelper}>
-              Delay score reveals to reduce competition anxiety
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={styles.leaderboardUpdateButton}
-            onPress={() => {
-              setTempLeaderboardDays(leaderboardUpdateDays);
-              setShowLeaderboardPicker(true);
-            }}
-          >
-            <Text style={styles.leaderboardUpdateButtonText}>
-              {leaderboardUpdateDays === 0 
-                ? 'Live Updates' 
-                : `Every ${leaderboardUpdateDays} day${leaderboardUpdateDays > 1 ? 's' : ''}`}
-            </Text>
-            <Ionicons name="chevron-down" size={16} color="#6B7280" />
-          </TouchableOpacity>
-        </View>
-        {leaderboardUpdateDays > 0 && (
-          <View style={styles.leaderboardUpdateNotice}>
-            <Ionicons name="information-circle" size={16} color="#3B82F6" />
-            <Text style={styles.leaderboardUpdateNoticeText}>
-              Scores and submissions will be hidden for {leaderboardUpdateDays} day{leaderboardUpdateDays > 1 ? 's' : ''} at a time
-            </Text>
-          </View>
-        )}
-      </View>
+      <LeaderboardUpdatePicker
+        value={leaderboardUpdateDays}
+        onChange={setLeaderboardUpdateDays}
+        competitionDays={getCompetitionDays()}
+      />
 
       {/* Photo Proof Requirement */}
       <View style={styles.photoProofSection}>
@@ -1409,72 +1363,6 @@ export default function CompetitionCreationScreen({ navigation }) {
       {activeTab === 'friends' && renderFriendsTab()}
       {activeTab === 'rules' && renderRulesTab()}
 
-      {/* Leaderboard Update Picker Modal */}
-      <Modal
-        visible={showLeaderboardPicker}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowLeaderboardPicker(false)}
-      >
-        <TouchableOpacity 
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowLeaderboardPicker(false)}
-        >
-          <View style={styles.pickerContainer}>
-            <View style={styles.pickerHeader}>
-              <TouchableOpacity onPress={() => {
-                setTempLeaderboardDays(leaderboardUpdateDays); // Reset to original
-                setShowLeaderboardPicker(false);
-              }}>
-                <Text style={styles.pickerCancel}>Cancel</Text>
-              </TouchableOpacity>
-              <Text style={styles.pickerTitle}>Update Frequency</Text>
-              <TouchableOpacity 
-                onPress={() => {
-                  // Validate that update days don't exceed competition duration
-                  const totalDays = getCompetitionDays();
-                  if (tempLeaderboardDays > totalDays) {
-                    Alert.alert(
-                      'Invalid Selection',
-                      `Update frequency cannot exceed competition duration (${totalDays} days)`
-                    );
-                    setTempLeaderboardDays(Math.min(tempLeaderboardDays, totalDays));
-                    return; // Don't close modal
-                  }
-                  setLeaderboardUpdateDays(tempLeaderboardDays); // Apply changes
-                  setShowLeaderboardPicker(false);
-                }}
-              >
-                <Text style={styles.pickerDone}>Done</Text>
-              </TouchableOpacity>
-            </View>
-            <Picker
-              selectedValue={tempLeaderboardDays}
-              onValueChange={(value) => {
-                const totalDays = getCompetitionDays();
-                if (value <= totalDays) {
-                  setTempLeaderboardDays(value);
-                } else {
-                  Alert.alert(
-                    'Invalid Selection',
-                    `Update frequency cannot exceed competition duration (${totalDays} days)`
-                  );
-                }
-              }}
-              style={styles.picker}
-            >
-              {getLeaderboardUpdateOptions().map(option => (
-                <Picker.Item 
-                  key={option.value} 
-                  label={option.label} 
-                  value={option.value} 
-                />
-              ))}
-            </Picker>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </View>
   );
 }
@@ -1871,98 +1759,4 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   
-  // Leaderboard Update Styles
-  leaderboardUpdateSection: {
-    marginTop: 16,
-    marginBottom: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  leaderboardUpdateHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  leaderboardUpdateInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  leaderboardUpdateLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1E23',
-    marginBottom: 4,
-  },
-  leaderboardUpdateHelper: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  leaderboardUpdateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  leaderboardUpdateButtonText: {
-    fontSize: 14,
-    color: '#1A1E23',
-    marginRight: 4,
-  },
-  leaderboardUpdateNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 6,
-  },
-  leaderboardUpdateNoticeText: {
-    fontSize: 12,
-    color: '#1E40AF',
-    marginLeft: 8,
-    flex: 1,
-  },
-  
-  // Modal and Picker Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  pickerContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 20,
-  },
-  pickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  pickerCancel: {
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  pickerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1A1E23',
-  },
-  pickerDone: {
-    fontSize: 16,
-    color: '#A4D65E',
-    fontWeight: '600',
-  },
-  picker: {
-    height: 200,
-  },
 });
