@@ -8,15 +8,17 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Header } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../contexts/AuthContext';
 import { db } from '../firebase';
 import { doc, getDoc, onSnapshot, updateDoc, arrayRemove, serverTimestamp } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function CompetitionLobbyScreen({ route, navigation }) {
-  const { competition: initialCompetition } = route.params;
+  const { competition: initialCompetition, skipLobby } = route.params;
   const { user } = useContext(AuthContext);
   
   const [competition, setCompetition] = useState(initialCompetition);
@@ -26,6 +28,54 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [rulesExpanded, setRulesExpanded] = useState(false);
   const [countdownTimer, setCountdownTimer] = useState('');
+  const [showTransitionState, setShowTransitionState] = useState(false);
+  const [hasEnteredCompetition, setHasEnteredCompetition] = useState(false);
+  const [checkingTransitionState, setCheckingTransitionState] = useState(skipLobby ? true : false);
+
+  // Check if user has already seen the transition for this competition
+  useEffect(() => {
+    const checkHasEntered = async () => {
+      if (!competition?.id || !user?.uid) return;
+      
+      // Only set checking state if we're potentially showing transition
+      if (skipLobby) {
+        setCheckingTransitionState(true);
+      }
+      
+      const key = `competition_entered_${competition.id}_${user.uid}`;
+      try {
+        const hasEntered = await AsyncStorage.getItem(key);
+        if (hasEntered === 'true') {
+          setHasEnteredCompetition(true);
+          
+          // If navigating directly to an active competition, skip to CompetitionDetails
+          if (skipLobby) {
+            navigation.replace('CompetitionDetails', { competition });
+            return; // Exit early
+          }
+        } else {
+          // Check if we should show transition immediately
+          const now = new Date();
+          const startDate = new Date(competition.startDate);
+          const hasStarted = now >= startDate;
+          const pending = competition.pendingParticipants || [];
+          
+          // If competition started and no pending users, show transition
+          if (hasStarted && (pending.length === 0 || competition.gracePeriodHandled) && skipLobby) {
+            setShowTransitionState(true);
+            setCountdownTimer('Competition Live!');
+            setLoading(false);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking transition state:', error);
+      } finally {
+        setCheckingTransitionState(false); // Always clear checking state
+      }
+    };
+    
+    checkHasEntered();
+  }, [competition?.id, user?.uid, skipLobby]);
 
   // Check if competition has started
   const hasCompetitionStarted = () => {
@@ -157,8 +207,9 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
     
     // No pending - ready to start
     if (pending.length === 0) {
-      if (!competition?.gracePeriodHandled) {
-        navigation.replace('CompetitionDetails', { competition });
+      if (!competition?.gracePeriodHandled && !hasEnteredCompetition && !checkingTransitionState) {
+        setShowTransitionState(true);
+        setCountdownTimer('Competition Live!');
       }
       return;
     }
@@ -251,6 +302,11 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
   useEffect(() => {
     if (!competition?.id) return;
     
+    // Don't set up countdown while checking transition state
+    if (checkingTransitionState && skipLobby) {
+      return;
+    }
+    
     // Don't check here - wait for Firebase data to load
     let hasCheckedStart = false;
 
@@ -296,7 +352,10 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
             // CASE 1: Ready to start (no pending or grace handled)
             if (hasStarted && (pending.length === 0 || updatedCompetition.gracePeriodHandled)) {
               hasCheckedStart = true;
-              navigation.replace('CompetitionDetails', { competition: updatedCompetition });
+              if (!hasEnteredCompetition && !checkingTransitionState) {
+                setShowTransitionState(true);
+                setCountdownTimer('Competition Live!');
+              }
               return;
             }
             
@@ -341,7 +400,7 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
       unsubscribe();
       clearInterval(interval);
     };
-  }, [competition?.id]);
+  }, [competition?.id, checkingTransitionState, skipLobby]);
 
   // Handle refresh
   const onRefresh = () => {
@@ -408,7 +467,27 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
     );
   };
 
+  // Handle entering the competition after transition
+  const handleEnterCompetition = async () => {
+    try {
+      // Save that user has seen the transition for this competition
+      const key = `competition_entered_${competition.id}_${user.uid}`;
+      await AsyncStorage.setItem(key, 'true');
+      setHasEnteredCompetition(true);
+      navigation.replace('CompetitionDetails', { competition });
+    } catch (error) {
+      console.error('Error saving transition state:', error);
+      // Still navigate even if saving fails
+      navigation.replace('CompetitionDetails', { competition });
+    }
+  };
+
   const isOwner = competition.ownerId === user?.uid;
+
+  // If we're checking transition state and might skip, don't show anything to prevent flash
+  if (checkingTransitionState && skipLobby) {
+    return null; // Return nothing to prevent flash
+  }
 
   return (
     <View style={styles.container}>
@@ -436,8 +515,10 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
           />
         }
       >
-        {/* Competition Title Card */}
-        <View style={styles.titleCard}>
+        {!showTransitionState ? (
+          <>
+            {/* Competition Title Card */}
+            <View style={styles.titleCard}>
           <Text style={styles.competitionName}>{competition.name}</Text>
           <Text style={styles.competitionDescription}>{competition.description}</Text>
         </View>
@@ -685,7 +766,116 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
           </TouchableOpacity>
         )}
 
-        <View style={{ height: 40 }} />
+            <View style={{ height: 40 }} />
+          </>
+        ) : (
+          <>
+            {/* Competition Live Transition Screen */}
+            <View style={styles.liveHeader}>
+              <Ionicons name="rocket" size={32} color="#A4D65E" />
+              <Text style={styles.liveTitle}>Competition is Live!</Text>
+              <Text style={styles.liveSubtitle}>All participants are confirmed</Text>
+            </View>
+
+            {/* Competition Details Card */}
+            <View style={styles.titleCard}>
+              <Text style={styles.competitionName}>{competition.name}</Text>
+              <Text style={styles.competitionDescription}>{competition.description}</Text>
+            </View>
+
+            {/* Confirmed Participants Section */}
+            <View style={styles.confirmedSection}>
+              <Text style={styles.sectionTitle}>
+                Confirmed Participants ({participants.length})
+              </Text>
+              <View style={styles.participantsList}>
+                {participants.map((participant) => (
+                  <View key={participant.id} style={styles.participantCard}>
+                    <View style={styles.participantInfo}>
+                      <Ionicons name="person-circle" size={36} color="#A4D65E" />
+                      <View style={styles.participantText}>
+                        <Text style={styles.participantName}>
+                          {participant.username}
+                          {participant.id === competition.ownerId && (
+                            <Text style={styles.ownerBadge}> (Host)</Text>
+                          )}
+                          {participant.id === user?.uid && (
+                            <Text style={styles.youBadge}> (You)</Text>
+                          )}
+                        </Text>
+                        <Text style={styles.participantStatus}>Ready to compete</Text>
+                      </View>
+                    </View>
+                    <View style={styles.statusIndicator}>
+                      <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Competition Rules Summary */}
+            <View style={styles.rulesSection}>
+              <Text style={styles.rulesSectionTitle}>Competition Rules</Text>
+              <View style={styles.rulesSectionContent}>
+                {/* Daily Cap */}
+                {competition.dailyCap > 0 && (
+                  <View style={styles.ruleItem}>
+                    <View style={styles.ruleIcon}>
+                      <Ionicons name="speedometer" size={20} color="#FF9800" />
+                    </View>
+                    <View style={styles.ruleInfo}>
+                      <Text style={styles.ruleTitle}>Daily Point Limit</Text>
+                      <Text style={styles.ruleValue}>{competition.dailyCap} points per day</Text>
+                    </View>
+                  </View>
+                )}
+                
+                {/* Leaderboard Updates */}
+                {competition.leaderboardUpdateDays > 0 && (
+                  <View style={styles.ruleItem}>
+                    <View style={styles.ruleIcon}>
+                      <Ionicons name="eye-off" size={20} color="#3B82F6" />
+                    </View>
+                    <View style={styles.ruleInfo}>
+                      <Text style={styles.ruleTitle}>Leaderboard Updates</Text>
+                      <Text style={styles.ruleValue}>
+                        Every {competition.leaderboardUpdateDays} day{competition.leaderboardUpdateDays > 1 ? 's' : ''}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                
+                {/* Activity Scoring */}
+                <View style={styles.activitiesSection}>
+                  <Text style={styles.activitiesSectionTitle}>Activity Scoring</Text>
+                  {competition.rules?.map((rule, index) => (
+                    <View key={index} style={styles.activityRule}>
+                      <Ionicons name="fitness" size={18} color="#A4D65E" />
+                      <View style={styles.activityRuleInfo}>
+                        <Text style={styles.activityType}>{rule.type}</Text>
+                        <Text style={styles.activityScoring}>
+                          {rule.unitsPerPoint} {rule.unit.toLowerCase()} = {rule.pointsPerUnit} point{rule.pointsPerUnit !== 1 ? 's' : ''}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            {/* Enter Competition Button */}
+            <TouchableOpacity 
+              style={styles.enterCompetitionButton}
+              onPress={handleEnterCompetition}
+            >
+              <Text style={styles.enterButtonText}>Enter Competition</Text>
+              <Ionicons name="arrow-forward" size={24} color="#1A1E23" />
+            </TouchableOpacity>
+
+            <View style={{ height: 40 }} />
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -1068,5 +1258,94 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FF3B30',
     marginLeft: 8,
+  },
+  
+  // Live Competition Transition Styles
+  liveHeader: {
+    backgroundColor: '#1A1E23',
+    padding: 30,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  liveTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#A4D65E',
+    marginTop: 12,
+  },
+  liveSubtitle: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    opacity: 0.8,
+    marginTop: 8,
+  },
+  confirmedSection: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 20,
+    borderRadius: 12,
+    paddingVertical: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  rulesSection: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 20,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  rulesSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1A1E23',
+    marginBottom: 16,
+  },
+  rulesSectionContent: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: 12,
+  },
+  enterCompetitionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#A4D65E',
+    marginHorizontal: 16,
+    marginVertical: 20,
+    padding: 18,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  enterButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1A1E23',
+    marginRight: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
   },
 });

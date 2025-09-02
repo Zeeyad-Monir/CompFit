@@ -14,6 +14,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar';
 import { Header, Button } from '../components';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { db } from '../firebase';
 import {
@@ -487,7 +488,7 @@ export default function ActiveCompetitionsScreen({ navigation }) {
   /* ---------------- navigation handlers ---------------- */
  // In src/screens/ActiveCompetitionsScreen.js, update the handleCompetitionPress function:
 
-const handleCompetitionPress = (competition) => {
+const handleCompetitionPress = async (competition) => {
   // Check if cancelled first
   if (competition.status === 'cancelled') {
     Alert.alert(
@@ -506,16 +507,31 @@ const handleCompetitionPress = (competition) => {
     // Navigate to lobby for competitions that haven't started
     navigation.navigate('CompetitionLobby', { competition });
   } else {
-    // For active competitions, check if invitations are resolved
-    const hasPendingInvitations = competition.pendingParticipants && 
-                                  competition.pendingParticipants.length > 0;
-    
-    if (hasPendingInvitations) {
-      // Still has unresolved invitations, go to lobby
-      navigation.navigate('CompetitionLobby', { competition });
-    } else {
-      // All invitations resolved, go to details
-      navigation.navigate('CompetitionDetails', { competition });
+    // For active competitions, check if user has already entered
+    const key = `competition_entered_${competition.id}_${user.uid}`;
+    try {
+      const hasEntered = await AsyncStorage.getItem(key);
+      
+      if (hasEntered === 'true') {
+        // User has already seen transition, go directly to CompetitionDetails
+        navigation.navigate('CompetitionDetails', { competition });
+      } else {
+        // First time entering or pending invitations exist
+        const hasPendingInvitations = competition.pendingParticipants && 
+                                      competition.pendingParticipants.length > 0;
+        
+        if (hasPendingInvitations) {
+          // Still has unresolved invitations, go to lobby
+          navigation.navigate('CompetitionLobby', { competition });
+        } else {
+          // All invitations resolved, show transition screen
+          navigation.navigate('CompetitionLobby', { competition, skipLobby: true });
+        }
+      }
+    } catch (error) {
+      // If error reading storage, fall back to lobby
+      console.error('Error checking competition entry status:', error);
+      navigation.navigate('CompetitionLobby', { competition, skipLobby: true });
     }
   }
 };
