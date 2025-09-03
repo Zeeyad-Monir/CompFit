@@ -24,7 +24,9 @@ import {
   filterVisibleSubmissionsWithSelf,
   calculateVisiblePoints,
   calculateVisiblePointsWithSelf,
-  getVisibilityMessage 
+  getVisibilityMessage,
+  getLastRevealDate,
+  formatRevealDate
 } from '../utils/scoreVisibility';
 
 const LeaderboardScreen = ({ route, navigation }) => {
@@ -366,9 +368,19 @@ const LeaderboardScreen = ({ route, navigation }) => {
       {visibility && visibility.isInHiddenPeriod && (
         <View style={styles.visibilityBanner}>
           <Ionicons name="eye-off" size={20} color="#FFF" />
-          <Text style={styles.visibilityText}>
-            {getVisibilityMessage(visibility)}
-          </Text>
+          <View style={styles.visibilityTextContainer}>
+            <Text style={styles.visibilityText}>
+              Current cycle scores hidden • Showing accumulated points through cycle {visibility.currentCycle}
+            </Text>
+            <View style={styles.timestampRow}>
+              <Text style={styles.timestampText}>
+                Last updated: {formatRevealDate(getLastRevealDate(competition))}
+              </Text>
+              <Text style={styles.timestampText}>
+                Next reveal: {formatRevealDate(visibility.nextRevealDate)}
+              </Text>
+            </View>
+          </View>
         </View>
       )}
       
@@ -413,7 +425,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
                   <View style={styles.pointsContainer}>
                     <Ionicons name="star" size={14} color="#A4D65E" />
                     <Text style={styles.pointsText}>
-                      {visibility?.isInHiddenPeriod && !user.isCurrentUser ? '---' : `${user.points.toFixed(0)} pts`}
+                      {`${user.points.toFixed(0)} pts`}
                     </Text>
                   </View>
                 </View>
@@ -422,31 +434,6 @@ const LeaderboardScreen = ({ route, navigation }) => {
           </View>
         )}
       </View>
-
-      {/* Complete Competition Button - Only show for owner if not completed */}
-      {competition.ownerId === user.uid && competition.status !== 'completed' && (
-        <View style={styles.completeButtonContainer}>
-          <TouchableOpacity 
-            style={[
-              styles.completeButton,
-              isCompleting && styles.completingButton
-            ]}
-            onPress={handleCompleteCompetition}
-            disabled={isCompleting}
-          >
-            {isCompleting ? (
-              <>
-                <Text style={styles.completeButtonText}>Calculating Results...</Text>
-              </>
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
-                <Text style={styles.completeButtonText}>Complete Competition</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Show completion status if already completed */}
       {competition.status === 'completed' && (
@@ -499,7 +486,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
                   styles.rankingPoints,
                   user.isCurrentUser && styles.currentUserText
                 ]}>
-                  {visibility?.isInHiddenPeriod && !user.isCurrentUser ? '---' : `${user.points.toFixed(0)} pts`}
+                  {`${user.points.toFixed(0)} pts`}
                 </Text>
               </View>
             ))
@@ -603,28 +590,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 4,
   },
-  completeButtonContainer: {
-    padding: 16,
-    backgroundColor: '#1A1E23',
-  },
-  completeButton: {
-    backgroundColor: '#A4D65E',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  completingButton: {
-    backgroundColor: '#7A9B47',
-    opacity: 0.8,
-  },
-  completeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
   completedBanner: {
     backgroundColor: '#FFF8E1',
     padding: 12,
@@ -706,7 +671,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  visibilityTextContainer: {
+    flex: 1,
     marginLeft: 8,
+  },
+  timestampRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  timestampText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    opacity: 0.9,
   },
 });
 

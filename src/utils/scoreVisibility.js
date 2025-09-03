@@ -65,31 +65,25 @@ export const getScoreVisibility = (competition) => {
   // Calculate days into current cycle
   const daysIntoCycle = daysSinceStart % leaderboardUpdateDays;
   
-  // Scores are revealed on the first day of each new cycle (except cycle 0)
-  // During cycle 0 (first period), scores are hidden
-  // At the start of cycle 1, scores from cycle 0 are revealed
-  // Then hidden again until start of cycle 2, etc.
-  const shouldShowScores = currentCycle > 0;
+  // Progressive reveal: current cycle is always hidden, previous cycles are visible
+  // This creates a continuous cycling pattern throughout the competition
+  const shouldShowScores = currentCycle > 0;  // Keep for compatibility with existing code
+  const isInHiddenPeriod = true;  // Always consider current cycle as hidden for filtering
   
-  // Calculate next reveal date
-  let nextRevealDate;
-  let daysUntilReveal;
-  
-  if (currentCycle === 0) {
-    // In first cycle, next reveal is at start of cycle 1
-    daysUntilReveal = leaderboardUpdateDays - daysIntoCycle;
-    nextRevealDate = new Date(start.getTime() + leaderboardUpdateDays * 24 * 60 * 60 * 1000);
-  } else {
-    // In subsequent cycles, next reveal is at start of next cycle
-    daysUntilReveal = leaderboardUpdateDays - daysIntoCycle;
-    nextRevealDate = new Date(now.getTime() + daysUntilReveal * 24 * 60 * 60 * 1000);
-  }
+  // Calculate next reveal date (start of next cycle)
+  const daysUntilReveal = leaderboardUpdateDays - daysIntoCycle;
+  const nextCycleStart = (currentCycle + 1) * leaderboardUpdateDays;
+  let nextRevealDate = new Date(start.getTime() + nextCycleStart * 24 * 60 * 60 * 1000);
   
   // Cap next reveal date at competition end
   if (nextRevealDate > end) {
     nextRevealDate = new Date(end);
-    daysUntilReveal = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
   }
+  
+  // Update message to reflect cycling behavior
+  const message = currentCycle === 0 
+    ? `Scores hidden for ${daysUntilReveal} more day${daysUntilReveal !== 1 ? 's' : ''}`
+    : `Showing scores through cycle ${currentCycle} • Next update in ${daysUntilReveal} day${daysUntilReveal !== 1 ? 's' : ''}`;
   
   return {
     shouldShowScores,
@@ -97,11 +91,76 @@ export const getScoreVisibility = (competition) => {
     currentCycle,
     daysUntilReveal,
     daysIntoCycle,
-    isInHiddenPeriod: !shouldShowScores,
-    message: shouldShowScores 
-      ? `Scores visible (Cycle ${currentCycle + 1})` 
-      : `Scores hidden for ${daysUntilReveal} more day${daysUntilReveal !== 1 ? 's' : ''}`
+    isInHiddenPeriod,
+    message
   };
+};
+
+/**
+ * Gets the date when scores were last revealed
+ * @param {Object} competition - The competition object
+ * @returns {Date|null} The last reveal date, or null if no reveal yet
+ */
+export const getLastRevealDate = (competition) => {
+  const { leaderboardUpdateDays, startDate } = competition;
+  
+  // If live updates, always current
+  if (!leaderboardUpdateDays || leaderboardUpdateDays === 0) {
+    return null;
+  }
+  
+  const now = new Date();
+  const start = new Date(startDate);
+  
+  // If competition hasn't started, no reveal yet
+  if (now < start) {
+    return null;
+  }
+  
+  const daysSinceStart = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+  const currentCycle = Math.floor(daysSinceStart / leaderboardUpdateDays);
+  
+  // If in cycle 0, no reveal yet
+  if (currentCycle === 0) {
+    return null;
+  }
+  
+  // Last reveal was at the start of current cycle
+  const lastRevealDate = new Date(start);
+  lastRevealDate.setDate(lastRevealDate.getDate() + currentCycle * leaderboardUpdateDays);
+  
+  return lastRevealDate;
+};
+
+/**
+ * Formats a date for display with relative time
+ * @param {Date} date - The date to format
+ * @returns {string} Formatted date string
+ */
+export const formatRevealDate = (date) => {
+  if (!date) return 'Not yet';
+  
+  const now = new Date();
+  const diff = date - now;
+  const absDiff = Math.abs(diff);
+  
+  // If less than a day away
+  if (absDiff < 24 * 60 * 60 * 1000) {
+    const hours = Math.floor(absDiff / (1000 * 60 * 60));
+    if (hours === 0) {
+      const minutes = Math.floor(absDiff / (1000 * 60));
+      return diff > 0 ? `in ${minutes} minutes` : `${minutes} minutes ago`;
+    }
+    return diff > 0 ? `in ${hours} hours` : `${hours} hours ago`;
+  }
+  
+  // Format as date
+  return date.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
 };
 
 /**
@@ -134,15 +193,13 @@ export const getScoreCutoffDate = (competition) => {
   const daysSinceStart = Math.floor((now - start) / (1000 * 60 * 60 * 24));
   const currentCycle = Math.floor(daysSinceStart / leaderboardUpdateDays);
   
-  if (currentCycle === 0) {
-    // In first cycle, no scores shown yet
-    return start;
-  }
-  
-  // Calculate the end of the last completed cycle
-  const lastCompletedCycle = currentCycle - 1;
+  // Cutoff is at the START of current cycle
+  // This reveals all previous cycles, hides current cycle
+  // During cycle 0 (days 0-n): cutoff = start date (show nothing except user's own)
+  // During cycle 1 (days n-2n): cutoff = start + n days (show cycle 0)
+  // During cycle 2 (days 2n-3n): cutoff = start + 2n days (show cycles 0-1)
   const cutoffDate = new Date(start);
-  cutoffDate.setDate(cutoffDate.getDate() + (lastCompletedCycle + 1) * leaderboardUpdateDays);
+  cutoffDate.setDate(cutoffDate.getDate() + currentCycle * leaderboardUpdateDays);
   
   return cutoffDate;
 };
