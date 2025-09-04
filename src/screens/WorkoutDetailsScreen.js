@@ -318,9 +318,7 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <Header 
-        title="Workout Details" 
-        showBackButton={true} 
-        onBackPress={() => navigation.goBack()}
+        title="" 
       />
       
       {/* Visibility Status Banner */}

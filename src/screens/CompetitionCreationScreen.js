@@ -1291,7 +1291,7 @@ export default function CompetitionCreationScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Header title="Create Competition" showBackButton onBackPress={navigation.goBack}/>
+      <Header title="" />
 
       {/* Dynamic Tab Navigation */}
       <View style={styles.tabContainer}>

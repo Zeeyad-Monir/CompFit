@@ -859,7 +859,7 @@ export default function ProfileScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <Header title={profile.username} showProfileIcon />
+      <Header title="" />
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>

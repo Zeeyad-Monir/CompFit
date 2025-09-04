@@ -345,9 +345,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
     return (
       <View style={styles.container}>
         <Header 
-          title="Leaderboard" 
-          showBackButton={true} 
-          onBackPress={() => navigation.goBack()}
+          title="" 
         />
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading rankings...</Text>
@@ -359,9 +357,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
   return (
     <View style={styles.container}>
       <Header 
-        title="Leaderboard" 
-        showBackButton={true} 
-        onBackPress={() => navigation.goBack()}
+        title="" 
       />
       
       {/* Visibility Status Banner */}

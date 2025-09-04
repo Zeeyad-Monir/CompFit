@@ -791,9 +791,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
   return (
     <View style={styles.container}>
       <Header 
-        title={competition.name} 
-        showBackButton={true} 
-        onBackPress={() => navigation.goBack()}
+        title="" 
       />
       
       {/* Visibility Status Banner */}

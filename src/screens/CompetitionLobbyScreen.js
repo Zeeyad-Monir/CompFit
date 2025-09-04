@@ -536,16 +536,7 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
   return (
     <View style={styles.container}>
       <Header 
-        title="Competition Lobby" 
-        showBackButton={true} 
-        onBackPress={() => {
-          // Try to go back, but fallback to ActiveCompetitions if can't
-          if (navigation.canGoBack && navigation.canGoBack()) {
-            navigation.goBack();
-          } else {
-            navigation.navigate('ActiveCompetitions');
-          }
-        }}
+        title="" 
       />
       
       <ScrollView

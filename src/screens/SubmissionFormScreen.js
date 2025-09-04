@@ -677,7 +677,7 @@ export default function SubmissionFormScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <Header title="Add Workout" showBackButton onBackPress={()=>navigation.goBack()}/>
+      <Header title="" />
       <ScrollView 
         style={styles.formContainer}
         contentContainerStyle={styles.scrollContent}
