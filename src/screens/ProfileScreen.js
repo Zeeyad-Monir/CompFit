@@ -597,6 +597,7 @@ export default function ProfileScreen({ route, navigation }) {
     <ScrollView 
       style={styles.scrollView}
       contentContainerStyle={styles.scrollViewContent}
+      showsVerticalScrollIndicator={false}
     >
       {/* Profile card */}
       <View style={styles.section}>
@@ -727,6 +728,7 @@ export default function ProfileScreen({ route, navigation }) {
     <ScrollView 
       style={styles.scrollView}
       contentContainerStyle={styles.scrollViewContent}
+      showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}

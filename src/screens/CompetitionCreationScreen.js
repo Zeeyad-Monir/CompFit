@@ -685,7 +685,7 @@ export default function CompetitionCreationScreen({ navigation }) {
   /* ---------- RENDER FUNCTIONS ---------- */
   
   const renderPresetsTab = () => (
-    <ScrollView style={styles.scrollView}>
+    <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quick Start Templates</Text>
         <Text style={styles.sectionSubtext}>Choose from pre-configured competitions to get started quickly</Text>
@@ -716,7 +716,7 @@ export default function CompetitionCreationScreen({ navigation }) {
   );
 
   const renderFriendsTab = () => (
-    <ScrollView style={styles.scrollView}>
+    <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
       <View style={styles.section}>
         <View style={styles.presetHeader}>
           <TouchableOpacity onPress={goBackToPresets} style={styles.backButton}>
@@ -819,7 +819,7 @@ export default function CompetitionCreationScreen({ navigation }) {
   );
 
   const renderRulesTab = () => (
-    <ScrollView style={styles.scrollView}>
+    <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
       <View style={styles.section}>
         <View style={styles.presetHeader}>
           <TouchableOpacity onPress={goBackToPresets} style={styles.backButton}>
@@ -911,6 +911,7 @@ export default function CompetitionCreationScreen({ navigation }) {
       style={styles.scrollView} 
       contentContainerStyle={styles.scrollContent}
       nestedScrollEnabled
+      showsVerticalScrollIndicator={false}
     >
       <Text style={styles.sectionTitle}>Competition Details</Text>
       <FormInput label="Competition Name" value={name} onChangeText={setName}/>

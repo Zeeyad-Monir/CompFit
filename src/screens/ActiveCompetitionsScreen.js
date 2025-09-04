@@ -513,6 +513,14 @@ export default function ActiveCompetitionsScreen({ navigation }) {
   };
 
   /* ---------------- navigation handlers ---------------- */
+  const handlePendingInvitePress = (competition) => {
+    // Navigate to lobby with special flag for pending invites
+    navigation.navigate('CompetitionLobby', { 
+      competition, 
+      isPendingInvite: true 
+    });
+  };
+
  // In src/screens/ActiveCompetitionsScreen.js, update the handleCompetitionPress function:
 
 const handleCompetitionPress = async (competition) => {
@@ -654,24 +662,41 @@ const handleCompetitionPress = async (competition) => {
     <>
       {filteredPending.length > 0 ? (
         filteredPending.map(comp => (
-          <View key={comp.id} style={styles.card}>
+          <TouchableOpacity
+            key={comp.id}
+            style={styles.card}
+            activeOpacity={0.85}
+            onPress={() => handlePendingInvitePress(comp)}
+          >
             <Text style={styles.cardTitle}>{comp.name}</Text>
             <Text style={styles.metaText}>You've been invited to join!</Text>
+            <TouchableOpacity 
+              style={styles.actionLinkContainer}
+              onPress={() => handlePendingInvitePress(comp)}
+            >
+              <Text style={styles.actionLink}>View Details {'>'}</Text>
+            </TouchableOpacity>
             <View style={styles.inviteActions}>
               <TouchableOpacity
                 style={[styles.inviteButton, styles.acceptButton]}
-                onPress={() => handleAcceptInvite(comp.id)}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleAcceptInvite(comp.id);
+                }}
               >
                 <Text style={styles.acceptButtonText}>Accept</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.inviteButton, styles.declineButton]}
-                onPress={() => handleDeclineInvite(comp.id)}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleDeclineInvite(comp.id);
+                }}
               >
                 <Text style={styles.declineButtonText}>Decline</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </TouchableOpacity>
         ))
       ) : (
         <Text style={styles.emptyText}>

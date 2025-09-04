@@ -452,6 +452,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
         <Text style={styles.rankingsTitle}>Rankings</Text>
         <ScrollView 
           style={styles.rankingsList}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

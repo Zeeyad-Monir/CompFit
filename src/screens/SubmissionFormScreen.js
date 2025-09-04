@@ -681,6 +681,7 @@ export default function SubmissionFormScreen({ route, navigation }) {
       <ScrollView 
         style={styles.formContainer}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
         {/* Date Picker with Competition Period Info */}
         <View style={styles.dateSection}>

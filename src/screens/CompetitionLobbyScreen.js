@@ -14,11 +14,11 @@ import { Header } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../contexts/AuthContext';
 import { db } from '../firebase';
-import { doc, getDoc, onSnapshot, updateDoc, arrayRemove, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, updateDoc, arrayRemove, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function CompetitionLobbyScreen({ route, navigation }) {
-  const { competition: initialCompetition, skipLobby } = route.params;
+  const { competition: initialCompetition, skipLobby, isPendingInvite } = route.params;
   const { user } = useContext(AuthContext);
   
   const [competition, setCompetition] = useState(initialCompetition);
@@ -408,6 +408,50 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
     // Data will refresh via the listener
   };
 
+  // Handle accept invitation
+  const handleAcceptInvite = async () => {
+    try {
+      await updateDoc(doc(db, 'competitions', competition.id), {
+        participants: arrayUnion(user.uid),
+        pendingParticipants: arrayRemove(user.uid),
+      });
+      Alert.alert('Success', 'You have joined the competition!', [
+        { text: 'OK', onPress: () => navigation.navigate('ActiveCompetitions') }
+      ]);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to accept invitation');
+      console.error(error);
+    }
+  };
+
+  // Handle decline invitation
+  const handleDeclineInvite = () => {
+    Alert.alert(
+      'Decline Invitation',
+      'Are you sure you want to decline this invitation?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Decline',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await updateDoc(doc(db, 'competitions', competition.id), {
+                pendingParticipants: arrayRemove(user.uid),
+              });
+              Alert.alert('Success', 'Invitation declined', [
+                { text: 'OK', onPress: () => navigation.navigate('ActiveCompetitions') }
+              ]);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to decline invitation');
+              console.error(error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Handle leave competition
   const handleLeaveCompetition = () => {
     Alert.alert(
@@ -506,6 +550,7 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
       
       <ScrollView
         style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -744,8 +789,29 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
           </View>
         </View>
 
+        {/* Accept/Decline Buttons - Only for pending invites */}
+        {isPendingInvite && (
+          <View style={styles.inviteActionContainer}>
+            <TouchableOpacity 
+              style={styles.acceptInviteButton}
+              onPress={handleAcceptInvite}
+            >
+              <Ionicons name="checkmark-circle" size={20} color="#1A1E23" />
+              <Text style={styles.acceptInviteButtonText}>Accept Invitation</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.declineInviteButton}
+              onPress={handleDeclineInvite}
+            >
+              <Ionicons name="close-circle-outline" size={20} color="#FF3B30" />
+              <Text style={styles.declineInviteButtonText}>Decline Invitation</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* End Competition Button - Only for Owner */}
-        {isOwner && (
+        {isOwner && !isPendingInvite && (
           <TouchableOpacity 
             style={styles.endCompetitionButton}
             onPress={handleEndCompetition}
@@ -756,7 +822,7 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
         )}
 
         {/* Leave Competition Button */}
-        {!isOwner && (
+        {!isOwner && !isPendingInvite && (
           <TouchableOpacity 
             style={styles.leaveButton}
             onPress={handleLeaveCompetition}
@@ -766,7 +832,7 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
           </TouchableOpacity>
         )}
 
-            <View style={{ height: 40 }} />
+            <View style={{ height: 100 }} />
           </>
         ) : (
           <>
@@ -873,7 +939,7 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
               <Ionicons name="arrow-forward" size={24} color="#1A1E23" />
             </TouchableOpacity>
 
-            <View style={{ height: 40 }} />
+            <View style={{ height: 100 }} />
           </>
         )}
       </ScrollView>
@@ -1254,6 +1320,48 @@ const styles = StyleSheet.create({
     borderColor: '#FF3B30',
   },
   endCompetitionButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF3B30',
+    marginLeft: 8,
+  },
+  
+  // Invitation Action Buttons
+  inviteActionContainer: {
+    marginHorizontal: 16,
+    marginTop: 20,
+    gap: 12,
+  },
+  acceptInviteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#A4D65E',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  acceptInviteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1E23',
+    marginLeft: 8,
+  },
+  declineInviteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#FF3B30',
+  },
+  declineInviteButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FF3B30',

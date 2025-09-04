@@ -545,6 +545,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
   const renderRulesTab = () => (
     <ScrollView 
       style={styles.rulesContainer}
+      showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -880,6 +881,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
 
           <ScrollView 
             style={styles.workoutsContainer}
+            showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}

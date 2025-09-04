@@ -350,7 +350,7 @@ export default function ChangeCredentialsScreen({ navigation }) {
   );
 
   const renderEmailTab = () => (
-    <ScrollView style={styles.tabContent}>
+    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
       {emailChangeStatus === 'pending' ? (
         // Pending verification UI
         <View>
