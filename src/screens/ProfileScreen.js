@@ -8,6 +8,8 @@ import {
   TextInput,
   Alert,
   RefreshControl,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { Header } from '../components';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,6 +33,8 @@ import {
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 
+const screenWidth = Dimensions.get('window').width;
+
 export default function ProfileScreen({ route, navigation }) {
   const { user } = useContext(AuthContext);
 
@@ -38,11 +42,35 @@ export default function ProfileScreen({ route, navigation }) {
   const [activeTab, setActiveTab] = useState(() => {
     return route?.params?.tab === 'friends' ? 'friends' : 'profile';
   });
+  const tabAnimation = React.useRef(new Animated.Value(
+    route?.params?.tab === 'friends' ? 1 : 0
+  )).current;
+
+  // Tab index mapping for 2 tabs
+  const getTabIndex = (tab) => {
+    switch(tab) {
+      case 'profile': return 0;
+      case 'friends': return 1;
+      default: return 0;
+    }
+  };
+
+  // Animate to new tab position
+  const animateToTab = (newTab) => {
+    const newIndex = getTabIndex(newTab);
+    Animated.spring(tabAnimation, {
+      toValue: newIndex,
+      tension: 50,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+    setActiveTab(newTab);
+  };
   
   // Update tab when navigation params change
   useEffect(() => {
     if (route?.params?.tab === 'friends') {
-      setActiveTab('friends');
+      animateToTab('friends');
     }
   }, [route?.params?.tab]);
 
@@ -566,7 +594,10 @@ export default function ProfileScreen({ route, navigation }) {
   if (loading) return null;
 
   const renderProfileTab = () => (
-    <ScrollView style={styles.scrollView}>
+    <ScrollView 
+      style={styles.scrollView}
+      contentContainerStyle={styles.scrollViewContent}
+    >
       {/* Profile card */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Profile</Text>
@@ -695,6 +726,7 @@ export default function ProfileScreen({ route, navigation }) {
   const renderFriendsTab = () => (
     <ScrollView 
       style={styles.scrollView}
+      contentContainerStyle={styles.scrollViewContent}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -829,29 +861,34 @@ export default function ProfileScreen({ route, navigation }) {
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
+        {/* Animated sliding background */}
+        <Animated.View 
+          style={[
+            styles.tabSlider,
+            {
+              transform: [{
+                translateX: tabAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, (screenWidth - 32 - 8) / 2],
+                })
+              }]
+            }
+          ]}
+        />
+        
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'profile' && styles.activeTab]}
-          onPress={() => setActiveTab('profile')}
+          style={styles.tab}
+          onPress={() => animateToTab('profile')}
         >
-          <Ionicons 
-            name="person" 
-            size={20} 
-            color={activeTab === 'profile' ? '#A4D65E' : '#6B7280'} 
-          />
           <Text style={[styles.tabText, activeTab === 'profile' && styles.activeTabText]}>
             Profile
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'friends' && styles.activeTab]}
-          onPress={() => setActiveTab('friends')}
+          style={styles.tab}
+          onPress={() => animateToTab('friends')}
         >
-          <Ionicons 
-            name="people" 
-            size={20} 
-            color={activeTab === 'friends' ? '#A4D65E' : '#6B7280'} 
-          />
           <Text style={[styles.tabText, activeTab === 'friends' && styles.activeTabText]}>
             Friends
           </Text>
@@ -875,39 +912,46 @@ const styles = StyleSheet.create({
   // Tab Navigation
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F3F3F3',
     marginHorizontal: 16,
     marginTop: 16,
-    borderRadius: 12,
+    height: 64,
+    borderRadius: 16,
     padding: 4,
+    position: 'relative',
+  },
+  tabSlider: {
+    position: 'absolute',
+    width: (Dimensions.get('window').width - 32 - 8) / 2,
+    height: 56,
+    backgroundColor: '#F3F9EA',
+    borderRadius: 14,
+    top: 4,
+    left: 4,
   },
   tab: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 14,
+    zIndex: 1,
     position: 'relative',
   },
   activeTab: {
-    backgroundColor: '#F0F9E8',
+    // Removed backgroundColor - handled by animated slider
   },
   tabText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginLeft: 8,
+    fontSize: 21,
+    fontWeight: '700',
+    color: '#CACCCF',
   },
   activeTabText: {
-    color: '#A4D65E',
-    fontWeight: '600',
+    color: '#93D13C',
   },
   badge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: -8,
+    right: 20,
     backgroundColor: '#FF6B6B',
     borderRadius: 10,
     minWidth: 20,
@@ -923,6 +967,7 @@ const styles = StyleSheet.create({
 
   // Common
   scrollView: { flex: 1, paddingHorizontal: 16 },
+  scrollViewContent: { paddingBottom: 110 },
   section: { marginTop: 24 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1A1E23', marginBottom: 12 },
   loadingContainer: { padding: 20, alignItems: 'center' },

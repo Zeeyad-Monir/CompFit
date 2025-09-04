@@ -9,6 +9,8 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -32,12 +34,37 @@ import {
 } from 'firebase/firestore';
 import { AuthContext } from '../contexts/AuthContext';
 
+const screenWidth = Dimensions.get('window').width;
+
 export default function ActiveCompetitionsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
 
   /* ---------------- tab state ------------------ */
   const [activeTab, setActiveTab] = useState('active');
+  const tabAnimation = React.useRef(new Animated.Value(0)).current;
+
+  // Tab index mapping
+  const getTabIndex = (tab) => {
+    switch(tab) {
+      case 'active': return 0;
+      case 'invites': return 1;
+      case 'completed': return 2;
+      default: return 0;
+    }
+  };
+
+  // Animate to new tab position
+  const animateToTab = (newTab) => {
+    const newIndex = getTabIndex(newTab);
+    Animated.spring(tabAnimation, {
+      toValue: newIndex,
+      tension: 50,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+    setActiveTab(newTab);
+  };
 
   /* ---------------- live Firestore data ---------------- */
   const [activeCompetitions, setActiveCompetitions] = useState([]);
@@ -539,33 +566,6 @@ const handleCompetitionPress = async (competition) => {
   /* ---------------- render tab content ---------------- */
   const renderActiveTab = () => (
     <>
-      {/* Pending Invitations Section */}
-      {filteredPending.length > 0 && (
-        <>
-          <Text style={styles.sectionTitle}>Pending Invitations</Text>
-          {filteredPending.map(comp => (
-            <View key={comp.id} style={styles.card}>
-              <Text style={styles.cardTitle}>{comp.name}</Text>
-              <Text style={styles.metaText}>You've been invited to join!</Text>
-              <View style={styles.inviteActions}>
-                <TouchableOpacity
-                  style={[styles.inviteButton, styles.acceptButton]}
-                  onPress={() => handleAcceptInvite(comp.id)}
-                >
-                  <Text style={styles.acceptButtonText}>Accept</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.inviteButton, styles.declineButton]}
-                  onPress={() => handleDeclineInvite(comp.id)}
-                >
-                  <Text style={styles.declineButtonText}>Decline</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-        </>
-      )}
-
       {/* Active Competitions */}
       {filteredActive.length > 0 ? (
         filteredActive.map(comp => {
@@ -600,7 +600,7 @@ const handleCompetitionPress = async (competition) => {
         })
       ) : (
         <Text style={styles.emptyText}>
-          No active competitions yet — create one or wait for an invite!
+          No active competitions yet — create one to get started!
         </Text>
       )}
     </>
@@ -650,6 +650,37 @@ const handleCompetitionPress = async (competition) => {
     </>
   );
 
+  const renderInvitesTab = () => (
+    <>
+      {filteredPending.length > 0 ? (
+        filteredPending.map(comp => (
+          <View key={comp.id} style={styles.card}>
+            <Text style={styles.cardTitle}>{comp.name}</Text>
+            <Text style={styles.metaText}>You've been invited to join!</Text>
+            <View style={styles.inviteActions}>
+              <TouchableOpacity
+                style={[styles.inviteButton, styles.acceptButton]}
+                onPress={() => handleAcceptInvite(comp.id)}
+              >
+                <Text style={styles.acceptButtonText}>Accept</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.inviteButton, styles.declineButton]}
+                onPress={() => handleDeclineInvite(comp.id)}
+              >
+                <Text style={styles.declineButtonText}>Decline</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))
+      ) : (
+        <Text style={styles.emptyText}>
+          No pending invitations.
+        </Text>
+      )}
+    </>
+  );
+
   return (
     <>
       <SafeAreaView edges={['top']} style={{ backgroundColor: '#1C2125' }}>
@@ -662,9 +693,24 @@ const handleCompetitionPress = async (competition) => {
         </View>
 
         <View style={styles.tabContainer}>
+          {/* Animated sliding background */}
+          <Animated.View 
+            style={[
+              styles.tabSlider,
+              {
+                transform: [{
+                  translateX: tabAnimation.interpolate({
+                    inputRange: [0, 1, 2],
+                    outputRange: [0, (screenWidth - 48 - 8) / 3, (screenWidth - 48 - 8) * 2 / 3],
+                  })
+                }]
+              }
+            ]}
+          />
+          
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'active' && styles.activeTabStyle]}
-            onPress={() => setActiveTab('active')}
+            style={styles.tab}
+            onPress={() => animateToTab('active')}
           >
             <Text style={[styles.tabText, activeTab === 'active' && styles.activeTabText]}>
               Active
@@ -672,11 +718,20 @@ const handleCompetitionPress = async (competition) => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'completed' && styles.activeTabStyle]}
-            onPress={() => setActiveTab('completed')}
+            style={styles.tab}
+            onPress={() => animateToTab('invites')}
+          >
+            <Text style={[styles.tabText, activeTab === 'invites' && styles.activeTabText]}>
+              Invites
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.tab}
+            onPress={() => animateToTab('completed')}
           >
             <Text style={[styles.tabText, activeTab === 'completed' && styles.activeTabText]}>
-              Completed
+              Results
             </Text>
           </TouchableOpacity>
         </View>
@@ -711,6 +766,7 @@ const handleCompetitionPress = async (competition) => {
           )}
 
           {!loading && activeTab === 'active' && renderActiveTab()}
+          {!loading && activeTab === 'invites' && renderInvitesTab()}
           {!loading && activeTab === 'completed' && renderCompletedTab()}
         </ScrollView>
       </SafeAreaView>
@@ -739,19 +795,29 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 16,
     padding: 4,
+    position: 'relative',
+  },
+  tabSlider: {
+    position: 'absolute',
+    width: (Dimensions.get('window').width - 48 - 8) / 3,
+    height: 56,
+    backgroundColor: '#F3F9EA',
+    borderRadius: 14,
+    top: 4,
+    left: 4,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
-    
+    zIndex: 1,
   },
   activeTabStyle: {
-    backgroundColor: '#F3F9EA',
+    // Removed backgroundColor - now handled by animated slider
   },
   tabText: {
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: '700',
     color: '#CACCCF',
   },
