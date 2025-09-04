@@ -824,13 +824,12 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         
         {/* Leaderboard Tab */}
         <TouchableOpacity 
-          style={[styles.tab, activeTab === 'leaderboard' && styles.activeTab]} 
+          style={styles.tab} 
           onPress={() => {
-            setActiveTab('leaderboard');
             navigation.navigate('Leaderboard', { competition });
           }}
         >
-          <Text style={[styles.tabText, activeTab === 'leaderboard' && styles.activeTabText]}>Rank</Text>
+          <Text style={styles.tabText}>Rank</Text>
         </TouchableOpacity>
         
         {/* Add Tab */}
