@@ -4,6 +4,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert } from 'react-native';
 import { Header, Button } from '../components';
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { db } from '../firebase';
 import {
   collection,
@@ -346,6 +347,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
       <View style={styles.container}>
         <Header 
           title="" 
+          backgroundColor="#F8F8F8"
         />
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading rankings...</Text>
@@ -358,7 +360,9 @@ const LeaderboardScreen = ({ route, navigation }) => {
     <View style={styles.container}>
       <Header 
         title="" 
+        backgroundColor="#F8F8F8"
       />
+      <StatusBar style="dark" />
       
       {/* Visibility Status Banner */}
       {visibility && visibility.isInHiddenPeriod && (

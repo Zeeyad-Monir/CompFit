@@ -708,8 +708,8 @@ const handleCompetitionPress = async (competition) => {
 
   return (
     <>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: '#1C2125' }}>
-        <StatusBar style="light" translucent={false} />
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#F8F9F8' }}>
+        <StatusBar style="dark" translucent={false} />
       </SafeAreaView>
 
       <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.root}>
@@ -807,7 +807,7 @@ const styles = StyleSheet.create({
 
   header: {
     height: 1,
-    backgroundColor: '#1C2125',
+    backgroundColor: '#F8F9F8',
     justifyContent: 'center',
     alignItems: 'center',
   },

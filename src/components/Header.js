@@ -2,9 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const Header = ({ title, showBackButton, showProfileIcon, onBackPress }) => {
+const Header = ({ title, showBackButton, showProfileIcon, onBackPress, backgroundColor }) => {
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, backgroundColor && { backgroundColor }]}>
       <View style={styles.leftContainer}>
         {showBackButton && (
           <TouchableOpacity 

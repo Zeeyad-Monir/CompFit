@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { Header } from '../components';
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '../contexts/AuthContext';
 import { getScoreVisibility, getVisibilityMessage } from '../utils/scoreVisibility';
 import { db } from '../firebase';
@@ -319,7 +320,9 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
     <View style={styles.container}>
       <Header 
         title="" 
+        backgroundColor="#F8F8F8"
       />
+      <StatusBar style="dark" />
       
       {/* Visibility Status Banner */}
       {visibility && visibility.isInHiddenPeriod && (

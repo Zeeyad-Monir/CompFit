@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import { Header, Button, FormInput, DatePicker } from '../components';
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { AuthContext } from '../contexts/AuthContext';
@@ -677,7 +678,8 @@ export default function SubmissionFormScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <Header title="" />
+      <Header title="" backgroundColor="#F8F8F8" />
+      <StatusBar style="dark" />
       <ScrollView 
         style={styles.formContainer}
         contentContainerStyle={styles.scrollContent}

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Header } from '../components';
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '../contexts/AuthContext';
 import { auth, db } from '../firebase';
 import { 
@@ -859,7 +860,8 @@ export default function ProfileScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <Header title="" />
+      <Header title="" backgroundColor="#F8F8F8" />
+      <StatusBar style="dark" />
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>

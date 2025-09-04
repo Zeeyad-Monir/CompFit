@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, TextInput } from 'react-native';
 import { Header, Button } from '../components';
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { db } from '../firebase';
 import {
   collection,
@@ -792,7 +793,9 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     <View style={styles.container}>
       <Header 
         title="" 
+        backgroundColor="#F8F8F8"
       />
+      <StatusBar style="dark" />
       
       {/* Visibility Status Banner */}
       {visibility && visibility.isInHiddenPeriod && (

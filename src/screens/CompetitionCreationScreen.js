@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Header, Button, FormInput, Dropdown, DatePicker, LeaderboardUpdatePicker } from '../components';
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { db } from '../firebase';
 import {
   collection,
@@ -1291,7 +1292,8 @@ export default function CompetitionCreationScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Header title="" />
+      <Header title="" backgroundColor="#F8F8F8" />
+      <StatusBar style="dark" />
 
       {/* Dynamic Tab Navigation */}
       <View style={styles.tabContainer}>
