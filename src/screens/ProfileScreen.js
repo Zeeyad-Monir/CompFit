@@ -10,7 +10,9 @@ import {
   RefreshControl,
   Animated,
   Dimensions,
+  Easing,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -36,37 +38,93 @@ import { signOut } from 'firebase/auth';
 
 const screenWidth = Dimensions.get('window').width;
 
+// Color tokens for the new design (matching ActiveCompetitionsScreen)
+const colors = {
+  nav: {
+    activeGreen: '#B6DB78',  // New fresh green
+    inactiveGray: '#B3B3B3', // New gray
+    textDefault: '#111111'
+  },
+  background: '#FFFFFF'      // Pure white
+};
+
 export default function ProfileScreen({ route, navigation }) {
+  const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
 
   // Tab state - check if we should open friends tab from navigation params
-  const [activeTab, setActiveTab] = useState(() => {
-    return route?.params?.tab === 'friends' ? 'friends' : 'profile';
-  });
-  const tabAnimation = React.useRef(new Animated.Value(
-    route?.params?.tab === 'friends' ? 1 : 0
-  )).current;
-
-  // Tab index mapping for 2 tabs
-  const getTabIndex = (tab) => {
-    switch(tab) {
-      case 'profile': return 0;
-      case 'friends': return 1;
-      default: return 0;
-    }
+  const initialTab = route?.params?.tab === 'friends' ? 'friends' : 'profile';
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [measurementsReady, setMeasurementsReady] = useState(false);
+  
+  // Base width for the underline
+  const baseUnderlineWidth = 60;
+  
+  // Calculate initial centered positions for tabs (2 columns)
+  const calculateInitialTabX = (tabIndex) => {
+    const columnWidth = (screenWidth - 48) / 2;  // 2 equal columns
+    const columnCenter = columnWidth * tabIndex + columnWidth / 2;
+    return columnCenter - baseUnderlineWidth / 2;
   };
+  
+  // Tab measurements for underline positioning
+  const [tabMeasurements, setTabMeasurements] = useState({
+    profile: { scale: 1.2, x: calculateInitialTabX(0) },
+    friends: { scale: 1.2, x: calculateInitialTabX(1) }
+  });
 
-  // Animate to new tab position
+  // Animation refs for underline and press feedback
+  const underlinePosition = React.useRef(new Animated.Value(calculateInitialTabX(initialTab === 'friends' ? 1 : 0))).current;
+  const underlineScale = React.useRef(new Animated.Value(1.2)).current;
+  const profileScale = React.useRef(new Animated.Value(1)).current;
+  const friendsScale = React.useRef(new Animated.Value(1)).current;
+
+  // Animate to new tab
   const animateToTab = (newTab) => {
-    const newIndex = getTabIndex(newTab);
-    Animated.spring(tabAnimation, {
-      toValue: newIndex,
-      tension: 50,
-      friction: 8,
-      useNativeDriver: true,
-    }).start();
+    // Get measurements for the target tab
+    const targetMeasurement = tabMeasurements[newTab];
+    
+    // Animate underline position and scale only
+    Animated.parallel([
+      Animated.timing(underlinePosition, {
+        toValue: targetMeasurement.x,
+        duration: 200,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(underlineScale, {
+        toValue: targetMeasurement.scale,
+        duration: 200,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      })
+    ]).start();
+    
     setActiveTab(newTab);
   };
+  
+  // Press feedback handlers
+  const handlePressIn = (scaleAnim) => {
+    Animated.timing(scaleAnim, {
+      toValue: 0.98,
+      duration: 80,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = (tab, scaleAnim) => {
+    Animated.timing(scaleAnim, {
+      toValue: 1,
+      duration: 80,
+      useNativeDriver: true,
+    }).start();
+    animateToTab(tab);
+  };
+
+  // Set initial underline scale to match the active tab
+  React.useEffect(() => {
+    underlineScale.setValue(1.2);
+  }, []);
   
   // Update tab when navigation params change
   useEffect(() => {
@@ -859,103 +917,172 @@ export default function ProfileScreen({ route, navigation }) {
   );
 
   return (
-    <View style={styles.container}>
-      <Header title="" backgroundColor="#F8F8F8" />
-      <StatusBar style="dark" />
+    <>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.background }}>
+        <StatusBar style="dark" translucent={false} />
+      </SafeAreaView>
 
-      {/* Tab Navigation */}
-      <View style={styles.tabContainer}>
-        {/* Animated sliding background */}
-        <Animated.View 
-          style={[
-            styles.tabSlider,
-            {
-              transform: [{
-                translateX: tabAnimation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, (screenWidth - 32 - 8) / 2],
-                })
-              }]
-            }
-          ]}
-        />
-        
-        <TouchableOpacity
-          style={styles.tab}
-          onPress={() => animateToTab('profile')}
-        >
-          <Text style={[styles.tabText, activeTab === 'profile' && styles.activeTabText]}>
-            Profile
-          </Text>
-        </TouchableOpacity>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.root}>
+        <View style={styles.header}>
+          <View style={styles.headerCapsule} />
+        </View>
 
-        <TouchableOpacity
-          style={styles.tab}
-          onPress={() => animateToTab('friends')}
-        >
-          <Text style={[styles.tabText, activeTab === 'friends' && styles.activeTabText]}>
-            Friends
-          </Text>
-          {pendingRequests.length > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{pendingRequests.length}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
+        <View style={styles.topNavContainer}>
+          {/* Tab row with 2 equal columns */}
+          <View style={styles.tabRow}>
+            {/* Profile Tab */}
+            <Animated.View style={[styles.tabColumn, { transform: [{ scale: profileScale }] }]}>
+              <TouchableOpacity
+                style={styles.tabButton}
+                onPressIn={() => handlePressIn(profileScale)}
+                onPressOut={() => handlePressOut('profile', profileScale)}
+                onLayout={(event) => {
+                  const { x, width } = event.nativeEvent.layout;
+                  const textWidth = width * 0.8;
+                  const indicatorWidth = textWidth + 12;
+                  const scale = indicatorWidth / baseUnderlineWidth;
+                  const columnCenter = (screenWidth - 48) / 2 * 0 + (screenWidth - 48) / 4;
+                  setTabMeasurements(prev => ({
+                    ...prev,
+                    profile: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
+                  }));
+                  setMeasurementsReady(true);
+                }}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: activeTab === 'profile' }}
+              >
+                <Text style={[
+                  styles.tabLabel,
+                  { 
+                    color: activeTab === 'profile' ? colors.nav.activeGreen : colors.nav.inactiveGray,
+                    fontSize: activeTab === 'profile' ? 23 : 21
+                  }
+                ]}>
+                  Profile
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
 
-      {/* Tab Content */}
-      {activeTab === 'profile' ? renderProfileTab() : renderFriendsTab()}
-    </View>
+            {/* Friends Tab */}
+            <Animated.View style={[styles.tabColumn, { transform: [{ scale: friendsScale }] }]}>
+              <TouchableOpacity
+                style={styles.tabButton}
+                onPressIn={() => handlePressIn(friendsScale)}
+                onPressOut={() => handlePressOut('friends', friendsScale)}
+                onLayout={(event) => {
+                  const { x, width } = event.nativeEvent.layout;
+                  const textWidth = width * 0.8;
+                  const indicatorWidth = textWidth + 12;
+                  const scale = indicatorWidth / baseUnderlineWidth;
+                  const columnCenter = (screenWidth - 48) / 2 * 1 + (screenWidth - 48) / 4;
+                  setTabMeasurements(prev => ({
+                    ...prev,
+                    friends: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
+                  }));
+                  setMeasurementsReady(true);
+                }}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: activeTab === 'friends' }}
+              >
+                <Text style={[
+                  styles.tabLabel,
+                  { 
+                    color: activeTab === 'friends' ? colors.nav.activeGreen : colors.nav.inactiveGray,
+                    fontSize: activeTab === 'friends' ? 23 : 21
+                  }
+                ]}>
+                  Friends
+                </Text>
+                {pendingRequests.length > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{pendingRequests.length}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+
+          {/* Animated underline indicator */}
+          <Animated.View 
+            style={[
+              styles.underlineIndicator,
+              {
+                width: baseUnderlineWidth,
+                opacity: measurementsReady ? 1 : 0,
+                transform: [
+                  { translateX: underlinePosition },
+                  { scaleX: underlineScale }
+                ]
+              }
+            ]}
+          />
+        </View>
+
+        {/* Tab Content */}
+        {activeTab === 'profile' ? renderProfileTab() : renderFriendsTab()}
+      </SafeAreaView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F8F8' },
-  
-  // Tab Navigation
-  tabContainer: {
+  root: { 
+    flex: 1, 
+    backgroundColor: colors.background 
+  },
+
+  header: {
+    height: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // New top navigation styles (matching ActiveCompetitionsScreen)
+  topNavContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 1,   // Minimal spacing - just 1px from header
+    backgroundColor: colors.background,
+  },
+
+  tabRow: {
     flexDirection: 'row',
-    backgroundColor: '#F3F3F3',
-    marginHorizontal: 16,
-    marginTop: 16,
-    height: 64,
-    borderRadius: 16,
-    padding: 4,
-    position: 'relative',
-  },
-  tabSlider: {
-    position: 'absolute',
-    width: (Dimensions.get('window').width - 32 - 8) / 2,
     height: 56,
-    backgroundColor: '#F3F9EA',
-    borderRadius: 14,
-    top: 4,
-    left: 4,
+    alignItems: 'flex-end',
   },
-  tab: {
+
+  tabColumn: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
-    zIndex: 1,
+  },
+
+  tabButton: {
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
     position: 'relative',
   },
-  activeTab: {
-    // Removed backgroundColor - handled by animated slider
-  },
-  tabText: {
+
+  tabLabel: {
     fontSize: 21,
     fontWeight: '700',
-    color: '#CACCCF',
+    letterSpacing: -0.2,
   },
-  activeTabText: {
-    color: '#93D13C',
+
+  underlineIndicator: {
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: colors.nav.activeGreen,
+    marginTop: 1,
   },
+
   badge: {
     position: 'absolute',
     top: -8,
-    right: 20,
+    right: -10,
     backgroundColor: '#FF6B6B',
     borderRadius: 10,
     minWidth: 20,

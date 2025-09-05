@@ -11,6 +11,7 @@ import {
   Alert,
   Animated,
   Dimensions,
+  Easing,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -36,35 +37,101 @@ import { AuthContext } from '../contexts/AuthContext';
 
 const screenWidth = Dimensions.get('window').width;
 
+// Color tokens for the new design
+const colors = {
+  nav: {
+    activeGreen: '#B6DB78',  // New fresh green
+    inactiveGray: '#B3B3B3', // New gray
+    textDefault: '#111111'
+  },
+  field: {
+    bg: '#F1EFEF',           // New field bg
+    placeholder: '#BEBEBE'    // New placeholder
+  },
+  icon: {
+    gray: '#B3B3B3'          // New icon color
+  },
+  background: '#FFFFFF'      // Pure white
+};
+
 export default function ActiveCompetitionsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
 
   /* ---------------- tab state ------------------ */
   const [activeTab, setActiveTab] = useState('active');
-  const tabAnimation = React.useRef(new Animated.Value(0)).current;
-
-  // Tab index mapping
-  const getTabIndex = (tab) => {
-    switch(tab) {
-      case 'active': return 0;
-      case 'invites': return 1;
-      case 'completed': return 2;
-      default: return 0;
-    }
+  const [measurementsReady, setMeasurementsReady] = useState(false);
+  
+  // Base width for the underline
+  const baseUnderlineWidth = 60;
+  
+  // Calculate initial centered positions for tabs
+  const calculateInitialTabX = (tabIndex) => {
+    const columnWidth = (screenWidth - 48) / 3;  // 3 equal columns
+    const columnCenter = columnWidth * tabIndex + columnWidth / 2;
+    return columnCenter - baseUnderlineWidth / 2;
   };
+  
+  // Tab measurements for underline positioning
+  const [tabMeasurements, setTabMeasurements] = useState({
+    active: { scale: 1.2, x: calculateInitialTabX(0) },      // Larger to match actual measured width
+    invites: { scale: 1.3, x: calculateInitialTabX(1) },     // Larger to match actual measured width
+    completed: { scale: 1.35, x: calculateInitialTabX(2) }   // Larger to match actual measured width
+  });
 
-  // Animate to new tab position
+  // Animation refs for underline and press feedback
+  const underlinePosition = React.useRef(new Animated.Value(calculateInitialTabX(0))).current;
+  const underlineScale = React.useRef(new Animated.Value(1.2)).current;  // Match corrected Active tab scale
+  const activeScale = React.useRef(new Animated.Value(1)).current;
+  const invitesScale = React.useRef(new Animated.Value(1)).current;
+  const completedScale = React.useRef(new Animated.Value(1)).current;
+
+  // Animate to new tab
   const animateToTab = (newTab) => {
-    const newIndex = getTabIndex(newTab);
-    Animated.spring(tabAnimation, {
-      toValue: newIndex,
-      tension: 50,
-      friction: 8,
-      useNativeDriver: true,
-    }).start();
+    // Get measurements for the target tab
+    const targetMeasurement = tabMeasurements[newTab];
+    
+    // Animate underline position and scale only
+    Animated.parallel([
+      Animated.timing(underlinePosition, {
+        toValue: targetMeasurement.x,
+        duration: 200,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(underlineScale, {
+        toValue: targetMeasurement.scale,
+        duration: 200,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,  // Now we can use native driver for scale!
+      })
+    ]).start();
+    
     setActiveTab(newTab);
   };
+  
+  // Press feedback handlers
+  const handlePressIn = (scaleAnim) => {
+    Animated.timing(scaleAnim, {
+      toValue: 0.98,
+      duration: 80,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = (tab, scaleAnim) => {
+    Animated.timing(scaleAnim, {
+      toValue: 1,
+      duration: 80,
+      useNativeDriver: true,
+    }).start();
+    animateToTab(tab);
+  };
+
+  // Set initial underline scale to match the active tab
+  React.useEffect(() => {
+    underlineScale.setValue(1.2);  // Use the corrected Active scale directly
+  }, []);
 
   /* ---------------- live Firestore data ---------------- */
   const [activeCompetitions, setActiveCompetitions] = useState([]);
@@ -708,7 +775,7 @@ const handleCompetitionPress = async (competition) => {
 
   return (
     <>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: '#F8F9F8' }}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.background }}>
         <StatusBar style="dark" translucent={false} />
       </SafeAreaView>
 
@@ -717,60 +784,142 @@ const handleCompetitionPress = async (competition) => {
           <View style={styles.headerCapsule} />
         </View>
 
-        <View style={styles.tabContainer}>
-          {/* Animated sliding background */}
+        <View style={styles.topNavContainer}>
+          {/* Tab row with 3 equal columns */}
+          <View style={styles.tabRow}>
+            {/* Active Tab */}
+            <Animated.View style={[styles.tabColumn, { transform: [{ scale: activeScale }] }]}>
+              <TouchableOpacity
+                style={styles.tabButton}
+                onPressIn={() => handlePressIn(activeScale)}
+                onPressOut={() => handlePressOut('active', activeScale)}
+                onLayout={(event) => {
+                  const { x, width } = event.nativeEvent.layout;
+                  const textWidth = width * 0.8;
+                  const indicatorWidth = textWidth + 12;
+                  const scale = indicatorWidth / baseUnderlineWidth;
+                  const columnCenter = (screenWidth - 48) / 3 * 0 + (screenWidth - 48) / 6;
+                  setTabMeasurements(prev => ({
+                    ...prev,
+                    active: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
+                  }));
+                  setMeasurementsReady(true);
+                }}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: activeTab === 'active' }}
+              >
+                <Text style={[
+                  styles.tabLabel,
+                  { 
+                    color: activeTab === 'active' ? colors.nav.activeGreen : colors.nav.inactiveGray,
+                    fontSize: activeTab === 'active' ? 23 : 21  // 10% larger when active
+                  }
+                ]}>
+                  Active
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Invites Tab */}
+            <Animated.View style={[styles.tabColumn, { transform: [{ scale: invitesScale }] }]}>
+              <TouchableOpacity
+                style={styles.tabButton}
+                onPressIn={() => handlePressIn(invitesScale)}
+                onPressOut={() => handlePressOut('invites', invitesScale)}
+                onLayout={(event) => {
+                  const { x, width } = event.nativeEvent.layout;
+                  const textWidth = width * 0.8;
+                  const indicatorWidth = textWidth + 12;
+                  const scale = indicatorWidth / baseUnderlineWidth;
+                  const columnCenter = (screenWidth - 48) / 3 * 1 + (screenWidth - 48) / 6;
+                  setTabMeasurements(prev => ({
+                    ...prev,
+                    invites: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
+                  }));
+                  setMeasurementsReady(true);
+                }}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: activeTab === 'invites' }}
+              >
+                <Text style={[
+                  styles.tabLabel,
+                  { 
+                    color: activeTab === 'invites' ? colors.nav.activeGreen : colors.nav.inactiveGray,
+                    fontSize: activeTab === 'invites' ? 23 : 21  // 10% larger when active
+                  }
+                ]}>
+                  Invites
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Results Tab */}
+            <Animated.View style={[styles.tabColumn, { transform: [{ scale: completedScale }] }]}>
+              <TouchableOpacity
+                style={styles.tabButton}
+                onPressIn={() => handlePressIn(completedScale)}
+                onPressOut={() => handlePressOut('completed', completedScale)}
+                onLayout={(event) => {
+                  const { x, width } = event.nativeEvent.layout;
+                  const textWidth = width * 0.8;
+                  const indicatorWidth = textWidth + 12;
+                  const scale = indicatorWidth / baseUnderlineWidth;
+                  const columnCenter = (screenWidth - 48) / 3 * 2 + (screenWidth - 48) / 6;
+                  setTabMeasurements(prev => ({
+                    ...prev,
+                    completed: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
+                  }));
+                  setMeasurementsReady(true);
+                }}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: activeTab === 'completed' }}
+              >
+                <Text style={[
+                  styles.tabLabel,
+                  { 
+                    color: activeTab === 'completed' ? colors.nav.activeGreen : colors.nav.inactiveGray,
+                    fontSize: activeTab === 'completed' ? 23 : 21  // 10% larger when active
+                  }
+                ]}>
+                  Results
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+
+          {/* Animated underline indicator */}
           <Animated.View 
             style={[
-              styles.tabSlider,
+              styles.underlineIndicator,
               {
-                transform: [{
-                  translateX: tabAnimation.interpolate({
-                    inputRange: [0, 1, 2],
-                    outputRange: [0, (screenWidth - 48 - 8) / 3, (screenWidth - 48 - 8) * 2 / 3],
-                  })
-                }]
+                width: baseUnderlineWidth,  // Fixed base width
+                opacity: measurementsReady ? 1 : 0,  // Hide until measurements ready
+                transform: [
+                  { translateX: underlinePosition },
+                  { scaleX: underlineScale }  // Scale instead of width
+                ]
               }
             ]}
           />
-          
-          <TouchableOpacity
-            style={styles.tab}
-            onPress={() => animateToTab('active')}
-          >
-            <Text style={[styles.tabText, activeTab === 'active' && styles.activeTabText]}>
-              Active
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tab}
-            onPress={() => animateToTab('invites')}
-          >
-            <Text style={[styles.tabText, activeTab === 'invites' && styles.activeTabText]}>
-              Invites
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tab}
-            onPress={() => animateToTab('completed')}
-          >
-            <Text style={[styles.tabText, activeTab === 'completed' && styles.activeTabText]}>
-              Results
-            </Text>
-          </TouchableOpacity>
         </View>
 
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#9EA5AC" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Name of competition"
-            placeholderTextColor="#9EA5AC"
-            value={queryText}
-            onChangeText={setQueryText}
-            returnKeyType="search"
-          />
+        <View style={styles.searchFieldWrapper}>
+          <View style={styles.searchField}>
+            <Ionicons 
+              name="search" 
+              size={22} 
+              color={colors.icon.gray} 
+              style={styles.searchIcon} 
+            />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Name of competition"
+              placeholderTextColor={colors.field.placeholder}
+              value={queryText}
+              onChangeText={setQueryText}
+              returnKeyType="search"
+            />
+          </View>
         </View>
 
         <ScrollView
@@ -802,73 +951,86 @@ const handleCompetitionPress = async (competition) => {
 const styles = StyleSheet.create({
   root: { 
     flex: 1, 
-    backgroundColor: '#F8F9F8' 
+    backgroundColor: colors.background 
   },
 
   header: {
     height: 1,
-    backgroundColor: '#F8F9F8',
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  tabContainer: {
+  // New top navigation styles
+  topNavContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 1,   // Minimal spacing - just 1px from header
+    backgroundColor: colors.background,
+  },
+
+  tabRow: {
     flexDirection: 'row',
-    backgroundColor: '#F3F3F3',
-    marginHorizontal: 24,
-    marginTop: 16,
-    height: 64,
-    borderRadius: 16,
-    padding: 4,
-    position: 'relative',
-  },
-  tabSlider: {
-    position: 'absolute',
-    width: (Dimensions.get('window').width - 48 - 8) / 3,
     height: 56,
-    backgroundColor: '#F3F9EA',
-    borderRadius: 14,
-    top: 4,
-    left: 4,
+    alignItems: 'flex-end',
   },
-  tab: {
+
+  tabColumn: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
-    zIndex: 1,
-  },
-  activeTabStyle: {
-    // Removed backgroundColor - now handled by animated slider
-  },
-  tabText: {
-    fontSize: 21,
-    fontWeight: '700',
-    color: '#CACCCF',
-  },
-  activeTabText: {
-    color: '#93D13C',
   },
 
-  searchContainer: {
+  tabButton: {
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+
+  tabLabel: {
+    fontSize: 21,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+
+  underlineIndicator: {
+    height: 7,           // Reduced another 15% from 8px (was 12px originally)
+    borderRadius: 999,
+    backgroundColor: colors.nav.activeGreen,
+    marginTop: 1,        // Moved 50% closer (from 2px) - minimal gap
+    // Width is now controlled by baseUnderlineWidth constant and scale transform
+  },
+
+  // Search field styles
+  searchFieldWrapper: {
+    paddingHorizontal: 24,
+    marginTop: 24,
+    marginBottom: 24,
+  },
+
+  searchField: {
+    height: 64,
+    backgroundColor: colors.field.bg,
+    borderRadius: 32,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFEEEE',
-    borderRadius: 20,
-    marginHorizontal: 24,
-    marginTop: 16,
-    marginBottom: 24,
-    paddingHorizontal: 16,
-    height: 56,
+    paddingLeft: 56,
+    paddingRight: 20,
+    position: 'relative',
   },
-  searchIcon: { 
-    marginRight: 10 
+
+  searchIcon: {
+    position: 'absolute',
+    left: 20,
+    zIndex: 1,
   },
-  searchInput: { 
-    flex: 1, 
-    fontSize: 16, 
-    fontWeight: '500',
-    color: '#333' 
+
+  searchInput: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '400',
+    color: colors.nav.textDefault,
   },
 
   scroll: { 
