@@ -2,20 +2,20 @@ import { StyleSheet } from 'react-native';
 
 export const NavigationTheme = {
   colors: {
-    background: '#11171B',
-    divider: 'rgba(255,255,255,0.10)',
-    iconInactive: 'rgba(255,255,255,0.70)',
-    iconActive: '#AEEA4D',
+    background: '#FFFFFF',
+    divider: 'rgba(0,0,0,0.08)',
+    iconInactive: '#333333',
+    iconActive: '#9BBA66',
     badgeRed: '#FF3B30',
     badgeText: '#FFFFFF',
   },
   dimensions: {
-    barHeight: 64,
-    topPadding: 8,
-    bottomPadding: 10,
-    iconSizeRegular: 28,
-    centerButtonSize: 40,
-    centerButtonStroke: 2.5,
+    barHeight: 50,
+    topPadding: 16,
+    bottomPadding: 0,
+    iconSizeRegular: 32,
+    centerButtonSize: 46,
+    centerButtonStroke: 2.0,
     iconStroke: 2,
     plusLineStroke: 2,
     minTouchTarget: 48,
@@ -24,13 +24,13 @@ export const NavigationTheme = {
   shadow: {
     ios: {
       shadowColor: '#000',
-      shadowOpacity: 0.12,
+      shadowOpacity: 0.1,
       shadowOffset: { width: 0, height: -2 },
-      shadowRadius: 8,
+      shadowRadius: 10,
     },
     androidGradient: {
       height: 8,
-      colors: ['rgba(0,0,0,0.18)', 'rgba(0,0,0,0)'],
+      colors: ['rgba(0,0,0,0.08)', 'rgba(0,0,0,0)'],
     },
   },
   animation: {

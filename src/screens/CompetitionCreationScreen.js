@@ -11,8 +11,12 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
+  Animated,
+  Dimensions,
+  Easing,
 } from 'react-native';
-import { Header, Button, FormInput, Dropdown, DatePicker, LeaderboardUpdatePicker } from '../components';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button, FormInput, Dropdown, DatePicker, LeaderboardUpdatePicker } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { db } from '../firebase';
@@ -27,6 +31,18 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { AuthContext } from '../contexts/AuthContext';
+
+const screenWidth = Dimensions.get('window').width;
+
+// Color tokens for the new design (matching ProfileScreen)
+const colors = {
+  nav: {
+    activeGreen: '#B6DB78',  // New fresh green
+    inactiveGray: '#B3B3B3', // New gray
+    textDefault: '#111111'
+  },
+  background: '#FFFFFF'      // Pure white
+};
 
 // Competition Presets
 const competitionPresets = [
@@ -183,6 +199,82 @@ export default function CompetitionCreationScreen({ navigation }) {
   
   // Track which activity cards have expanded "More" sections
   const [expandedCards, setExpandedCards] = useState({});
+  
+  // Animation state for tab navigation (matching ProfileScreen)
+  const [measurementsReady, setMeasurementsReady] = useState(false);
+  
+  // Base width for the underline
+  const baseUnderlineWidth = 60;
+  
+  // Calculate initial centered positions for tabs (2 columns)
+  const calculateInitialTabX = (tabIndex) => {
+    const columnWidth = (screenWidth - 48) / 2;  // 2 equal columns
+    const columnCenter = columnWidth * tabIndex + columnWidth / 2;
+    return columnCenter - baseUnderlineWidth / 2;
+  };
+  
+  // Tab measurements for underline positioning
+  const [tabMeasurements, setTabMeasurements] = useState({
+    presets: { scale: 1.2, x: calculateInitialTabX(0) },
+    manual: { scale: 1.2, x: calculateInitialTabX(1) },
+    friends: { scale: 1.2, x: calculateInitialTabX(0) },
+    rules: { scale: 1.2, x: calculateInitialTabX(1) }
+  });
+
+  // Animation refs for underline and press feedback
+  const underlinePosition = React.useRef(new Animated.Value(calculateInitialTabX(0))).current;
+  const underlineScale = React.useRef(new Animated.Value(1.2)).current;
+  const presetsScale = React.useRef(new Animated.Value(1)).current;
+  const manualScale = React.useRef(new Animated.Value(1)).current;
+  const friendsScale = React.useRef(new Animated.Value(1)).current;
+  const rulesScale = React.useRef(new Animated.Value(1)).current;
+
+  // Animate to new tab
+  const animateToTab = (newTab) => {
+    // Get measurements for the target tab
+    const targetMeasurement = tabMeasurements[newTab];
+    
+    // Animate underline position and scale only
+    Animated.parallel([
+      Animated.timing(underlinePosition, {
+        toValue: targetMeasurement.x,
+        duration: 200,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(underlineScale, {
+        toValue: targetMeasurement.scale,
+        duration: 200,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      })
+    ]).start();
+    
+    setActiveTab(newTab);
+  };
+  
+  // Press feedback handlers
+  const handlePressIn = (scaleAnim) => {
+    Animated.timing(scaleAnim, {
+      toValue: 0.98,
+      duration: 80,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = (tab, scaleAnim) => {
+    Animated.timing(scaleAnim, {
+      toValue: 1,
+      duration: 80,
+      useNativeDriver: true,
+    }).start();
+    animateToTab(tab);
+  };
+
+  // Set initial underline scale to match the active tab
+  React.useEffect(() => {
+    underlineScale.setValue(1.2);
+  }, []);
 
   // Helper function to get initial form values
   const getInitialFormValues = () => {
@@ -343,7 +435,7 @@ export default function CompetitionCreationScreen({ navigation }) {
     setLeaderboardUpdateDays(initialValues.leaderboardUpdateDays);
     setActs(initialValues.activities);
     setInviteUsername(initialValues.inviteUsername); setInvitedFriends(initialValues.invitedFriends);
-    setSelectedPreset(null); setActiveTab('presets');
+    setSelectedPreset(null); animateToTab('presets');
     setExpandedCards({}); // Reset expanded cards state
   };
 
@@ -534,12 +626,12 @@ export default function CompetitionCreationScreen({ navigation }) {
   /* ---------- preset helpers ---------- */
   const selectPreset = (preset) => {
     setSelectedPreset(preset);
-    setActiveTab('friends'); // Switch to friends tab after selection
+    animateToTab('friends'); // Switch to friends tab after selection with animation
   };
 
   const goBackToPresets = () => {
     setSelectedPreset(null);
-    setActiveTab('presets');
+    animateToTab('presets'); // Animate back to presets tab
     setInvitedFriends([]); // Clear invited friends when going back
   };
 
@@ -1291,73 +1383,173 @@ export default function CompetitionCreationScreen({ navigation }) {
   const showFriendsRulesTabs = !!selectedPreset;
 
   return (
-    <View style={styles.container}>
-      <Header title="" backgroundColor="#F8F8F8" />
-      <StatusBar style="dark" />
+    <>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#F8F8F8' }}>
+        <StatusBar style="dark" translucent={false} />
+      </SafeAreaView>
 
-      {/* Dynamic Tab Navigation */}
-      <View style={styles.tabContainer}>
-        {showPresetTabs ? (
-          <>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'presets' && styles.activeTab]}
-              onPress={() => setActiveTab('presets')}
-            >
-              <Ionicons 
-                name="flash" 
-                size={20} 
-                color={activeTab === 'presets' ? '#A4D65E' : '#6B7280'} 
-              />
-              <Text style={[styles.tabText, activeTab === 'presets' && styles.activeTabText]}>
-                Presets
-              </Text>
-            </TouchableOpacity>
+      <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerCapsule} />
+        </View>
 
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'manual' && styles.activeTab]}
-              onPress={() => setActiveTab('manual')}
-            >
-              <Ionicons 
-                name="settings" 
-                size={20} 
-                color={activeTab === 'manual' ? '#A4D65E' : '#6B7280'} 
-              />
-              <Text style={[styles.tabText, activeTab === 'manual' && styles.activeTabText]}>
-                Manual
-              </Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'friends' && styles.activeTab]}
-              onPress={() => setActiveTab('friends')}
-            >
-              <Ionicons 
-                name="people" 
-                size={20} 
-                color={activeTab === 'friends' ? '#A4D65E' : '#6B7280'} 
-              />
-              <Text style={[styles.tabText, activeTab === 'friends' && styles.activeTabText]}>
-                Friends
-              </Text>
-            </TouchableOpacity>
+        {/* Dynamic Tab Navigation - ProfileScreen Style */}
+        <View style={styles.topNavContainer}>
+        {/* Tab row with 2 equal columns */}
+        <View style={styles.tabRow}>
+          {showPresetTabs ? (
+            <>
+              {/* Presets Tab */}
+              <Animated.View style={[styles.tabColumn, { transform: [{ scale: presetsScale }] }]}>
+                <TouchableOpacity
+                  style={styles.tabButton}
+                  onPressIn={() => handlePressIn(presetsScale)}
+                  onPressOut={() => handlePressOut('presets', presetsScale)}
+                  onLayout={(event) => {
+                    const { x, width } = event.nativeEvent.layout;
+                    const textWidth = width * 0.8;
+                    const indicatorWidth = textWidth + 12;
+                    const scale = indicatorWidth / baseUnderlineWidth;
+                    const columnCenter = (screenWidth - 48) / 2 * 0 + (screenWidth - 48) / 4;
+                    setTabMeasurements(prev => ({
+                      ...prev,
+                      presets: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
+                    }));
+                    setMeasurementsReady(true);
+                  }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: activeTab === 'presets' }}
+                >
+                  <Text style={[
+                    styles.tabLabel,
+                    { 
+                      color: activeTab === 'presets' ? colors.nav.activeGreen : colors.nav.inactiveGray,
+                      fontSize: activeTab === 'presets' ? 23 : 21
+                    }
+                  ]}>
+                    Preset
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
 
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'rules' && styles.activeTab]}
-              onPress={() => setActiveTab('rules')}
-            >
-              <Ionicons 
-                name="document-text" 
-                size={20} 
-                color={activeTab === 'rules' ? '#A4D65E' : '#6B7280'} 
-              />
-              <Text style={[styles.tabText, activeTab === 'rules' && styles.activeTabText]}>
-                Rules
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
+              {/* Manual Tab */}
+              <Animated.View style={[styles.tabColumn, { transform: [{ scale: manualScale }] }]}>
+                <TouchableOpacity
+                  style={styles.tabButton}
+                  onPressIn={() => handlePressIn(manualScale)}
+                  onPressOut={() => handlePressOut('manual', manualScale)}
+                  onLayout={(event) => {
+                    const { x, width } = event.nativeEvent.layout;
+                    const textWidth = width * 0.8;
+                    const indicatorWidth = textWidth + 12;
+                    const scale = indicatorWidth / baseUnderlineWidth;
+                    const columnCenter = (screenWidth - 48) / 2 * 1 + (screenWidth - 48) / 4;
+                    setTabMeasurements(prev => ({
+                      ...prev,
+                      manual: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
+                    }));
+                    setMeasurementsReady(true);
+                  }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: activeTab === 'manual' }}
+                >
+                  <Text style={[
+                    styles.tabLabel,
+                    { 
+                      color: activeTab === 'manual' ? colors.nav.activeGreen : colors.nav.inactiveGray,
+                      fontSize: activeTab === 'manual' ? 23 : 21
+                    }
+                  ]}>
+                    Manual
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+            </>
+          ) : (
+            <>
+              {/* Friends Tab */}
+              <Animated.View style={[styles.tabColumn, { transform: [{ scale: friendsScale }] }]}>
+                <TouchableOpacity
+                  style={styles.tabButton}
+                  onPressIn={() => handlePressIn(friendsScale)}
+                  onPressOut={() => handlePressOut('friends', friendsScale)}
+                  onLayout={(event) => {
+                    const { x, width } = event.nativeEvent.layout;
+                    const textWidth = width * 0.8;
+                    const indicatorWidth = textWidth + 12;
+                    const scale = indicatorWidth / baseUnderlineWidth;
+                    const columnCenter = (screenWidth - 48) / 2 * 0 + (screenWidth - 48) / 4;
+                    setTabMeasurements(prev => ({
+                      ...prev,
+                      friends: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
+                    }));
+                    setMeasurementsReady(true);
+                  }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: activeTab === 'friends' }}
+                >
+                  <Text style={[
+                    styles.tabLabel,
+                    { 
+                      color: activeTab === 'friends' ? colors.nav.activeGreen : colors.nav.inactiveGray,
+                      fontSize: activeTab === 'friends' ? 23 : 21
+                    }
+                  ]}>
+                    Friends
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+
+              {/* Rules Tab */}
+              <Animated.View style={[styles.tabColumn, { transform: [{ scale: rulesScale }] }]}>
+                <TouchableOpacity
+                  style={styles.tabButton}
+                  onPressIn={() => handlePressIn(rulesScale)}
+                  onPressOut={() => handlePressOut('rules', rulesScale)}
+                  onLayout={(event) => {
+                    const { x, width } = event.nativeEvent.layout;
+                    const textWidth = width * 0.8;
+                    const indicatorWidth = textWidth + 12;
+                    const scale = indicatorWidth / baseUnderlineWidth;
+                    const columnCenter = (screenWidth - 48) / 2 * 1 + (screenWidth - 48) / 4;
+                    setTabMeasurements(prev => ({
+                      ...prev,
+                      rules: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
+                    }));
+                    setMeasurementsReady(true);
+                  }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: activeTab === 'rules' }}
+                >
+                  <Text style={[
+                    styles.tabLabel,
+                    { 
+                      color: activeTab === 'rules' ? colors.nav.activeGreen : colors.nav.inactiveGray,
+                      fontSize: activeTab === 'rules' ? 23 : 21
+                    }
+                  ]}>
+                    Rules
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+            </>
+          )}
+        </View>
+
+        {/* Animated underline indicator */}
+        <Animated.View 
+          style={[
+            styles.underlineIndicator,
+            {
+              width: baseUnderlineWidth,
+              opacity: measurementsReady ? 1 : 0,
+              transform: [
+                { translateX: underlinePosition },
+                { scaleX: underlineScale }
+              ]
+            }
+          ]}
+        />
       </View>
 
       {/* Tab Content */}
@@ -1366,44 +1558,64 @@ export default function CompetitionCreationScreen({ navigation }) {
       {activeTab === 'friends' && renderFriendsTab()}
       {activeTab === 'rules' && renderRulesTab()}
 
-    </View>
+      </SafeAreaView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F8F8' },
   
-  // Tab Navigation (copied from ProfileScreen)
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    padding: 4,
+  header: {
+    height: 1,
+    backgroundColor: '#F8F8F8',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  tab: {
-    flex: 1,
+  
+  headerCapsule: {
+    // Placeholder div, no specific styling needed
+  },
+  
+  // New top navigation styles (matching ProfileScreen)
+  topNavContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 1,   // Minimal spacing - just 1px from header (matching ProfileScreen)
+    backgroundColor: '#F8F8F8',
+  },
+  
+  tabRow: {
     flexDirection: 'row',
+    height: 56,
+    alignItems: 'flex-end',
+  },
+  
+  tabColumn: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+  },
+  
+  tabButton: {
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
     position: 'relative',
   },
-  activeTab: {
-    backgroundColor: '#F0F9E8',
+  
+  tabLabel: {
+    fontSize: 21,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
-  tabText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginLeft: 8,
-  },
-  activeTabText: {
-    color: '#A4D65E',
-    fontWeight: '600',
+  
+  underlineIndicator: {
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: colors.nav.activeGreen,
+    marginTop: 1,
   },
 
   // Common

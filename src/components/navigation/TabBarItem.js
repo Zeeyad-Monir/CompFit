@@ -73,21 +73,45 @@ const TabBarItem = ({
 
   const renderIcon = () => {
     if (isCenter) {
+      // Create an animated value for background color that transitions between transparent and green
+      const animatedBackgroundColor = colorAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['transparent', NavigationTheme.colors.iconActive],
+      });
+      
+      // Icon color should be white when active (filled), animated color when inactive
+      const centerIconColor = colorAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [NavigationTheme.colors.iconInactive, '#FFFFFF'],
+      });
+      
       return (
-        <View style={styles.centerButton}>
-          <Ionicons 
-            name="add" 
-            size={NavigationTheme.dimensions.centerButtonSize - 16}
-            color={NavigationTheme.colors.iconActive}
-          />
-        </View>
+        <Animated.View style={[
+          styles.centerButton,
+          { 
+            borderColor: animatedColor,
+            backgroundColor: animatedBackgroundColor
+          }
+        ]}>
+          <Animated.Text style={{ color: centerIconColor }}>
+            <Ionicons 
+              name="add" 
+              size={NavigationTheme.dimensions.centerButtonSize - 18}
+            />
+          </Animated.Text>
+        </Animated.View>
       );
     }
+
+    // For regular icons, switch between outline and filled versions
+    const iconName = isFocused && icon.includes('-outline') 
+      ? icon.replace('-outline', '') 
+      : icon;
 
     return (
       <Animated.Text style={{ color: animatedColor }}>
         <Ionicons 
-          name={icon}
+          name={iconName}
           size={NavigationTheme.dimensions.iconSizeRegular}
         />
       </Animated.Text>
@@ -113,7 +137,7 @@ const TabBarItem = ({
       android_ripple={
         Platform.OS === 'android' 
           ? {
-              color: 'rgba(255, 255, 255, 0.1)',
+              color: 'rgba(0, 0, 0, 0.08)',
               borderless: true,
               radius: NavigationTheme.dimensions.minTouchTarget / 2,
             }
@@ -148,7 +172,6 @@ const styles = StyleSheet.create({
     height: NavigationTheme.dimensions.centerButtonSize,
     borderRadius: NavigationTheme.dimensions.centerButtonSize / 2,
     borderWidth: NavigationTheme.dimensions.centerButtonStroke,
-    borderColor: NavigationTheme.colors.iconActive,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',

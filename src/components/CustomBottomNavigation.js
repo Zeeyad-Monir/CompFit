@@ -120,12 +120,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: NavigationTheme.colors.background,
+    overflow: 'visible',
   },
   tabsContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingTop: NavigationTheme.dimensions.topPadding,
+    overflow: 'visible',
   },
 });
 
