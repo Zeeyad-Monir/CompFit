@@ -590,7 +590,7 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
@@ -963,7 +963,7 @@ const styles = StyleSheet.create({
   commentInputWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#F8F8F8',
+    backgroundColor: '#FFFFFF',
     borderRadius: 25,
     paddingHorizontal: 16,
     paddingVertical: 8,

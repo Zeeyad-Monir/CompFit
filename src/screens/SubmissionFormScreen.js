@@ -1056,7 +1056,7 @@ export default function SubmissionFormScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container:       {flex:1,backgroundColor:'#F8F8F8'},
+  container:       {flex:1,backgroundColor:'#FFFFFF'},
   formContainer:   {flex:1,padding:16},
   scrollContent:   {paddingBottom:40},
   dateSection:     {marginBottom:16},

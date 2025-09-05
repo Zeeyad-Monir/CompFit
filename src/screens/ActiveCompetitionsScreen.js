@@ -668,7 +668,7 @@ const handleCompetitionPress = async (competition) => {
                 style={styles.actionLinkContainer}
                 onPress={() => handleCompetitionPress(comp)}
               >
-                <Text style={styles.actionLink}>View More {'>'}</Text>
+                <Text style={styles.actionLink}>View More</Text>
               </TouchableOpacity>
             </TouchableOpacity>
           );
@@ -1097,8 +1097,8 @@ const styles = StyleSheet.create({
   },
 
   actionLink: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 18.4,  // Increased by 15%
+    lineHeight: 25,  // Proportionally adjusted
     fontWeight: '600',
     color: '#93D13C',
   },

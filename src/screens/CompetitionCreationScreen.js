@@ -1384,7 +1384,7 @@ export default function CompetitionCreationScreen({ navigation }) {
 
   return (
     <>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: '#F8F8F8' }}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.background }}>
         <StatusBar style="dark" translucent={false} />
       </SafeAreaView>
 
@@ -1564,11 +1564,11 @@ export default function CompetitionCreationScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F8F8' },
+  container: { flex: 1, backgroundColor: colors.background },
   
   header: {
     height: 1,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1581,7 +1581,7 @@ const styles = StyleSheet.create({
   topNavContainer: {
     paddingHorizontal: 24,
     paddingTop: 1,   // Minimal spacing - just 1px from header (matching ProfileScreen)
-    backgroundColor: '#F8F8F8',
+    backgroundColor: colors.background,
   },
   
   tabRow: {
