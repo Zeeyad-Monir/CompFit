@@ -420,6 +420,25 @@ export default function ActiveCompetitionsScreen({ navigation }) {
     return 'unknown';
   };
 
+  const getCompetitionBadgeStatus = (competition) => {
+    // Check if competition hasn't started yet
+    if (isCompetitionUpcoming(competition)) {
+      return 'Pending';
+    }
+    
+    // Check if there are pending invitations
+    if (competition.pendingParticipants && competition.pendingParticipants.length > 0) {
+      return 'Pending';
+    }
+    
+    // Check if competition is active
+    if (isCompetitionActive(competition)) {
+      return 'Active';
+    }
+    
+    return null; // For completed/cancelled, we don't show a badge
+  };
+
   const getCompetitionStatusText = (competition) => {
     const status = getCompetitionStatus(competition);
     switch (status) {
@@ -471,10 +490,23 @@ export default function ActiveCompetitionsScreen({ navigation }) {
 
   const filteredActive = useMemo(
     () =>
-      activeCompetitions.filter(c =>
-        c.name?.toLowerCase().includes(queryText.toLowerCase().trim()) &&
-        !isCompetitionCompleted(c)
-      ),
+      activeCompetitions
+        .filter(c =>
+          c.name?.toLowerCase().includes(queryText.toLowerCase().trim()) &&
+          !isCompetitionCompleted(c)
+        )
+        .sort((a, b) => {
+          const endDateA = new Date(a.endDate);
+          const endDateB = new Date(b.endDate);
+          
+          // Primary sort by end date (earliest/soonest first)
+          if (endDateA.getTime() !== endDateB.getTime()) {
+            return endDateA - endDateB;
+          }
+          
+          // Secondary sort by name if end dates are the same
+          return a.name.localeCompare(b.name);
+        }),
     [queryText, activeCompetitions]
   );
 
@@ -644,11 +676,16 @@ const handleCompetitionPress = async (competition) => {
       {/* Active Competitions */}
       {filteredActive.length > 0 ? (
         filteredActive.map(comp => {
-          const endDate = new Date(comp.endDate);
-          const formattedDate = endDate.toLocaleDateString('en-US', { 
+          // Get the badge status to determine which date to show
+          const badgeStatus = getCompetitionBadgeStatus(comp);
+          // Show start date for pending status, end date for active/completed
+          const showStartDate = badgeStatus === 'Pending';
+          const dateToShow = showStartDate ? new Date(comp.startDate) : new Date(comp.endDate);
+          const formattedDate = dateToShow.toLocaleDateString('en-US', { 
             month: 'short', 
             day: 'numeric' 
           });
+          const dateLabel = showStartDate ? 'Starts' : 'Ends';
           
           return (
             <TouchableOpacity
@@ -658,12 +695,29 @@ const handleCompetitionPress = async (competition) => {
               onPress={() => handleCompetitionPress(comp)}
             >
               <Text style={styles.cardTitle}>{comp.name}</Text>
+              
+              {/* Status Badge */}
+              {(() => {
+                const status = getCompetitionBadgeStatus(comp);
+                if (status) {
+                  return (
+                    <View style={[
+                      styles.statusBadge,
+                      status === 'Active' ? styles.statusBadgeActive : styles.statusBadgePending
+                    ]}>
+                      <Text style={styles.statusBadgeText}>{status}</Text>
+                    </View>
+                  );
+                }
+                return null;
+              })()}
+              
               {comp.status === 'cancelled' && (
                 <View style={styles.cancelledBadge}>
                   <Text style={styles.cancelledText}>CANCELLED</Text>
                 </View>
               )}
-              <Text style={styles.metaText}>Ends: {formattedDate}</Text>
+              <Text style={styles.metaText}>{dateLabel}: {formattedDate}</Text>
               <TouchableOpacity 
                 style={styles.actionLinkContainer}
                 onPress={() => handleCompetitionPress(comp)}
@@ -1006,11 +1060,11 @@ const styles = StyleSheet.create({
   searchFieldWrapper: {
     paddingHorizontal: 24,
     marginTop: 24,
-    marginBottom: 24,
+    marginBottom: 20,
   },
 
   searchField: {
-    height: 64,
+    height: 55,
     backgroundColor: colors.field.bg,
     borderRadius: 32,
     flexDirection: 'row',
@@ -1067,13 +1121,15 @@ const styles = StyleSheet.create({
     paddingTop: 22,
     paddingBottom: 22,
     marginBottom: 24,
+    position: 'relative',  // For absolute positioning of badge
   },
 
   cardTitle: { 
-    fontSize: 23, 
-    lineHeight: 34,
+    fontSize: 22,     // Reverted to original size
+    lineHeight: 34,   // Reverted to original line height
     fontWeight: '700', 
     color: '#FFFFFF',
+    paddingRight: 74,  // Updated for smaller badge (52 + 14 + 8 margin)
   },
 
   metaText: {
@@ -1097,10 +1153,52 @@ const styles = StyleSheet.create({
   },
 
   actionLink: {
-    fontSize: 18.4,  // Increased by 15%
+    fontSize: 17,  // Increased by 15%
     lineHeight: 25,  // Proportionally adjusted
     fontWeight: '600',
     color: '#93D13C',
+  },
+
+  // Status Badge Styles
+  statusBadge: {
+    position: 'absolute',
+    top: 18,
+    right: 14,    // Moved 20% closer to edge (18 * 0.8 = 14.4)
+    minWidth: 52,    // Further 10% reduction (58 * 0.9 = 52.2)
+    minHeight: 26,   // Further 10% reduction (29 * 0.9 = 26.1)
+    paddingVertical: 5,    // Further 10% reduction (6 * 0.9 = 5.4)
+    paddingHorizontal: 10, // Further 10% reduction (13 * 0.9 = 11.7)
+    borderRadius: 999, // Fully rounded pill shape
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    
+    // Shadow for depth
+    shadowColor: 'rgba(0, 0, 0, 0.25)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+    
+    // Inner highlight for visual depth
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+
+  statusBadgeActive: {
+    backgroundColor: '#8DC63F', // Bright lime green
+  },
+
+  statusBadgePending: {
+    backgroundColor: '#E6952B', // Warm orange
+  },
+
+  statusBadgeText: {
+    fontSize: 12,    // Further 10% reduction (13 * 0.9 = 11.7)
+    lineHeight: 13,  // Further 10% reduction (14 * 0.9 = 12.6)
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
 
   inviteActions: {

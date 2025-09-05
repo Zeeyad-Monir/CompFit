@@ -303,6 +303,7 @@ export default function CompetitionCreationScreen({ navigation }) {
 
   // Manual form state
   const [name, setName] = useState('');
+  const [nameWarning, setNameWarning] = useState(false);
   const [description, setDesc] = useState('');
   const now = new Date();
   const [startDate, setStart] = useState(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0));
@@ -329,6 +330,17 @@ export default function CompetitionCreationScreen({ navigation }) {
   const [invitedFriends, setInvitedFriends] = useState([]);
   const [userFriends, setUserFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
+  
+  // Handler for competition name with 18-character limit
+  const handleNameChange = (text) => {
+    if (text.length <= 18) {
+      setName(text);
+      setNameWarning(false);
+    } else {
+      setNameWarning(true);
+      // Don't update name if over 18 characters
+    }
+  };
   
   // Toggle expansion state for a card
   const toggleCardExpansion = (index) => {
@@ -427,7 +439,7 @@ export default function CompetitionCreationScreen({ navigation }) {
   // Function to reset all form values
   const resetForm = () => {
     const initialValues = getInitialFormValues();
-    setName(initialValues.name); setDesc(initialValues.description);
+    setName(initialValues.name); setNameWarning(false); setDesc(initialValues.description);
     setStart(initialValues.startDate); setStartTime(initialValues.startTime);
     setEnd(initialValues.endDate); setEndTime(initialValues.endTime);
     setDailyCap(initialValues.dailyCap); setPhotoProofRequired(initialValues.photoProofRequired); 
@@ -1007,7 +1019,38 @@ export default function CompetitionCreationScreen({ navigation }) {
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.sectionTitle}>Competition Details</Text>
-      <FormInput label="Competition Name" value={name} onChangeText={setName}/>
+      <View style={styles.nameInputContainer}>
+        <Text style={styles.label}>Competition Name</Text>
+        <View style={styles.nameInputWrapper}>
+          <TextInput
+            style={[
+              styles.nameInput,
+              nameWarning && styles.nameInputWarning
+            ]}
+            value={name}
+            onChangeText={handleNameChange}
+            placeholder="Enter competition name"
+            placeholderTextColor="#999"
+            maxLength={18}
+          />
+          <View style={styles.nameInputFeedback}>
+            {nameWarning && (
+              <Ionicons name="warning" size={20} color="#FF6B6B" />
+            )}
+            <Text style={[
+              styles.characterCount,
+              name.length === 18 && styles.characterCountMax
+            ]}>
+              {name.length}/18
+            </Text>
+          </View>
+        </View>
+        {nameWarning && (
+          <Text style={styles.warningText}>
+            Maximum 18 characters allowed
+          </Text>
+        )}
+      </View>
       
       <Text style={styles.sectionTitle}>Schedule</Text>
       <View style={styles.dateTimeRow}>
@@ -1972,6 +2015,49 @@ const styles = StyleSheet.create({
     color: '#92400E',
     marginLeft: 8,
     flex: 1,
+  },
+  
+  // Name input specific styles
+  nameInputContainer: { 
+    marginBottom: 16 
+  },
+  nameInputWrapper: { 
+    position: 'relative' 
+  },
+  nameInput: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#1A1E23',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingRight: 60, // Space for character count
+  },
+  nameInputWarning: {
+    borderColor: '#FF6B6B',
+  },
+  nameInputFeedback: {
+    position: 'absolute',
+    right: 12,
+    top: '50%',
+    transform: [{ translateY: -10 }],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  characterCount: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  characterCountMax: {
+    color: '#FF6B6B',
+    fontWeight: '600',
+  },
+  warningText: {
+    fontSize: 12,
+    color: '#FF6B6B',
+    marginTop: 4,
   },
   
 });
