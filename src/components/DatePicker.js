@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Modal } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -64,22 +64,49 @@ const DatePicker = ({ label, date, onDateChange, mode = 'date', minimumDate, max
         />
       </TouchableOpacity>
       
-      {showPicker && (
+      {Platform.OS === 'ios' && showPicker && (
+        <Modal
+          transparent={true}
+          animationType="slide"
+          visible={showPicker}
+          onRequestClose={hideDatePicker}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={hideDatePicker}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={hideDatePicker}>
+                  <Text style={styles.doneText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.pickerContainer}>
+                <View style={styles.pickerScaleWrapper}>
+                  <DateTimePicker
+                    value={date}
+                    mode={mode}
+                    display="spinner"
+                    onChange={handleDateChange}
+                    minimumDate={minimumDate}
+                    maximumDate={maximumDate}
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+      
+      {Platform.OS === 'android' && showPicker && (
         <DateTimePicker
           value={date}
           mode={mode}
-          display={Platform.OS === 'ios' ? 'compact' : 'default'}
+          display="default"
           onChange={handleDateChange}
           minimumDate={minimumDate}
           maximumDate={maximumDate}
-          style={Platform.OS === 'ios' ? styles.iosDatePicker : undefined}
         />
-      )}
-      
-      {Platform.OS === 'ios' && showPicker && (
-        <TouchableOpacity style={styles.doneButton} onPress={hideDatePicker}>
-          <Text style={styles.doneButtonText}>Done</Text>
-        </TouchableOpacity>
       )}
     </View>
   );
@@ -108,21 +135,42 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1A1E23',
   },
-  iosDatePicker: {
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  modalContent: {
     backgroundColor: '#FFFFFF',
-    marginTop: 8,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: 320,
+    paddingBottom: 20,
   },
-  doneButton: {
-    backgroundColor: '#A4D65E',
-    borderRadius: 8,
-    padding: 8,
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  pickerContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    paddingVertical: 10,
   },
-  doneButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+  pickerScaleWrapper: {
+    transform: [{ scale: 1.1 }],
+  },
+  cancelText: {
+    color: '#6B7280',
     fontSize: 16,
+  },
+  doneText: {
+    color: '#A4D65E',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

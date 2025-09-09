@@ -195,10 +195,16 @@ export default function CompetitionCreationScreen({ navigation }) {
 
   // Tab state - dynamic based on preset selection
   const [selectedPreset, setSelectedPreset] = useState(null);
-  const [activeTab, setActiveTab] = useState('presets'); // 'presets', 'manual', 'friends', 'rules'
+  const [activeTab, setActiveTab] = useState('presets'); // 'presets', 'manual', 'schedule', 'friends', 'rules'
   
   // Track which activity cards have expanded "More" sections
   const [expandedCards, setExpandedCards] = useState({});
+  
+  // Preset-specific date/time state
+  const [presetStartDate, setPresetStartDate] = useState(null);
+  const [presetStartTime, setPresetStartTime] = useState(null);
+  const [presetEndDate, setPresetEndDate] = useState(null);
+  const [presetEndTime, setPresetEndTime] = useState(null);
   
   // Animation state for tab navigation (matching ProfileScreen)
   const [measurementsReady, setMeasurementsReady] = useState(false);
@@ -206,19 +212,20 @@ export default function CompetitionCreationScreen({ navigation }) {
   // Base width for the underline
   const baseUnderlineWidth = 60;
   
-  // Calculate initial centered positions for tabs (2 columns)
-  const calculateInitialTabX = (tabIndex) => {
-    const columnWidth = (screenWidth - 48) / 2;  // 2 equal columns
+  // Calculate initial centered positions for tabs (2 or 3 columns)
+  const calculateInitialTabX = (tabIndex, numColumns = 2) => {
+    const columnWidth = (screenWidth - 48) / numColumns;
     const columnCenter = columnWidth * tabIndex + columnWidth / 2;
     return columnCenter - baseUnderlineWidth / 2;
   };
   
   // Tab measurements for underline positioning
   const [tabMeasurements, setTabMeasurements] = useState({
-    presets: { scale: 1.2, x: calculateInitialTabX(0) },
-    manual: { scale: 1.2, x: calculateInitialTabX(1) },
-    friends: { scale: 1.2, x: calculateInitialTabX(0) },
-    rules: { scale: 1.2, x: calculateInitialTabX(1) }
+    presets: { scale: 1.2, x: calculateInitialTabX(0, 2) },
+    manual: { scale: 1.2, x: calculateInitialTabX(1, 2) },
+    schedule: { scale: 1.2, x: calculateInitialTabX(0, 3) },
+    friends: { scale: 1.2, x: calculateInitialTabX(1, 3) },
+    rules: { scale: 1.2, x: calculateInitialTabX(2, 3) }
   });
 
   // Animation refs for underline and press feedback
@@ -226,6 +233,7 @@ export default function CompetitionCreationScreen({ navigation }) {
   const underlineScale = React.useRef(new Animated.Value(1.2)).current;
   const presetsScale = React.useRef(new Animated.Value(1)).current;
   const manualScale = React.useRef(new Animated.Value(1)).current;
+  const scheduleScale = React.useRef(new Animated.Value(1)).current;
   const friendsScale = React.useRef(new Animated.Value(1)).current;
   const rulesScale = React.useRef(new Animated.Value(1)).current;
 
@@ -333,7 +341,7 @@ export default function CompetitionCreationScreen({ navigation }) {
   
   // Handler for competition name with 18-character limit
   const handleNameChange = (text) => {
-    if (text.length <= 18) {
+    if (text.length <= 14) {
       setName(text);
       setNameWarning(false);
     } else {
@@ -638,24 +646,104 @@ export default function CompetitionCreationScreen({ navigation }) {
   /* ---------- preset helpers ---------- */
   const selectPreset = (preset) => {
     setSelectedPreset(preset);
-    animateToTab('friends'); // Switch to friends tab after selection with animation
+    
+    // Initialize dates for the preset
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + preset.duration);
+    endDate.setHours(23, 59, 59, 999);
+    
+    setPresetStartDate(startDate);
+    setPresetStartTime(startDate);
+    setPresetEndDate(endDate);
+    setPresetEndTime(endDate);
+    
+    animateToTab('schedule'); // Switch to schedule tab after selection
   };
 
   const goBackToPresets = () => {
     setSelectedPreset(null);
+    setPresetStartDate(null);
+    setPresetStartTime(null);
+    setPresetEndDate(null);
+    setPresetEndTime(null);
     animateToTab('presets'); // Animate back to presets tab
     setInvitedFriends([]); // Clear invited friends when going back
+  };
+  
+  // Preset date/time handlers
+  const handlePresetStartDateChange = (selectedDate) => {
+    setPresetStartDate(selectedDate);
+    const updatedStartTime = new Date(selectedDate);
+    updatedStartTime.setHours(presetStartTime.getHours(), presetStartTime.getMinutes());
+    setPresetStartTime(updatedStartTime);
+    
+    // Auto-adjust end date based on preset duration
+    const newEndDate = new Date(selectedDate);
+    newEndDate.setDate(newEndDate.getDate() + selectedPreset.duration);
+    newEndDate.setHours(presetEndTime.getHours(), presetEndTime.getMinutes());
+    setPresetEndDate(newEndDate);
+    setPresetEndTime(newEndDate);
+  };
+
+  const handlePresetStartTimeChange = (selectedTime) => {
+    setPresetStartTime(selectedTime);
+    const updatedStartDate = new Date(presetStartDate);
+    updatedStartDate.setHours(selectedTime.getHours(), selectedTime.getMinutes());
+    setPresetStartDate(updatedStartDate);
+  };
+
+  const handlePresetEndDateChange = (selectedDate) => {
+    setPresetEndDate(selectedDate);
+    const updatedEndTime = new Date(selectedDate);
+    updatedEndTime.setHours(presetEndTime.getHours(), presetEndTime.getMinutes());
+    setPresetEndTime(updatedEndTime);
+  };
+
+  const handlePresetEndTimeChange = (selectedTime) => {
+    setPresetEndTime(selectedTime);
+    const updatedEndDate = new Date(presetEndDate);
+    updatedEndDate.setHours(selectedTime.getHours(), selectedTime.getMinutes());
+    setPresetEndDate(updatedEndDate);
+  };
+
+  const getPresetCombinedStartDateTime = () => {
+    const combined = new Date(presetStartDate);
+    combined.setHours(presetStartTime.getHours(), presetStartTime.getMinutes(), 0, 0);
+    return combined;
+  };
+
+  const getPresetCombinedEndDateTime = () => {
+    const combined = new Date(presetEndDate);
+    combined.setHours(presetEndTime.getHours(), presetEndTime.getMinutes(), 59, 999);
+    return combined;
+  };
+
+  // Helper function to calculate actual duration based on user-selected dates
+  const getActualPresetDuration = () => {
+    if (!presetStartDate || !presetEndDate) {
+      return selectedPreset?.duration || 0;
+    }
+    const start = new Date(presetStartDate);
+    const end = new Date(presetEndDate);
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
   };
 
   const createPresetCompetition = async () => {
     if (!selectedPreset) return;
 
     try {
-      const now = new Date();
-      const startDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0);
-      const endDateTime = new Date(startDateTime);
-      endDateTime.setDate(endDateTime.getDate() + selectedPreset.duration);
-      endDateTime.setHours(23, 59, 59, 999);
+      const startDateTime = getPresetCombinedStartDateTime();
+      const endDateTime = getPresetCombinedEndDateTime();
+      
+      // Validate dates
+      if (endDateTime <= startDateTime) {
+        Alert.alert('Validation', 'End date/time must be after start date/time');
+        return;
+      }
 
       const rules = selectedPreset.activities.map(a => ({
         type: a.type, unit: a.unit, pointsPerUnit: a.pointsPerUnit,
@@ -790,7 +878,11 @@ export default function CompetitionCreationScreen({ navigation }) {
   /* ---------- RENDER FUNCTIONS ---------- */
   
   const renderPresetsTab = () => (
-    <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.scrollView} 
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quick Start Templates</Text>
         <Text style={styles.sectionSubtext}>Choose from pre-configured competitions to get started quickly</Text>
@@ -820,8 +912,102 @@ export default function CompetitionCreationScreen({ navigation }) {
     </ScrollView>
   );
 
+  const renderScheduleTab = () => (
+    <ScrollView 
+      style={styles.scrollView} 
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.section}>
+        <View style={styles.presetHeader}>
+          <TouchableOpacity onPress={goBackToPresets} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={20} color="#A4D65E" />
+            <Text style={styles.backButtonText}>Back to Presets</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.scheduleCard}>
+          <View style={styles.scheduleHeader}>
+            <View style={[styles.presetIcon, { backgroundColor: selectedPreset?.color }]}>
+              <Ionicons name={selectedPreset?.icon} size={24} color="#FFFFFF" />
+            </View>
+            <View style={styles.scheduleInfo}>
+              <Text style={styles.scheduleName}>{selectedPreset?.name}</Text>
+              <Text style={styles.scheduleDuration}>
+                {selectedPreset?.duration} days • {selectedPreset?.dailyCap} points/day limit
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.sectionTitle}>Set Competition Schedule</Text>
+          <Text style={styles.sectionSubtext}>Choose when your competition starts and ends</Text>
+          
+          <View style={styles.dateTimeRow}>
+            <View style={styles.dateTimeField}>
+              <DatePicker 
+                label="Start Date" 
+                date={presetStartDate} 
+                onDateChange={handlePresetStartDateChange}
+                mode="date"
+                minimumDate={new Date()}
+              />
+            </View>
+            <View style={styles.dateTimeField}>
+              <DatePicker 
+                label="Start Time" 
+                date={presetStartTime} 
+                onDateChange={handlePresetStartTimeChange}
+                mode="time"
+              />
+            </View>
+          </View>
+          
+          <View style={styles.dateTimeRow}>
+            <View style={styles.dateTimeField}>
+              <DatePicker 
+                label="End Date" 
+                date={presetEndDate} 
+                onDateChange={handlePresetEndDateChange}
+                mode="date"
+                minimumDate={presetStartDate}
+              />
+            </View>
+            <View style={styles.dateTimeField}>
+              <DatePicker 
+                label="End Time" 
+                date={presetEndTime} 
+                onDateChange={handlePresetEndTimeChange}
+                mode="time"
+              />
+            </View>
+          </View>
+          
+          <View style={styles.durationPreview}>
+            <Text style={styles.durationText}>
+              Duration: {Math.ceil((getPresetCombinedEndDateTime() - getPresetCombinedStartDateTime()) / (1000 * 60 * 60 * 24))} days
+            </Text>
+            <Text style={styles.durationSubtext}>
+              Recommended duration: {selectedPreset?.duration} days
+            </Text>
+          </View>
+        </View>
+
+        <TouchableOpacity 
+          style={styles.createButton} 
+          onPress={() => animateToTab('friends')}
+        >
+          <Text style={styles.createButtonText}>Continue to Invite Friends</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+
   const renderFriendsTab = () => (
-    <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.scrollView} 
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.section}>
         <View style={styles.presetHeader}>
           <TouchableOpacity onPress={goBackToPresets} style={styles.backButton}>
@@ -924,7 +1110,11 @@ export default function CompetitionCreationScreen({ navigation }) {
   );
 
   const renderRulesTab = () => (
-    <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.scrollView} 
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.section}>
         <View style={styles.presetHeader}>
           <TouchableOpacity onPress={goBackToPresets} style={styles.backButton}>
@@ -941,7 +1131,7 @@ export default function CompetitionCreationScreen({ navigation }) {
             <View style={styles.rulesInfo}>
               <Text style={styles.rulesName}>{selectedPreset?.name}</Text>
               <Text style={styles.rulesDuration}>
-                {selectedPreset?.duration} days • {selectedPreset?.dailyCap} points/day limit
+                {getActualPresetDuration()} days • {selectedPreset?.dailyCap} points/day limit
               </Text>
             </View>
           </View>
@@ -949,12 +1139,12 @@ export default function CompetitionCreationScreen({ navigation }) {
           <Text style={styles.rulesDescription}>{selectedPreset?.description}</Text>
           
           <View style={styles.rulesSection}>
-            <Text style={styles.rulesSectionTitle}>🎯 Goal</Text>
+            <Text style={styles.rulesSectionTitle}>Goal</Text>
             <Text style={styles.rulesSectionContent}>{selectedPreset?.goal}</Text>
           </View>
 
           <View style={styles.rulesSection}>
-            <Text style={styles.rulesSectionTitle}>🏃 Activities & Points</Text>
+            <Text style={styles.rulesSectionTitle}>Activities & Points</Text>
             {selectedPreset?.activities.map((activity, idx) => (
               <View key={idx} style={styles.activityRule}>
                 <View style={styles.activityRuleHeader}>
@@ -969,7 +1159,7 @@ export default function CompetitionCreationScreen({ navigation }) {
           </View>
 
           <View style={styles.rulesSection}>
-            <Text style={styles.rulesSectionTitle}>💡 Tips for Success</Text>
+            <Text style={styles.rulesSectionTitle}>Tips for Success</Text>
             {selectedPreset?.tips.map((tip, idx) => (
               <View key={idx} style={styles.tipItem}>
                 <Text style={styles.tipBullet}>•</Text>
@@ -979,11 +1169,11 @@ export default function CompetitionCreationScreen({ navigation }) {
           </View>
 
           <View style={styles.rulesSection}>
-            <Text style={styles.rulesSectionTitle}>📊 Competition Details</Text>
+            <Text style={styles.rulesSectionTitle}>Competition Details</Text>
             <View style={styles.detailsGrid}>
               <View style={styles.detailItem}>
                 <Text style={styles.detailLabel}>Duration</Text>
-                <Text style={styles.detailValue}>{selectedPreset?.duration} days</Text>
+                <Text style={styles.detailValue}>{getActualPresetDuration()} days</Text>
               </View>
               <View style={styles.detailItem}>
                 <Text style={styles.detailLabel}>Daily Limit</Text>
@@ -995,7 +1185,7 @@ export default function CompetitionCreationScreen({ navigation }) {
               </View>
               <View style={styles.detailItem}>
                 <Text style={styles.detailLabel}>Max Points</Text>
-                <Text style={styles.detailValue}>{selectedPreset?.dailyCap * selectedPreset?.duration}</Text>
+                <Text style={styles.detailValue}>{selectedPreset?.dailyCap * getActualPresetDuration()}</Text>
               </View>
             </View>
           </View>
@@ -1031,7 +1221,7 @@ export default function CompetitionCreationScreen({ navigation }) {
             onChangeText={handleNameChange}
             placeholder="Enter competition name"
             placeholderTextColor="#999"
-            maxLength={18}
+            maxLength={14}
           />
           <View style={styles.nameInputFeedback}>
             {nameWarning && (
@@ -1039,15 +1229,15 @@ export default function CompetitionCreationScreen({ navigation }) {
             )}
             <Text style={[
               styles.characterCount,
-              name.length === 18 && styles.characterCountMax
+              name.length === 14 && styles.characterCountMax
             ]}>
-              {name.length}/18
+              {name.length}/14
             </Text>
           </View>
         </View>
         {nameWarning && (
           <Text style={styles.warningText}>
-            Maximum 18 characters allowed
+            Maximum 14 characters allowed
           </Text>
         )}
       </View>
@@ -1510,6 +1700,39 @@ export default function CompetitionCreationScreen({ navigation }) {
             </>
           ) : (
             <>
+              {/* Schedule Tab */}
+              <Animated.View style={[styles.tabColumn, { transform: [{ scale: scheduleScale }] }]}>
+                <TouchableOpacity
+                  style={styles.tabButton}
+                  onPressIn={() => handlePressIn(scheduleScale)}
+                  onPressOut={() => handlePressOut('schedule', scheduleScale)}
+                  onLayout={(event) => {
+                    const { x, width } = event.nativeEvent.layout;
+                    const textWidth = width * 0.8;
+                    const indicatorWidth = textWidth + 12;
+                    const scale = indicatorWidth / baseUnderlineWidth;
+                    const columnCenter = (screenWidth - 48) / 3 * 0 + (screenWidth - 48) / 6;
+                    setTabMeasurements(prev => ({
+                      ...prev,
+                      schedule: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
+                    }));
+                    setMeasurementsReady(true);
+                  }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: activeTab === 'schedule' }}
+                >
+                  <Text style={[
+                    styles.tabLabel,
+                    { 
+                      color: activeTab === 'schedule' ? colors.nav.activeGreen : colors.nav.inactiveGray,
+                      fontSize: activeTab === 'schedule' ? 22.5 : 21
+                    }
+                  ]}>
+                    Schedule
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+
               {/* Friends Tab */}
               <Animated.View style={[styles.tabColumn, { transform: [{ scale: friendsScale }] }]}>
                 <TouchableOpacity
@@ -1521,7 +1744,7 @@ export default function CompetitionCreationScreen({ navigation }) {
                     const textWidth = width * 0.8;
                     const indicatorWidth = textWidth + 12;
                     const scale = indicatorWidth / baseUnderlineWidth;
-                    const columnCenter = (screenWidth - 48) / 2 * 0 + (screenWidth - 48) / 4;
+                    const columnCenter = (screenWidth - 48) / 3 * 1 + (screenWidth - 48) / 6;
                     setTabMeasurements(prev => ({
                       ...prev,
                       friends: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
@@ -1554,7 +1777,7 @@ export default function CompetitionCreationScreen({ navigation }) {
                     const textWidth = width * 0.8;
                     const indicatorWidth = textWidth + 12;
                     const scale = indicatorWidth / baseUnderlineWidth;
-                    const columnCenter = (screenWidth - 48) / 2 * 1 + (screenWidth - 48) / 4;
+                    const columnCenter = (screenWidth - 48) / 3 * 2 + (screenWidth - 48) / 6;
                     setTabMeasurements(prev => ({
                       ...prev,
                       rules: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
@@ -1598,6 +1821,7 @@ export default function CompetitionCreationScreen({ navigation }) {
       {/* Tab Content */}
       {activeTab === 'presets' && renderPresetsTab()}
       {activeTab === 'manual' && renderManualTab()}
+      {activeTab === 'schedule' && renderScheduleTab()}
       {activeTab === 'friends' && renderFriendsTab()}
       {activeTab === 'rules' && renderRulesTab()}
 
@@ -1663,7 +1887,7 @@ const styles = StyleSheet.create({
 
   // Common
   scrollView: { flex: 1, paddingHorizontal: 16 },
-  scrollContent: { paddingBottom: 40 },
+  scrollContent: { paddingBottom: 100 },
   section: { marginTop: 24 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1A1E23', marginBottom: 10, marginTop: 15  },
   sectionSubtext: { fontSize: 14, color: '#666', marginBottom: 15 },
@@ -1726,6 +1950,41 @@ const styles = StyleSheet.create({
   presetSummary: {
     fontSize: 12,
     color: '#6B7280',
+    fontStyle: 'italic',
+  },
+
+  // Schedule Tab
+  scheduleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 20,
+  },
+  scheduleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  scheduleInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  scheduleName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1A1E23',
+  },
+  scheduleDuration: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  durationSubtext: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 4,
     fontStyle: 'italic',
   },
 
