@@ -748,7 +748,7 @@ const handleCompetitionPress = async (competition) => {
           return (
             <TouchableOpacity
               key={comp.id}
-              style={styles.card}
+              style={styles.completedCard}
               activeOpacity={0.85}
               onPress={() => handleCompetitionPress(comp)}
             >
@@ -758,16 +758,7 @@ const handleCompetitionPress = async (competition) => {
                   <Text style={styles.cancelledText}>CANCELLED</Text>
                 </View>
               )}
-              <Text style={styles.metaText}>Ended: {formattedDate}</Text>
-              {comp.winnerId && comp.status !== 'cancelled' && (
-                <Text style={styles.winnerText}>Winner determined ✓</Text>
-              )}
-              <TouchableOpacity 
-                style={styles.actionLinkContainer}
-                onPress={() => navigation.navigate('Leaderboard', { competition: comp })}
-              >
-                <Text style={styles.actionLink}>View Results {'>'}</Text>
-              </TouchableOpacity>
+              <Text style={styles.endedDateText}>Ended: {formattedDate}</Text>
             </TouchableOpacity>
           );
         })
@@ -1124,6 +1115,20 @@ const styles = StyleSheet.create({
     position: 'relative',  // For absolute positioning of badge
   },
 
+  completedCard: {
+    backgroundColor: '#262626',
+    borderRadius: 24,
+    paddingHorizontal: 22,  // Reduced by 2px to compensate for border
+    paddingTop: 20,         // Reduced by 2px to compensate for border
+    paddingBottom: 20,      // Reduced by 2px to compensate for border
+    marginBottom: 24,
+    position: 'relative',
+    
+    // Add green border matching tab bar
+    borderWidth: 2,
+    borderColor: '#B6DB78',  // Tab bar active green
+  },
+
   cardTitle: { 
     fontSize: 22,     // Reverted to original size
     lineHeight: 34,   // Reverted to original line height
@@ -1140,12 +1145,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 
-  winnerText: {
+  endedDateText: {
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: '600',
-    color: '#93D13C',
-    marginTop: 4,
+    fontWeight: '500',
+    color: '#2A5E2E', // Dark green
+    marginTop: 6,
   },
 
   actionLinkContainer: {
