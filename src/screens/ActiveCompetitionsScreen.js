@@ -690,11 +690,17 @@ const handleCompetitionPress = async (competition) => {
           return (
             <TouchableOpacity
               key={comp.id}
-              style={styles.card}
+              style={[styles.card, styles.activeCard]}
               activeOpacity={0.85}
               onPress={() => handleCompetitionPress(comp)}
             >
-              <Text style={styles.cardTitle}>{comp.name}</Text>
+              <Text 
+                style={[styles.cardTitle, styles.cardTitleTwoLine]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {comp.name}
+              </Text>
               
               {/* Status Badge */}
               {(() => {
@@ -711,19 +717,15 @@ const handleCompetitionPress = async (competition) => {
                 }
                 return null;
               })()}
-              
+
+              {/* Always show date directly under title with tight spacing */}
+              <Text style={[styles.metaText, styles.metaTextTight]}>{dateLabel}: {formattedDate}</Text>
+
               {comp.status === 'cancelled' && (
                 <View style={styles.cancelledBadge}>
                   <Text style={styles.cancelledText}>CANCELLED</Text>
                 </View>
               )}
-              <Text style={styles.metaText}>{dateLabel}: {formattedDate}</Text>
-              <TouchableOpacity 
-                style={styles.actionLinkContainer}
-                onPress={() => handleCompetitionPress(comp)}
-              >
-                <Text style={styles.actionLink}>View More</Text>
-              </TouchableOpacity>
             </TouchableOpacity>
           );
         })
@@ -752,7 +754,13 @@ const handleCompetitionPress = async (competition) => {
               activeOpacity={0.85}
               onPress={() => handleCompetitionPress(comp)}
             >
-              <Text style={styles.cardTitle}>{comp.name}</Text>
+              <Text 
+                style={[styles.cardTitle, styles.cardTitleTwoLine]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {comp.name}
+              </Text>
               {comp.status === 'cancelled' && (
                 <View style={styles.cancelledBadge}>
                   <Text style={styles.cancelledText}>CANCELLED</Text>
@@ -782,12 +790,6 @@ const handleCompetitionPress = async (competition) => {
           >
             <Text style={styles.cardTitle}>{comp.name}</Text>
             <Text style={styles.metaText}>You've been invited to join!</Text>
-            <TouchableOpacity 
-              style={styles.actionLinkContainer}
-              onPress={() => handlePendingInvitePress(comp)}
-            >
-              <Text style={styles.actionLink}>View Details {'>'}</Text>
-            </TouchableOpacity>
             <View style={styles.inviteActions}>
               <TouchableOpacity
                 style={[styles.inviteButton, styles.acceptButton]}
@@ -1115,6 +1117,11 @@ const styles = StyleSheet.create({
     position: 'relative',  // For absolute positioning of badge
   },
 
+  // Fixed height for Active tab cards to ensure consistency
+  activeCard: {
+    height: 120,
+  },
+
   completedCard: {
     backgroundColor: '#262626',
     borderRadius: 24,
@@ -1123,9 +1130,10 @@ const styles = StyleSheet.create({
     paddingBottom: 20,      // Reduced by 2px to compensate for border
     marginBottom: 24,
     position: 'relative',
+    height: 120,            // Match Active cards height
     
     // Add green border matching tab bar
-    borderWidth: 2,
+    borderWidth: 3, // +10% from 2
     borderColor: '#B6DB78',  // Tab bar active green
   },
 
@@ -1137,6 +1145,11 @@ const styles = StyleSheet.create({
     paddingRight: 74,  // Updated for smaller badge (52 + 14 + 8 margin)
   },
 
+  // Clamp title to 2 lines without forcing extra space
+  cardTitleTwoLine: {
+    // numberOfLines enforces the max; avoid minHeight so metadata tucks right under
+  },
+
   metaText: {
     fontSize: 14,
     lineHeight: 20,
@@ -1145,11 +1158,16 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 
+  // Tighter spacing for Active card date under title
+  metaTextTight: {
+    marginTop: 4,
+  },
+
   endedDateText: {
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '500',
-    color: '#2A5E2E', // Dark green
+    color: colors.nav.activeGreen, // Match top tab bar active green
     marginTop: 6,
   },
 
