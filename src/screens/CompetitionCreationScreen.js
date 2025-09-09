@@ -904,8 +904,9 @@ export default function CompetitionCreationScreen({ navigation }) {
               </View>
               <Ionicons name="chevron-forward" size={20} color="#6B7280" />
             </View>
-            <Text style={styles.presetDescription}>{preset.description}</Text>
-            <Text style={styles.presetSummary}>{preset.summary}</Text>
+            <Text style={styles.presetDescription} numberOfLines={2} ellipsizeMode="tail">
+              {preset.description}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -1914,7 +1915,8 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#A4D65E',
+    height: 132,
   },
   presetHeader: {
     flexDirection: 'row',
@@ -1945,12 +1947,7 @@ const styles = StyleSheet.create({
   presetDescription: {
     fontSize: 14,
     color: '#1A1E23',
-    marginBottom: 8,
-  },
-  presetSummary: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontStyle: 'italic',
+    lineHeight: 20,
   },
 
   // Schedule Tab
