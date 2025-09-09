@@ -29,8 +29,10 @@ import {
 } from '../utils/scoreVisibility';
 
 const CompetitionDetailsScreen = ({ route, navigation }) => {
-  const [activeTab, setActiveTab] = useState('me');
-  const { competition } = route.params;
+  const { competition, initialTab } = route.params;
+  // For completed competitions, default to 'rank' tab, otherwise use initialTab or 'me'
+  const defaultTab = competition.status === 'completed' ? 'rank' : (initialTab || 'me');
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const { user } = useContext(AuthContext);
   
   const [workouts, setWorkouts] = useState([]);
@@ -42,16 +44,19 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [visibility, setVisibility] = useState(null);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [rankings, setRankings] = useState([]);
+  const [rankingsLoading, setRankingsLoading] = useState(false);
 
-  // Reset to 'me' tab when returning from submission
+  // Reset to appropriate tab when returning from submission
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      // Reset to 'me' tab when screen comes into focus
-      setActiveTab('me');
+      // For completed competitions, reset to 'rank', otherwise to 'me'
+      const resetTab = competition.status === 'completed' ? 'rank' : 'me';
+      setActiveTab(resetTab);
     });
 
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, competition.status]);
 
   /* ---------------- refresh handler -------------------- */
   const onRefresh = () => {
@@ -444,6 +449,83 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     };
   }, [competition?.id, user.uid]);
 
+  // Fetch rankings data when rank tab is active
+  useEffect(() => {
+    if (activeTab === 'rank' && competition?.id) {
+      setRankingsLoading(true);
+      
+      const submissionsQuery = query(
+        collection(db, 'submissions'),
+        where('competitionId', '==', competition.id)
+      );
+
+      const unsubscribe = onSnapshot(
+        submissionsQuery, 
+        async (snapshot) => {
+          try {
+            const allSubmissions = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+            
+            const visibleSubmissions = filterVisibleSubmissionsWithSelf(allSubmissions, competition, user.uid);
+            
+            const pointsByUser = {};
+            visibleSubmissions.forEach(submission => {
+              const userId = submission.userId;
+              if (!pointsByUser[userId]) {
+                pointsByUser[userId] = 0;
+              }
+              pointsByUser[userId] += submission.points || 0;
+            });
+
+            const userDataPromises = competition.participants.map(async (uid) => {
+              try {
+                const userDoc = await getDoc(doc(db, 'users', uid));
+                const userData = userDoc.exists() ? userDoc.data() : {};
+                
+                return {
+                  id: uid,
+                  name: userData.username || 'Unknown User',
+                  points: pointsByUser[uid] || 0,
+                  isCurrentUser: uid === user.uid,
+                };
+              } catch (error) {
+                return {
+                  id: uid,
+                  name: 'Unknown User',
+                  points: pointsByUser[uid] || 0,
+                  isCurrentUser: uid === user.uid,
+                };
+              }
+            });
+
+            const usersWithPoints = await Promise.all(userDataPromises);
+            
+            const sortedRankings = usersWithPoints
+              .sort((a, b) => b.points - a.points)
+              .map((user, index) => ({
+                ...user,
+                position: index + 1,
+              }));
+
+            setRankings(sortedRankings);
+            setRankingsLoading(false);
+          } catch (error) {
+            console.error('Error processing leaderboard:', error);
+            setRankingsLoading(false);
+          }
+        },
+        (error) => {
+          console.error('Error fetching rankings:', error);
+          setRankingsLoading(false);
+        }
+      );
+
+      return () => unsubscribe();
+    }
+  }, [activeTab, competition?.id, competition?.participants, user.uid]);
+
   // Get the primary value and unit for display based on the workout's unit type
   const getPrimaryValueAndUnit = (workout) => {
     const { unit } = workout;
@@ -789,11 +871,130 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     </ScrollView>
   );
 
+  // Render Rank Tab Content
+  const renderRankTab = () => {
+    // Separate top 3 from the rest
+    const topThree = rankings.slice(0, 3);
+    const restOfRankings = rankings.slice(3);
+
+    if (rankingsLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading rankings...</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.rankContainer}>
+        {/* Podium Container for Top 3 */}
+        <View style={styles.podiumContainer}>
+          {topThree.length > 0 && (
+            <View style={styles.topThreeContainer}>
+              {/* Reorder for podium display: 2nd, 1st, 3rd */}
+              {[1, 0, 2].map(index => {
+                const user = topThree[index];
+                if (!user) return <View key={index} style={{ flex: 1 }} />;
+                
+                return (
+                  <View 
+                    key={user.id} 
+                    style={[
+                      styles.topUserContainer, 
+                      user.position === 1 && styles.firstPlaceContainer,
+                      user.position === 2 && styles.secondPlaceContainer,
+                      user.position === 3 && styles.thirdPlaceContainer,
+                    ]}
+                  >
+                    {/* User avatar and badge */}
+                    <View style={styles.userImageContainer}>
+                      <Ionicons 
+                        name="person-circle" 
+                        size={user.position === 1 ? 70 : 60} 
+                        color={user.position === 1 ? "#FFD700" : "#1A1E23"} 
+                      />
+                      <View style={[
+                        styles.positionBadge,
+                        user.position === 1 && styles.firstPlaceBadge,
+                        user.position === 2 && styles.secondPlaceBadge,
+                        user.position === 3 && styles.thirdPlaceBadge,
+                      ]}>
+                        <Text style={styles.positionText}>{user.position}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.userName}>{user.name}</Text>
+                    <View style={styles.pointsContainer}>
+                      <Ionicons name="star" size={14} color="#A4D65E" />
+                      <Text style={styles.pointsText}>
+                        {`${user.points.toFixed(0)} pts`}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        {/* Rankings List */}
+        <View style={styles.rankingsContainer}>
+          <Text style={styles.rankingsTitle}>Rankings</Text>
+          <View style={styles.rankingsBackground}>
+            <ScrollView 
+              style={styles.rankingsList}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={['#A4D65E']}
+                  tintColor="#A4D65E"
+                />
+              }
+            >
+              {rankings.length === 0 ? (
+                <Text style={styles.emptyText}>No submissions yet. Be the first to earn points!</Text>
+              ) : (
+                restOfRankings.map((user, index) => (
+                  <View 
+                    key={user.id} 
+                    style={[
+                      styles.rankingItem, 
+                      user.isCurrentUser && styles.currentUserRanking,
+                      index === restOfRankings.length - 1 && styles.lastRankingItem
+                    ]}
+                  >
+                    <Text style={styles.rankingPosition}>{user.position}</Text>
+                    <View style={styles.rankingUserImageContainer}>
+                      <Ionicons name="person-circle" size={36} color="#777" />
+                    </View>
+                    <Text style={[
+                      styles.rankingUserName,
+                      user.isCurrentUser && styles.currentUserText
+                    ]}>
+                      {user.isCurrentUser ? 'You' : user.name}
+                    </Text>
+                    <Text style={[
+                      styles.rankingPoints,
+                      user.isCurrentUser && styles.currentUserText
+                    ]}>
+                      {`${user.points.toFixed(0)} pts`}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Header 
         title="" 
-        backgroundColor="#F8F8F8"
+        backgroundColor="#FFFFFF"
       />
       <StatusBar style="dark" />
       
@@ -807,50 +1008,72 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         </View>
       )}
       
-      <View style={styles.tabContainer}>
-        {/* Me Tab */}
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'me' && styles.activeTab]} 
-          onPress={() => setActiveTab('me')}
-        >
-          <Text style={[styles.tabText, activeTab === 'me' && styles.activeTabText]}>Me</Text>
-        </TouchableOpacity>
-        
-        {/* Others Tab */}
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'others' && styles.activeTab]} 
-          onPress={() => setActiveTab('others')}
-        >
-          <Text style={[styles.tabText, activeTab === 'others' && styles.activeTabText]}>Others</Text>
-        </TouchableOpacity>
-        
-        {/* Leaderboard Tab */}
-        <TouchableOpacity 
-          style={styles.tab} 
-          onPress={() => {
-            navigation.navigate('Leaderboard', { competition });
-          }}
-        >
-          <Text style={styles.tabText}>Rank</Text>
-        </TouchableOpacity>
-        
-        {/* Add Tab */}
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'add' && styles.activeTab]} 
-          onPress={() => {
-            navigation.navigate('SubmissionForm', { competition });
-          }}
-        >
-          <Text style={[styles.tabText, activeTab === 'add' && styles.activeTabText]}>Add</Text>
-        </TouchableOpacity>
+      <View style={[styles.tabContainer, competition.status === 'completed' && styles.completedTabContainer]}>
+        {competition.status === 'completed' ? (
+          // Completed competition - only show Rank and Rules tabs
+          <>
+            {/* Rank Tab */}
+            <TouchableOpacity 
+              style={[styles.completedTab, activeTab === 'rank' && styles.activeTab]} 
+              onPress={() => setActiveTab('rank')}
+            >
+              <Text style={[styles.tabText, activeTab === 'rank' && styles.activeTabText]}>Rank</Text>
+            </TouchableOpacity>
+            
+            {/* Rules Tab */}
+            <TouchableOpacity 
+              style={[styles.completedTab, activeTab === 'rules' && styles.activeTab]} 
+              onPress={() => setActiveTab('rules')}
+            >
+              <Text style={[styles.tabText, activeTab === 'rules' && styles.activeTabText]}>Rules</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          // Active competition - show all tabs
+          <>
+            {/* Me Tab */}
+            <TouchableOpacity 
+              style={[styles.tab, activeTab === 'me' && styles.activeTab]} 
+              onPress={() => setActiveTab('me')}
+            >
+              <Text style={[styles.tabText, activeTab === 'me' && styles.activeTabText]}>Me</Text>
+            </TouchableOpacity>
+            
+            {/* Others Tab */}
+            <TouchableOpacity 
+              style={[styles.tab, activeTab === 'others' && styles.activeTab]} 
+              onPress={() => setActiveTab('others')}
+            >
+              <Text style={[styles.tabText, activeTab === 'others' && styles.activeTabText]}>Others</Text>
+            </TouchableOpacity>
+            
+            {/* Rank Tab */}
+            <TouchableOpacity 
+              style={[styles.tab, activeTab === 'rank' && styles.activeTab]} 
+              onPress={() => setActiveTab('rank')}
+            >
+              <Text style={[styles.tabText, activeTab === 'rank' && styles.activeTabText]}>Rank</Text>
+            </TouchableOpacity>
+            
+            {/* Add Tab */}
+            <TouchableOpacity 
+              style={[styles.tab, activeTab === 'add' && styles.activeTab]} 
+              onPress={() => {
+                navigation.navigate('SubmissionForm', { competition });
+              }}
+            >
+              <Text style={[styles.tabText, activeTab === 'add' && styles.activeTabText]}>Add</Text>
+            </TouchableOpacity>
 
-        {/* Rules Tab */}
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'rules' && styles.activeTab]} 
-          onPress={() => setActiveTab('rules')}
-        >
-          <Text style={[styles.tabText, activeTab === 'rules' && styles.activeTabText]}>Rules</Text>
-        </TouchableOpacity>
+            {/* Rules Tab */}
+            <TouchableOpacity 
+              style={[styles.tab, activeTab === 'rules' && styles.activeTab]} 
+              onPress={() => setActiveTab('rules')}
+            >
+              <Text style={[styles.tabText, activeTab === 'rules' && styles.activeTabText]}>Rules</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
       
       {/* Visibility info banner for Others tab */}
@@ -865,9 +1088,11 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
       
       {activeTab === 'rules' ? (
         renderRulesTab()
-      ) : (
+      ) : activeTab === 'rank' ? (
+        renderRankTab()
+      ) : competition.status !== 'completed' && (activeTab === 'me' || activeTab === 'others') ? (
         <>
-          {/* Search bar - Only show in All tab */}
+          {/* Search bar - Only show for active competitions */}
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={18} color="#999" style={styles.searchIcon} />
             <TextInput
@@ -966,7 +1191,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
             )}
           </ScrollView>
         </>
-      )}
+      ) : null}
     </View>
   );
 };
@@ -984,7 +1209,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginVertical: 16,
   },
+  completedTabContainer: {
+    // Same styling, tabs will adapt to fill space
+  },
   tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 20,
+  },
+  completedTab: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
@@ -1419,6 +1653,154 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     fontStyle: 'italic',
+  },
+  
+  // Rank Tab Styles
+  rankContainer: {
+    flex: 1,
+  },
+  podiumContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  topThreeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+  topUserContainer: {
+    alignItems: 'center',
+    marginHorizontal: 5,
+    flex: 1,
+  },
+  firstPlaceContainer: {
+    marginBottom: 0,
+  },
+  secondPlaceContainer: {
+    marginBottom: 15,
+  },
+  thirdPlaceContainer: {
+    marginBottom: 25,
+  },
+  userImageContainer: {
+    position: 'relative',
+    marginBottom: 5,
+  },
+  positionBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#A4D65E',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  firstPlaceBadge: {
+    backgroundColor: '#FFD700',
+  },
+  secondPlaceBadge: {
+    backgroundColor: '#C0C0C0',
+  },
+  thirdPlaceBadge: {
+    backgroundColor: '#CD7F32',
+  },
+  positionText: {
+    color: '#1A1E23',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  userName: {
+    color: '#1A1E23',
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  pointsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pointsText: {
+    color: '#A4D65E',
+    fontSize: 14,
+    marginLeft: 4,
+  },
+  rankingsContainer: {
+    flex: 1,
+    paddingTop: 20,
+  },
+  rankingsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1A1E23',
+    marginBottom: 15,
+    paddingHorizontal: 16,
+  },
+  rankingsBackground: {
+    backgroundColor: '#F3F9F0',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    flex: 1,
+    paddingTop: 12,
+    paddingBottom: 20,
+    minHeight: 200,
+  },
+  rankingsList: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  rankingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+    marginHorizontal: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  currentUserRanking: {
+    backgroundColor: '#A4D65E',
+  },
+  lastRankingItem: {
+    marginBottom: 0,
+  },
+  rankingPosition: {
+    width: 30,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1A1E23',
+  },
+  rankingUserImageContainer: {
+    marginRight: 12,
+  },
+  rankingUserName: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1A1E23',
+  },
+  rankingPoints: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1A1E23',
+  },
+  currentUserText: {
+    color: '#1A1E23',
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#666',
+    marginTop: 20,
+    fontSize: 16,
   },
 });
 

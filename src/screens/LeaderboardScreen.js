@@ -41,6 +41,14 @@ const LeaderboardScreen = ({ route, navigation }) => {
   const [isCompleting, setIsCompleting] = useState(false);
   const [visibility, setVisibility] = useState(null);
 
+  // Immediately redirect to CompetitionDetails with rank tab active
+  useEffect(() => {
+    navigation.replace('CompetitionDetails', { 
+      competition,
+      initialTab: 'rank'
+    });
+  }, []);
+
   /* ---------------- refresh handler -------------------- */
   const onRefresh = () => {
     setRefreshing(true);
@@ -347,7 +355,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
       <View style={styles.container}>
         <Header 
           title="" 
-          backgroundColor="#F8F8F8"
+          backgroundColor="#FFFFFF"
         />
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading rankings...</Text>
@@ -360,9 +368,68 @@ const LeaderboardScreen = ({ route, navigation }) => {
     <View style={styles.container}>
       <Header 
         title="" 
-        backgroundColor="#F8F8F8"
+        backgroundColor="#FFFFFF"
       />
       <StatusBar style="dark" />
+      
+      {/* Navigation Tabs */}
+      <View style={styles.tabContainer}>
+        {/* Me Tab */}
+        <TouchableOpacity 
+          style={styles.tab} 
+          onPress={() => {
+            navigation.navigate('CompetitionDetails', { 
+              competition,
+              initialTab: 'me'
+            });
+          }}
+        >
+          <Text style={styles.tabText}>Me</Text>
+        </TouchableOpacity>
+        
+        {/* Others Tab */}
+        <TouchableOpacity 
+          style={styles.tab} 
+          onPress={() => {
+            navigation.navigate('CompetitionDetails', { 
+              competition,
+              initialTab: 'others'
+            });
+          }}
+        >
+          <Text style={styles.tabText}>Others</Text>
+        </TouchableOpacity>
+        
+        {/* Rank Tab - Active */}
+        <TouchableOpacity 
+          style={[styles.tab, styles.activeTab]} 
+        >
+          <Text style={[styles.tabText, styles.activeTabText]}>Rank</Text>
+        </TouchableOpacity>
+        
+        {/* Add Tab */}
+        <TouchableOpacity 
+          style={styles.tab} 
+          onPress={() => {
+            navigation.navigate('SubmissionForm', { competition });
+          }}
+        >
+          <Text style={styles.tabText}>Add</Text>
+        </TouchableOpacity>
+
+        {/* Rules Tab */}
+        <TouchableOpacity 
+          style={styles.tab} 
+          onPress={() => {
+            navigation.navigate('CompetitionDetails', { 
+              competition,
+              initialTab: 'rules'
+            });
+          }}
+        >
+          <Text style={styles.tabText}>Rules</Text>
+        </TouchableOpacity>
+      </View>
       
       {/* Visibility Status Banner */}
       {visibility && visibility.isInHiddenPeriod && (
@@ -385,49 +452,76 @@ const LeaderboardScreen = ({ route, navigation }) => {
       )}
       
       <View style={styles.podiumContainer}>
-        <View style={styles.podiumIcon}>
-          <Ionicons name="trophy" size={40} color="#A4D65E" />
-        </View>
-        
         {topThree.length > 0 && (
           <View style={styles.topThreeContainer}>
             {/* Reorder for podium display: 2nd, 1st, 3rd */}
             {[1, 0, 2].map(index => {
               const user = topThree[index];
-              if (!user) return <View key={index} style={{ flex: 1 }} />;
+              if (!user) return <View key={index} style={styles.topUserColumn} />;
+              
+              const isFirst = user.position === 1;
+              const avatarSize = isFirst ? 96 : 80;
               
               return (
                 <View 
                   key={user.id} 
                   style={[
-                    styles.topUserContainer, 
-                    user.position === 1 && styles.firstPlaceContainer,
-                    user.position === 2 && styles.secondPlaceContainer,
-                    user.position === 3 && styles.thirdPlaceContainer,
+                    styles.topUserColumn,
+                    isFirst && styles.firstPlaceOffset,
                   ]}
                 >
-                  <View style={styles.userImageContainer}>
-                    <Ionicons 
-                      name="person-circle" 
-                      size={user.position === 1 ? 70 : 60} 
-                      color={user.position === 1 ? "#FFD700" : "#FFFFFF"} 
-                    />
+                  <TouchableOpacity 
+                    style={styles.topUserTouchable}
+                    activeOpacity={0.7}
+                  >
+                    {/* Crown for 1st place */}
+                    {isFirst && (
+                      <View style={styles.crownContainer}>
+                        <Ionicons 
+                          name="trophy" 
+                          size={30} 
+                          color="#A4E64F" 
+                        />
+                      </View>
+                    )}
+                    
+                    {/* Avatar with ring */}
                     <View style={[
-                      styles.positionBadge,
-                      user.position === 1 && styles.firstPlaceBadge,
-                      user.position === 2 && styles.secondPlaceBadge,
-                      user.position === 3 && styles.thirdPlaceBadge,
+                      styles.avatarContainer,
+                      { width: avatarSize, height: avatarSize }
                     ]}>
-                      <Text style={styles.positionText}>{user.position}</Text>
+                      <View style={[
+                        styles.avatarRing,
+                        { width: avatarSize, height: avatarSize }
+                      ]}>
+                        <View style={styles.avatarInner}>
+                          <Ionicons 
+                            name="person" 
+                            size={isFirst ? 48 : 40} 
+                            color="#999" 
+                          />
+                        </View>
+                      </View>
+                      
+                      {/* Rank badge */}
+                      <View style={styles.rankBadge}>
+                        <Text style={styles.rankBadgeText}>{user.position}</Text>
+                      </View>
                     </View>
-                  </View>
-                  <Text style={styles.userName}>{user.name}</Text>
-                  <View style={styles.pointsContainer}>
-                    <Ionicons name="star" size={14} color="#A4D65E" />
-                    <Text style={styles.pointsText}>
-                      {`${user.points.toFixed(0)} pts`}
+                    
+                    {/* User name */}
+                    <Text style={styles.podiumUserName} numberOfLines={1} ellipsizeMode="tail">
+                      {user.name}
                     </Text>
-                  </View>
+                    
+                    {/* Points with star */}
+                    <View style={styles.podiumPointsContainer}>
+                      <Ionicons name="star" size={14} color="#A4E64F" />
+                      <Text style={styles.podiumPointsText}>
+                        {`${user.points.toFixed(0)} pts`}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
               );
             })}
@@ -503,6 +597,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#333',
+    padding: 5,
+    borderRadius: 25,
+    marginHorizontal: 16,
+    marginVertical: 16,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 20,
+  },
+  activeTab: {
+    backgroundColor: '#1A1E23',
+  },
+  tabText: {
+    color: '#777',
+    fontWeight: 'bold',
+  },
+  activeTabText: {
+    color: '#A4D65E',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -519,77 +637,100 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   podiumContainer: {
-    backgroundColor: '#1A1E23',
-    paddingVertical: 20,
+    height: 260,
+    paddingTop: 24,
+    paddingBottom: 20,
     alignItems: 'center',
-  },
-  podiumIcon: {
-    marginBottom: 10,
   },
   topThreeContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'flex-end',
     width: '100%',
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
   },
-  topUserContainer: {
-    alignItems: 'center',
-    marginHorizontal: 5,
+  topUserColumn: {
     flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 4,
   },
-  firstPlaceContainer: {
-    marginBottom: 0,
+  firstPlaceOffset: {
+    marginTop: -12,
   },
-  secondPlaceContainer: {
-    marginBottom: 15,
+  topUserTouchable: {
+    alignItems: 'center',
+    minHeight: 44,
   },
-  thirdPlaceContainer: {
-    marginBottom: 25,
-  },
-  userImageContainer: {
-    position: 'relative',
-    marginBottom: 5,
-  },
-  positionBadge: {
+  crownContainer: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#A4D65E',
+    top: -15,
+    zIndex: 1,
+    width: 44,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 8,
+  },
+  avatarRing: {
+    borderRadius: 100,
+    borderWidth: 4,
+    borderColor: '#A4E64F',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  firstPlaceBadge: {
-    backgroundColor: '#FFD700',
+  avatarInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 100,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
   },
-  secondPlaceBadge: {
-    backgroundColor: '#C0C0C0',
+  rankBadge: {
+    position: 'absolute',
+    bottom: -6,
+    alignSelf: 'center',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#A4E64F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
   },
-  thirdPlaceBadge: {
-    backgroundColor: '#CD7F32',
-  },
-  positionText: {
-    color: '#1A1E23',
-    fontWeight: 'bold',
+  rankBadgeText: {
+    color: '#222',
     fontSize: 14,
-  },
-  userName: {
-    color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 16,
-    marginBottom: 2,
   },
-  pointsContainer: {
+  podiumUserName: {
+    color: '#222',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 8,
+    marginBottom: 4,
+    paddingHorizontal: 8,
+    textAlign: 'center',
+  },
+  podiumPointsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
-  pointsText: {
-    color: '#A4D65E',
+  podiumPointsText: {
+    color: '#666',
     fontSize: 14,
-    marginLeft: 4,
+    fontWeight: '500',
   },
   completedBanner: {
     backgroundColor: '#FFF8E1',
