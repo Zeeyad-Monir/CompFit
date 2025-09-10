@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, TextInput, Image } from 'react-native';
 import { Header, Button } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -489,6 +489,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                   name: userData.username || 'Unknown User',
                   points: pointsByUser[uid] || 0,
                   isCurrentUser: uid === user.uid,
+                  avatarUrl: userData.photoURL || userData.photoUrl || userData.avatarUrl || null,
                 };
               } catch (error) {
                 return {
@@ -496,6 +497,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                   name: 'Unknown User',
                   points: pointsByUser[uid] || 0,
                   isCurrentUser: uid === user.uid,
+                  avatarUrl: null,
                 };
               }
             });
@@ -898,6 +900,15 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                 
                 const isFirst = user.position === 1;
                 const avatarSize = isFirst ? 96 : 80;
+                const hasPhoto = !!user.avatarUrl;
+                // Lighter medal backgrounds for placeholders
+                const medalBg = user.position === 1
+                  ? '#FFF4CC' // light gold
+                  : user.position === 2
+                  ? '#ECEFF4' // light silver
+                  : user.position === 3
+                  ? '#F3E0D3' // light bronze
+                  : '#F5F5F5';
                 
                 return (
                   <View 
@@ -912,16 +923,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                       style={styles.topUserTouchable}
                       activeOpacity={0.7}
                     >
-                      {/* Crown for 1st place */}
-                      {isFirst && (
-                        <View style={styles.crownContainer}>
-                          <Ionicons 
-                            name="trophy" 
-                            size={30} 
-                            color="#A4E64F" 
-                          />
-                        </View>
-                      )}
+                      {/* Removed crown/trophy above first place as requested */}
                       
                       {/* Avatar with ring */}
                       <View style={[
@@ -932,12 +934,12 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                           styles.avatarRing,
                           { width: avatarSize, height: avatarSize }
                         ]}>
-                          <View style={styles.avatarInner}>
-                            <Ionicons 
-                              name="person" 
-                              size={isFirst ? 48 : 40} 
-                              color="#999" 
-                            />
+                          <View style={[styles.avatarInner, { backgroundColor: hasPhoto ? '#F5F5F5' : medalBg }]}>
+                            {hasPhoto ? (
+                              <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} resizeMode="cover" />
+                            ) : (
+                              <Ionicons name="person" size={isFirst ? 48 : 40} color="#777" />
+                            )}
                           </View>
                         </View>
                         
@@ -963,6 +965,35 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                   </View>
                 );
               })}
+            </View>
+          )}
+          {/* Dynamic bars for Top 3 (relative to their points) */}
+          {topThree.length > 0 && (
+            <View style={styles.topThreeBarsRow}>
+              {(() => {
+                const order = [1, 0, 2]; // 2nd, 1st, 3rd to match podium layout
+                const maxPoints = Math.max(...topThree.map(u => u?.points || 0));
+                const maxBarHeight = 94; // px (15% shorter)
+                const minBarHeight = 28; // ensures visibility even with 0 pts
+                return order.map((idx, i) => {
+                  const user = topThree[idx];
+                  if (!user) return <View key={i} style={styles.barSpacer} />;
+                  const ratio = maxPoints > 0 ? user.points / maxPoints : 0;
+                  const isFirst = user.position === 1;
+                  const height = Math.max(minBarHeight, Math.round(ratio * maxBarHeight));
+                  return (
+                    <View key={user.id} style={styles.barWrapper}>
+                      <View
+                        style={[
+                          styles.podiumBar,
+                          isFirst ? styles.podiumBarFirst : styles.podiumBarOther,
+                          { height }
+                        ]}
+                      />
+                    </View>
+                  );
+                });
+              })()}
             </View>
           )}
         </View>
@@ -1691,9 +1722,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   podiumContainer: {
-    height: 280,
-    paddingTop: 55,
-    paddingBottom: -20,
+    minHeight: 310,
+    paddingTop: 24,
+    paddingBottom: 8,
     alignItems: 'center',
   },
   topThreeContainer: {
@@ -1712,7 +1743,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   secondThirdPlaceOffset: {
-    marginTop: 40,
+    marginTop: 22,
   },
   topUserTouchable: {
     alignItems: 'center',
@@ -1753,6 +1784,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'hidden',
   },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
   rankBadge: {
     position: 'absolute',
     bottom: -10,
@@ -1790,9 +1825,47 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 4,
   },
+  topThreeBarsRow: {
+    width: '100%',
+    paddingTop: 6,
+    paddingBottom: 2,
+    marginBottom: 2,
+    paddingHorizontal: 12, // match topThreeContainer for alignment
+    flexDirection: 'row',
+    justifyContent: 'center', // mirror topThreeContainer
+    alignItems: 'flex-end',
+    height: 102, // 15% shorter than previous 120
+    marginTop: 8, // minimal consistent spacing from points
+  },
+  barWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 4, // mirror topUserColumn padding
+  },
+  barSpacer: {
+    flex: 1,
+  },
+  podiumBar: {
+    width: 64,
+    borderRadius: 16,
+    backgroundColor: '#A4E64F',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  podiumBarFirst: {
+    width: 76,
+    backgroundColor: '#A4D65E',
+  },
+  podiumBarOther: {
+    width: 60,
+    backgroundColor: '#B9E87A',
+  },
   rankingsContainer: {
     flex: 1,
-    paddingTop: -20,
+    marginTop: -8, // move rankings up ~15px
   },
   rankingsTitle: {
     fontSize: 18,
