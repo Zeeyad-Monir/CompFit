@@ -725,12 +725,12 @@ const styles = StyleSheet.create({
   podiumPointsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
   },
   podiumPointsText: {
     color: '#666',
     fontSize: 14,
     fontWeight: '500',
+    marginLeft: 4,
   },
   completedBanner: {
     backgroundColor: '#FFF8E1',

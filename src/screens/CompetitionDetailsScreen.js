@@ -894,41 +894,72 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
               {/* Reorder for podium display: 2nd, 1st, 3rd */}
               {[1, 0, 2].map(index => {
                 const user = topThree[index];
-                if (!user) return <View key={index} style={{ flex: 1 }} />;
+                if (!user) return <View key={index} style={styles.topUserColumn} />;
+                
+                const isFirst = user.position === 1;
+                const avatarSize = isFirst ? 96 : 80;
                 
                 return (
                   <View 
                     key={user.id} 
                     style={[
-                      styles.topUserContainer, 
-                      user.position === 1 && styles.firstPlaceContainer,
-                      user.position === 2 && styles.secondPlaceContainer,
-                      user.position === 3 && styles.thirdPlaceContainer,
+                      styles.topUserColumn,
+                      isFirst && styles.firstPlaceOffset,
+                      !isFirst && styles.secondThirdPlaceOffset,
                     ]}
                   >
-                    {/* User avatar and badge */}
-                    <View style={styles.userImageContainer}>
-                      <Ionicons 
-                        name="person-circle" 
-                        size={user.position === 1 ? 70 : 60} 
-                        color={user.position === 1 ? "#FFD700" : "#1A1E23"} 
-                      />
+                    <TouchableOpacity 
+                      style={styles.topUserTouchable}
+                      activeOpacity={0.7}
+                    >
+                      {/* Crown for 1st place */}
+                      {isFirst && (
+                        <View style={styles.crownContainer}>
+                          <Ionicons 
+                            name="trophy" 
+                            size={30} 
+                            color="#A4E64F" 
+                          />
+                        </View>
+                      )}
+                      
+                      {/* Avatar with ring */}
                       <View style={[
-                        styles.positionBadge,
-                        user.position === 1 && styles.firstPlaceBadge,
-                        user.position === 2 && styles.secondPlaceBadge,
-                        user.position === 3 && styles.thirdPlaceBadge,
+                        styles.avatarContainer,
+                        { width: avatarSize, height: avatarSize }
                       ]}>
-                        <Text style={styles.positionText}>{user.position}</Text>
+                        <View style={[
+                          styles.avatarRing,
+                          { width: avatarSize, height: avatarSize }
+                        ]}>
+                          <View style={styles.avatarInner}>
+                            <Ionicons 
+                              name="person" 
+                              size={isFirst ? 48 : 40} 
+                              color="#999" 
+                            />
+                          </View>
+                        </View>
+                        
+                        {/* Rank badge */}
+                        <View style={styles.rankBadge}>
+                          <Text style={styles.rankBadgeText}>{user.position}</Text>
+                        </View>
                       </View>
-                    </View>
-                    <Text style={styles.userName}>{user.name}</Text>
-                    <View style={styles.pointsContainer}>
-                      <Ionicons name="star" size={14} color="#A4D65E" />
-                      <Text style={styles.pointsText}>
-                        {`${user.points.toFixed(0)} pts`}
+                      
+                      {/* User name */}
+                      <Text style={styles.podiumUserName} numberOfLines={1} ellipsizeMode="tail">
+                        {user.name}
                       </Text>
-                    </View>
+                      
+                      {/* Points with star */}
+                      <View style={styles.podiumPointsContainer}>
+                        <Ionicons name="star" size={14} color="#A4E64F" />
+                        <Text style={styles.podiumPointsText}>
+                          {`${user.points.toFixed(0)} pts`}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
                   </View>
                 );
               })}
@@ -1660,77 +1691,108 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   podiumContainer: {
-    paddingVertical: 20,
+    height: 280,
+    paddingTop: 55,
+    paddingBottom: -20,
     alignItems: 'center',
   },
   topThreeContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     width: '100%',
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
   },
-  topUserContainer: {
-    alignItems: 'center',
-    marginHorizontal: 5,
+  topUserColumn: {
     flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 4,
   },
-  firstPlaceContainer: {
-    marginBottom: 0,
+  firstPlaceOffset: {
+    marginTop: 0,
   },
-  secondPlaceContainer: {
-    marginBottom: 15,
+  secondThirdPlaceOffset: {
+    marginTop: 40,
   },
-  thirdPlaceContainer: {
-    marginBottom: 25,
+  topUserTouchable: {
+    alignItems: 'center',
+    minHeight: 44,
   },
-  userImageContainer: {
-    position: 'relative',
-    marginBottom: 5,
-  },
-  positionBadge: {
+  crownContainer: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#A4D65E',
+    top: -45,
+    zIndex: 1,
+    width: 44,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 8,
+  },
+  avatarRing: {
+    borderRadius: 100,
+    borderWidth: 4,
+    borderColor: '#A4E64F',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  firstPlaceBadge: {
-    backgroundColor: '#FFD700',
+  avatarInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 100,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
   },
-  secondPlaceBadge: {
-    backgroundColor: '#C0C0C0',
+  rankBadge: {
+    position: 'absolute',
+    bottom: -10,
+    alignSelf: 'center',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#A4E64F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
   },
-  thirdPlaceBadge: {
-    backgroundColor: '#CD7F32',
-  },
-  positionText: {
-    color: '#1A1E23',
-    fontWeight: 'bold',
+  rankBadgeText: {
+    color: '#222',
     fontSize: 14,
-  },
-  userName: {
-    color: '#1A1E23',
     fontWeight: 'bold',
-    fontSize: 16,
-    marginBottom: 2,
   },
-  pointsContainer: {
+  podiumUserName: {
+    color: '#222',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 4,
+    marginBottom: 6,
+    paddingHorizontal: 8,
+    textAlign: 'center',
+  },
+  podiumPointsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+   
   },
-  pointsText: {
-    color: '#A4D65E',
+  podiumPointsText: {
+    color: '#666',
     fontSize: 14,
+    fontWeight: '500',
     marginLeft: 4,
   },
   rankingsContainer: {
     flex: 1,
-    paddingTop: 20,
+    paddingTop: -20,
   },
   rankingsTitle: {
     fontSize: 18,
@@ -1746,7 +1808,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     flex: 1,
-    paddingTop: 12,
+    paddingTop: 20,
     paddingBottom: 20,
     minHeight: 200,
   },
