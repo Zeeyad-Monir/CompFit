@@ -503,7 +503,9 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         successMessage,
         [{ text:'OK' }]
       );
+      setIsSubmitting(false);
     } catch (error) {
+      setIsSubmitting(false);
       throw error;
     }
   };
@@ -557,7 +559,11 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
               {
                 text: 'Submit Without Photo',
                 onPress: async () => {
-                  await submitWorkout(points, rule, null);
+                  try {
+                    await submitWorkout(points, rule, null);
+                  } catch (error) {
+                    // Error handling is already done in submitWorkout
+                  }
                 }
               }
             ]
@@ -2149,6 +2155,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
 
           <ScrollView 
             style={styles.workoutsContainer}
+            contentContainerStyle={styles.workoutsScrollContent}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
@@ -2299,6 +2306,9 @@ const styles = StyleSheet.create({
   workoutsContainer: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+  workoutsScrollContent: {
+    paddingBottom: 120,
   },
   loadingText: {
     textAlign: 'center',

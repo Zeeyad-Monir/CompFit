@@ -514,33 +514,34 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Metrics Card */}
+        {/* Metrics Section */}
         <View style={styles.metricsContainer}>
-          <Text style={styles.sectionTitle}>Workout Metrics</Text>
+          <Text style={styles.sectionTitle}>Performance</Text>
           
-          {/* Primary Metric */}
-          <View style={styles.primaryMetricCard}>
-            <View style={styles.metricIconContainer}>
-              <Ionicons name={metric.icon} size={40} color="#A4D65E" />
-            </View>
-            <View style={styles.metricContent}>
-              <Text style={styles.metricLabel}>{metric.label}</Text>
-              <View style={styles.metricValueContainer}>
+          <View style={styles.metricsCard}>
+            {/* Main Metric */}
+            <View style={styles.mainMetricSection}>
+              <View style={styles.metricHeader}>
+                <Ionicons name={metric.icon} size={20} color="#A4D65E" />
+                <Text style={styles.metricLabel}>{metric.label}</Text>
+              </View>
+              <View style={styles.metricValueRow}>
                 <Text style={styles.metricValue}>{metric.value}</Text>
                 <Text style={styles.metricUnit}>{metric.displayUnit}</Text>
               </View>
             </View>
-          </View>
-
-          {/* Points Earned */}
-          <View style={styles.pointsCard}>
-            <View style={styles.pointsIconContainer}>
-              <Ionicons name="star" size={32} color="#FFD700" />
-            </View>
-            <View style={styles.pointsContent}>
-              <Text style={styles.pointsLabel}>
-                {visibility?.isInHiddenPeriod && workout.userId !== user.uid ? 'Points Hidden' : 'Points Earned'}
-              </Text>
+            
+            {/* Divider */}
+            <View style={styles.metricDivider} />
+            
+            {/* Points Section */}
+            <View style={styles.pointsSection}>
+              <View style={styles.metricHeader}>
+                <Ionicons name="star" size={20} color="#FFD700" />
+                <Text style={styles.pointsLabel}>
+                  {visibility?.isInHiddenPeriod && workout.userId !== user.uid ? 'Points' : 'Points Earned'}
+                </Text>
+              </View>
               <Text style={styles.pointsValue}>
                 {visibility?.isInHiddenPeriod && workout.userId !== user.uid ? '---' : workout.points}
               </Text>
@@ -787,85 +788,82 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#1A1E23',
     marginBottom: 12,
+    letterSpacing: 0.3,
   },
-  primaryMetricCard: {
+  metricsCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  mainMetricSection: {
+    flex: 1,
+    paddingRight: 16,
+  },
+  metricHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  metricIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#F0F9E8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  metricContent: {
-    flex: 1,
+    marginBottom: 8,
   },
   metricLabel: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '500',
     color: '#666',
-    marginBottom: 4,
+    marginLeft: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  metricValueContainer: {
+  metricValueRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
   },
   metricValue: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 42,
+    fontWeight: '300',
     color: '#1A1E23',
+    letterSpacing: -1,
   },
   metricUnit: {
-    fontSize: 18,
-    color: '#666',
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#999',
     marginLeft: 8,
   },
-  
-  // Points Card
-  pointsCard: {
-    backgroundColor: '#1A1E23',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
+  metricDivider: {
+    width: 1,
+    backgroundColor: '#F0F0F0',
+    marginHorizontal: 0,
+    alignSelf: 'stretch',
   },
-  pointsIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  pointsContent: {
+  pointsSection: {
     flex: 1,
+    paddingLeft: 16,
   },
   pointsLabel: {
-    fontSize: 14,
-    color: '#999',
-    marginBottom: 4,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#666',
+    marginLeft: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   pointsValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 36,
+    fontWeight: '600',
     color: '#A4D65E',
+    marginTop: 8,
   },
   
   // Notes Section
