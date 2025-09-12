@@ -1236,15 +1236,6 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         />
       }
     >
-      {/* Back Arrow */}
-      <TouchableOpacity 
-        style={styles.backToAllButton}
-        onPress={() => setActiveTab('all')}
-      >
-        <Ionicons name="arrow-back" size={20} color="#A4D65E" />
-        <Text style={styles.backToAllText}>Back to All</Text>
-      </TouchableOpacity>
-
       {/* Description Section */}
       <View style={styles.rulesSection}>
         <Text style={styles.rulesSectionTitle}>Description</Text>
@@ -2413,18 +2404,6 @@ const styles = StyleSheet.create({
   rulesContainer: {
     flex: 1,
     paddingHorizontal: 16,
-  },
-  backToAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginBottom: 16,
-  },
-  backToAllText: {
-    color: '#A4D65E',
-    fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 8,
   },
   rulesSection: {
     marginBottom: 24,
