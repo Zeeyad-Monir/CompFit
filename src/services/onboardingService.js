@@ -1,8 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ONBOARDING_COMPLETED_KEY = 'user_onboarding_completed';
-const ONBOARDING_VERSION_KEY = 'onboarding_version';
-const CURRENT_VERSION = '1.0.0';
+// Using v1 suffix ensures existing users will see it once
+const ONBOARDING_COMPLETED_KEY = 'onboarding_completed_v1';
 
 class OnboardingService {
   constructor() {
@@ -12,10 +11,7 @@ class OnboardingService {
   async hasCompletedOnboarding() {
     try {
       const completed = await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY);
-      const version = await AsyncStorage.getItem(ONBOARDING_VERSION_KEY);
-      
-      // Check if completed and version matches
-      return completed === 'true' && version === CURRENT_VERSION;
+      return completed === 'true';
     } catch (error) {
       console.error('Error checking onboarding status:', error);
       return false;
@@ -25,7 +21,7 @@ class OnboardingService {
   async completeOnboarding() {
     try {
       await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
-      await AsyncStorage.setItem(ONBOARDING_VERSION_KEY, CURRENT_VERSION);
+      console.log('Onboarding marked as completed');
     } catch (error) {
       console.error('Error completing onboarding:', error);
     }
@@ -34,7 +30,7 @@ class OnboardingService {
   async resetOnboarding() {
     try {
       await AsyncStorage.removeItem(ONBOARDING_COMPLETED_KEY);
-      await AsyncStorage.removeItem(ONBOARDING_VERSION_KEY);
+      console.log('Onboarding reset - will show on next app launch');
     } catch (error) {
       console.error('Error resetting onboarding:', error);
     }

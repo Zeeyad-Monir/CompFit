@@ -18,11 +18,29 @@ export const OnboardingProvider = ({ children }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [targetMeasurements, setTargetMeasurements] = useState({});
 
-  const startOnboarding = async () => {
-    const hasCompleted = await onboardingService.hasCompletedOnboarding();
-    if (!hasCompleted) {
+  const startOnboarding = async (forceStart = false) => {
+    // Don't start if already active
+    if (isActive) {
+      console.log('Onboarding already active, skipping start');
+      return;
+    }
+    
+    // If forceStart is true, start regardless of completion status
+    if (forceStart) {
+      console.log('Manually starting onboarding tutorial');
       setIsActive(true);
       setCurrentStep(0);
+      return;
+    }
+    
+    // Otherwise check completion status as normal
+    const hasCompleted = await onboardingService.hasCompletedOnboarding();
+    if (!hasCompleted) {
+      console.log('Starting onboarding tutorial for user');
+      setIsActive(true);
+      setCurrentStep(0);
+    } else {
+      console.log('User has already completed onboarding');
     }
   };
 
@@ -40,11 +58,15 @@ export const OnboardingProvider = ({ children }) => {
     }
   };
 
-  const skipOnboarding = () => {
-    completeOnboarding();
+  const skipOnboarding = async () => {
+    console.log('User skipped onboarding');
+    await onboardingService.completeOnboarding(); // Mark as complete even when skipped
+    setIsActive(false);
+    setCurrentStep(0);
   };
 
   const completeOnboarding = async () => {
+    console.log('User completed onboarding');
     await onboardingService.completeOnboarding();
     setIsActive(false);
     setCurrentStep(0);

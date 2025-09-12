@@ -5,8 +5,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const resetOnboarding = async () => {
   try {
+    // Remove the new simplified key
+    await AsyncStorage.removeItem('onboarding_completed_v1');
+    
+    // Also remove old keys if they exist (for cleanup)
     await AsyncStorage.removeItem('user_onboarding_completed');
     await AsyncStorage.removeItem('onboarding_version');
+    
     console.log('Onboarding reset successfully! The tutorial will show on next app launch.');
   } catch (error) {
     console.error('Error resetting onboarding:', error);

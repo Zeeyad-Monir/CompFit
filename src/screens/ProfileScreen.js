@@ -35,6 +35,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
+import { useOnboarding } from '../hooks/useOnboarding';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -51,6 +52,7 @@ const colors = {
 export default function ProfileScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
+  const { startOnboarding } = useOnboarding();
 
   // Tab state - check if we should open friends tab from navigation params
   const initialTab = route?.params?.tab === 'friends' ? 'friends' : 'profile';
@@ -403,6 +405,23 @@ export default function ProfileScreen({ route, navigation }) {
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Logout', style: 'destructive', onPress: () => signOut(auth) }
+      ]
+    );
+  };
+
+  const handleViewTutorial = () => {
+    Alert.alert(
+      'View Tutorial',
+      'Would you like to view the onboarding tutorial again?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'View Tutorial', 
+          onPress: () => {
+            // Force start onboarding, bypassing completion check
+            startOnboarding(true);
+          }
+        }
       ]
     );
   };
@@ -768,6 +787,22 @@ export default function ProfileScreen({ route, navigation }) {
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
           </TouchableOpacity>
+          
+          {/* View Tutorial Again button */}
+          <TouchableOpacity 
+            style={styles.accountOption} 
+            onPress={handleViewTutorial}
+          >
+            <View style={styles.accountOptionIcon}>
+              <Ionicons name="school" size={24} color="#6B7280" />
+            </View>
+            <View style={styles.accountOptionContent}>
+              <Text style={styles.accountOptionTitle}>View Tutorial Again</Text>
+              <Text style={styles.accountOptionSubtitle}>Review the app onboarding guide</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+          </TouchableOpacity>
+          
           <TouchableOpacity style={[styles.accountOption, { borderBottomWidth: 0 }]} onPress={handleLogout}>
             <View style={styles.accountOptionIcon}>
               <Ionicons name="log-out" size={24} color="#6B7280" />

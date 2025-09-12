@@ -35,40 +35,22 @@ const Stack = createStackNavigator();    // Stack navigator for nested screens
  */
 // In src/navigation/AppNavigator.js, the HomeStack should look like this:
 
-const HomeStack = () => {
-  const { startOnboarding } = useOnboarding();
-
-  useEffect(() => {
-    // Start onboarding for new users
-    const checkOnboarding = async () => {
-      const hasCompleted = await onboardingService.hasCompletedOnboarding();
-      if (!hasCompleted) {
-        // Small delay to ensure navigation is ready
-        setTimeout(() => {
-          startOnboarding();
-        }, 500);
-      }
-    };
-    checkOnboarding();
-  }, []);
-
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {/* Main screen showing all active competitions */}
-      <Stack.Screen name="ActiveCompetitions" component={ActiveCompetitionsScreen} />
-      {/* Competition lobby for upcoming competitions */}
-      <Stack.Screen name="CompetitionLobby" component={CompetitionLobbyScreen} />
-      {/* Individual competition details view */}
-      <Stack.Screen name="CompetitionDetails" component={CompetitionDetailsScreen} />
-      {/* Competition leaderboard view */}
-      <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
-      {/* Form to submit workout results */}
-      <Stack.Screen name="SubmissionForm" component={SubmissionFormScreen} />
-      {/* Detailed view of a workout submission */}
-      <Stack.Screen name="WorkoutDetails" component={WorkoutDetailsScreen} />
-    </Stack.Navigator>
-  );
-};
+const HomeStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    {/* Main screen showing all active competitions */}
+    <Stack.Screen name="ActiveCompetitions" component={ActiveCompetitionsScreen} />
+    {/* Competition lobby for upcoming competitions */}
+    <Stack.Screen name="CompetitionLobby" component={CompetitionLobbyScreen} />
+    {/* Individual competition details view */}
+    <Stack.Screen name="CompetitionDetails" component={CompetitionDetailsScreen} />
+    {/* Competition leaderboard view */}
+    <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+    {/* Form to submit workout results */}
+    <Stack.Screen name="SubmissionForm" component={SubmissionFormScreen} />
+    {/* Detailed view of a workout submission */}
+    <Stack.Screen name="WorkoutDetails" component={WorkoutDetailsScreen} />
+  </Stack.Navigator>
+);
 
 /**
  * Create Stack Navigator
@@ -103,32 +85,51 @@ const ProfileStack = () => (
  * 2. Create (competition creation with custom styled button)
  * 3. Profile (user profile and settings)
  */
-const AppNavigator = () => (
-  <Tab.Navigator
-    screenOptions={{
-      headerShown: false,           // Hide default headers (screens handle their own)
-      tabBarShowLabel: false,       // Hide tab labels, show only icons
-    }}
-    tabBar={(props) => <CustomBottomNavigation {...props} />}
-  >
-    {/* Home Tab - Competition browsing and participation */}
-    <Tab.Screen
-      name="HomeStack"
-      component={HomeStack}
-    />
+const AppNavigator = () => {
+  const { startOnboarding } = useOnboarding();
 
-    {/* Create Tab - Competition creation with custom styled "+" button */}
-    <Tab.Screen
-      name="CreateStack"
-      component={CreateStack}
-    />
+  useEffect(() => {
+    // Check and start onboarding for users who haven't seen it
+    const initOnboarding = async () => {
+      const hasCompleted = await onboardingService.hasCompletedOnboarding();
+      if (!hasCompleted) {
+        // Delay to ensure navigation and all components are ready
+        setTimeout(() => {
+          console.log('Starting onboarding for user');
+          startOnboarding();
+        }, 1000);
+      }
+    };
+    initOnboarding();
+  }, []); // Run once when AppNavigator mounts
 
-    {/* Profile Tab - User profile and settings */}
-    <Tab.Screen
-      name="ProfileStack"
-      component={ProfileStack}
-    />
-  </Tab.Navigator>
-);
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,           // Hide default headers (screens handle their own)
+        tabBarShowLabel: false,       // Hide tab labels, show only icons
+      }}
+      tabBar={(props) => <CustomBottomNavigation {...props} />}
+    >
+      {/* Home Tab - Competition browsing and participation */}
+      <Tab.Screen
+        name="HomeStack"
+        component={HomeStack}
+      />
+
+      {/* Create Tab - Competition creation with custom styled "+" button */}
+      <Tab.Screen
+        name="CreateStack"
+        component={CreateStack}
+      />
+
+      {/* Profile Tab - User profile and settings */}
+      <Tab.Screen
+        name="ProfileStack"
+        component={ProfileStack}
+      />
+    </Tab.Navigator>
+  );
+};
 
 export default AppNavigator;
