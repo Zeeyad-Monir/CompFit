@@ -892,15 +892,15 @@ const styles = StyleSheet.create({
   // Back Button
   backButtonContainer: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingTop: 20,
+    paddingBottom: 5,
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   backButtonText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: '#A4D65E',
     marginLeft: 4,
