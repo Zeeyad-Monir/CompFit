@@ -19,6 +19,7 @@ const TabBarItem = ({
   isCenter = false,
   icon,
   accessibilityLabel,
+  onLayout,
 }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const colorAnim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
@@ -124,6 +125,7 @@ const TabBarItem = ({
       onLongPress={onLongPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      onLayout={onLayout}
       style={styles.container}
       accessibilityRole="tab"
       accessibilityLabel={accessibilityLabel}

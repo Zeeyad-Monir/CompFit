@@ -18,6 +18,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Header, Button } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import onboardingService from '../services/onboardingService';
 
 import { db } from '../firebase';
 import {
@@ -831,7 +832,10 @@ const handleCompetitionPress = async (competition) => {
           <View style={styles.headerCapsule} />
         </View>
 
-        <View style={styles.topNavContainer}>
+        <View 
+          style={styles.topNavContainer}
+          onLayout={(e) => onboardingService.registerTarget('competition-tabs', e)}
+        >
           {/* Tab row with 3 equal columns */}
           <View style={styles.tabRow}>
             {/* Active Tab */}
@@ -973,6 +977,7 @@ const handleCompetitionPress = async (competition) => {
           style={styles.scroll}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 60 }}
+          onLayout={(e) => onboardingService.registerTarget('competition-card-area', e)}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

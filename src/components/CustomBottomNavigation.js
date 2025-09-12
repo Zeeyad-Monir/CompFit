@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TabBarItem from './navigation/TabBarItem';
 import TabBarDivider from './navigation/TabBarDivider';
 import { NavigationTheme } from '../constants/navigationTheme';
+import onboardingService from '../services/onboardingService';
 
 const CustomBottomNavigation = ({ 
   state, 
@@ -61,6 +62,7 @@ const CustomBottomNavigation = ({
         },
         Platform.OS === 'ios' && NavigationTheme.shadow.ios,
       ]}
+      onLayout={(e) => onboardingService.registerTarget('bottom-navigation', e)}
     >
       <TabBarDivider />
       
@@ -95,6 +97,19 @@ const CustomBottomNavigation = ({
             });
           };
 
+          const getTabId = (routeName) => {
+            switch (routeName) {
+              case 'HomeStack':
+                return 'home-tab';
+              case 'CreateStack':
+                return 'create-tab';
+              case 'ProfileStack':
+                return 'profile-tab';
+              default:
+                return null;
+            }
+          };
+
           return (
             <TabBarItem
               key={route.key}
@@ -105,6 +120,12 @@ const CustomBottomNavigation = ({
               isCenter={isCenter}
               icon={getIconName(route.name)}
               accessibilityLabel={getAccessibilityLabel(route.name)}
+              onLayout={(e) => {
+                const tabId = getTabId(route.name);
+                if (tabId) {
+                  onboardingService.registerTarget(tabId, e);
+                }
+              }}
             />
           );
         })}

@@ -6,6 +6,8 @@ import AppNavigator   from './src/navigation/AppNavigator';
 import AuthNavigator  from './src/navigation/AuthNavigator';
 import { AuthProvider, AuthContext } from './src/contexts/AuthContext';
 import notificationService from './src/services/notificationService';
+import { OnboardingProvider } from './src/components/onboarding/OnboardingController';
+import OnboardingOverlay from './src/components/onboarding/OnboardingOverlay';
 
 /**
  * Main App component that sets up the entire application structure
@@ -20,10 +22,15 @@ export default function App() {
   return (
     // AuthProvider wraps the entire app to provide authentication context
     <AuthProvider>
-      {/* NavigationContainer enables navigation throughout the app */}
-      <NavigationContainer ref={navigationRef}>
-        <RootNavigator navigationRef={navigationRef} />
-      </NavigationContainer>
+      {/* OnboardingProvider manages the tutorial state */}
+      <OnboardingProvider>
+        {/* NavigationContainer enables navigation throughout the app */}
+        <NavigationContainer ref={navigationRef}>
+          <RootNavigator navigationRef={navigationRef} />
+          {/* Onboarding overlay that appears for new users */}
+          <OnboardingOverlay />
+        </NavigationContainer>
+      </OnboardingProvider>
     </AuthProvider>
   );
 }
