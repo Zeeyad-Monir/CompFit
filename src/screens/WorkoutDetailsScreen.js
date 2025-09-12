@@ -16,6 +16,7 @@ import {
   Platform,
   Keyboard,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import { Header } from '../components';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,6 +48,8 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
   const [imageError, setImageError] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showImageOverlay, setShowImageOverlay] = useState(false);
+  const [imageAspectRatio, setImageAspectRatio] = useState(1);
   
   // Comment-related state
   const [comments, setComments] = useState([]);
@@ -314,10 +317,70 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
     );
   };
 
+  // Image Overlay Component
+  const ImageOverlay = () => {
+    if (!showImageOverlay || !workout.photoUrl) return null;
+    
+    const screenWidth = Dimensions.get('window').width;
+    const screenHeight = Dimensions.get('window').height;
+    
+    // Calculate maximum container dimensions (85% width, 70% height)
+    const maxWidth = screenWidth * 0.85;
+    const maxHeight = screenHeight * 0.70;
+    
+    // Calculate actual image dimensions based on aspect ratio
+    let imageWidth = maxWidth;
+    let imageHeight = maxWidth / imageAspectRatio;
+    
+    // If height exceeds max, scale based on height instead
+    if (imageHeight > maxHeight) {
+      imageHeight = maxHeight;
+      imageWidth = maxHeight * imageAspectRatio;
+    }
+    
+    return (
+      <Modal
+        visible={showImageOverlay}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowImageOverlay(false)}
+      >
+        <TouchableOpacity 
+          style={styles.overlayContainer} 
+          activeOpacity={1}
+          onPress={() => setShowImageOverlay(false)}
+        >
+          <View 
+            style={[
+              styles.overlayImageWrapper,
+              {
+                width: imageWidth,
+                height: imageHeight,
+              }
+            ]}
+          >
+            <Image
+              source={{ uri: workout.photoUrl }}
+              style={styles.overlayImage}
+              resizeMode="contain"
+            />
+            <TouchableOpacity
+              style={styles.overlayCloseButton}
+              onPress={() => setShowImageOverlay(false)}
+            >
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    );
+  };
+
   const metric = getMetricDisplay();
 
   return (
     <View style={styles.container}>
+      <ImageOverlay />
       <Header 
         title="" 
         backgroundColor="#F8F8F8"
@@ -362,16 +425,26 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
               </View>
             )}
             {!imageError ? (
-              <Image
-                source={{ uri: workout.photoUrl }}
-                style={styles.workoutPhoto}
-                onLoad={() => setImageLoading(false)}
-                onError={() => {
-                  setImageLoading(false);
-                  setImageError(true);
-                }}
-                resizeMode="cover"
-              />
+              <TouchableOpacity 
+                activeOpacity={0.95}
+                onPress={() => setShowImageOverlay(true)}
+              >
+                <Image
+                  source={{ uri: workout.photoUrl }}
+                  style={styles.workoutPhoto}
+                  onLoad={(e) => {
+                    setImageLoading(false);
+                    // Calculate and store aspect ratio
+                    const { width, height } = e.nativeEvent.source;
+                    setImageAspectRatio(width / height);
+                  }}
+                  onError={() => {
+                    setImageLoading(false);
+                    setImageError(true);
+                  }}
+                  resizeMode="cover"
+                />
+              </TouchableOpacity>
             ) : (
               <View style={styles.noPhotoContainer}>
                 <Ionicons name="image-outline" size={60} color="#999" />
@@ -385,6 +458,17 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
             <Text style={styles.noPhotoText}>No photo submitted</Text>
           </View>
         )}
+
+        {/* Back Button */}
+        <View style={styles.backButtonContainer}>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()} 
+            style={styles.backButton}
+          >
+            <Ionicons name="chevron-back" size={20} color="#A4D65E" />
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* User Info Card */}
         <View style={styles.userCard}>
@@ -473,21 +557,6 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
             </View>
           </View>
         )}
-
-        {/* Competition Info */}
-        <View style={styles.competitionInfoContainer}>
-          <Text style={styles.sectionTitle}>Competition</Text>
-          <TouchableOpacity 
-            style={styles.competitionCard}
-            onPress={() => navigation.navigate('CompetitionDetails', { competition })}
-          >
-            <View style={styles.competitionContent}>
-              <Ionicons name="trophy-outline" size={24} color="#A4D65E" />
-              <Text style={styles.competitionName}>{competition.name}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
-          </TouchableOpacity>
-        </View>
 
         {/* Comments Section */}
         <View style={styles.commentsContainer}>
@@ -580,7 +649,7 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
         </View>
 
         {/* Bottom Spacer */}
-        <View style={{ height: 40 }} />
+        <View style={{ height: 120 }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -819,35 +888,22 @@ const styles = StyleSheet.create({
     color: '#333',
     lineHeight: 24,
   },
-  
-  // Competition Info
-  competitionInfoContainer: {
-    marginHorizontal: 16,
-    marginTop: 20,
+
+  // Back Button
+  backButtonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
-  competitionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+  backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  competitionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  competitionName: {
+  backButtonText: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#1A1E23',
-    marginLeft: 12,
+    fontWeight: '600',
+    color: '#A4D65E',
+    marginLeft: 4,
   },
 
   // Comments Section
@@ -1011,5 +1067,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  
+  // Image Overlay Styles
+  overlayContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  overlayImageWrapper: {
+    position: 'relative',
+    // Width and height will be set dynamically
+  },
+  overlayImage: {
+    width: '100%',
+    height: '100%',
+  },
+  overlayCloseButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
 });

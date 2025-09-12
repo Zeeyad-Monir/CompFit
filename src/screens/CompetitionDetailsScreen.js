@@ -1537,8 +1537,11 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                       </View>
                       
                       {/* User name */}
-                      <Text style={styles.podiumUserName} numberOfLines={1} ellipsizeMode="tail">
-                        {user.name}
+                      <Text style={[
+                        styles.podiumUserName,
+                        user.isCurrentUser && styles.currentUserText
+                      ]} numberOfLines={1} ellipsizeMode="tail">
+                        {user.isCurrentUser ? 'You' : user.name}
                       </Text>
                       
                       {/* Points with star */}
@@ -2871,6 +2874,7 @@ const styles = StyleSheet.create({
   },
   currentUserRanking: {
     backgroundColor: '#A4D65E',
+    shadowColor: '#000',
   },
   lastRankingItem: {
     marginBottom: 0,
@@ -2895,7 +2899,9 @@ const styles = StyleSheet.create({
     color: '#1A1E23',
   },
   currentUserText: {
-    color: '#1A1E23',
+    color: '#A4D65E',
+    fontWeight: '700',
+    fontSize: 18,
   },
   emptyText: {
     textAlign: 'center',
@@ -2910,7 +2916,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, 
   },
   addScrollContent: { 
-    paddingBottom: 40, 
+    paddingBottom: 120, 
   },
   dateSection: { 
     marginBottom: 10, 
