@@ -4,12 +4,13 @@
  * Handles navigation between Home, Create Competition, and Profile sections
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useContext } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import CustomBottomNavigation from '../components/CustomBottomNavigation';
 import { useOnboarding } from '../hooks/useOnboarding';
 import onboardingService from '../services/onboardingService';
+import { AuthContext } from '../contexts/AuthContext';
 
 // Import all screen components used in the authenticated app flow
 import {
@@ -87,21 +88,27 @@ const ProfileStack = () => (
  */
 const AppNavigator = () => {
   const { startOnboarding } = useOnboarding();
+  const { user } = useContext(AuthContext);
 
   useEffect(() => {
     // Check and start onboarding for users who haven't seen it
     const initOnboarding = async () => {
-      const hasCompleted = await onboardingService.hasCompletedOnboarding();
+      if (!user?.uid) {
+        console.log('No authenticated user, skipping onboarding check');
+        return;
+      }
+      
+      const hasCompleted = await onboardingService.hasCompletedOnboarding(user.uid);
       if (!hasCompleted) {
         // Delay to ensure navigation and all components are ready
         setTimeout(() => {
-          console.log('Starting onboarding for user');
+          console.log('Starting onboarding for user:', user.uid);
           startOnboarding();
         }, 1000);
       }
     };
     initOnboarding();
-  }, []); // Run once when AppNavigator mounts
+  }, [user]); // Re-run when user changes
 
   return (
     <Tab.Navigator

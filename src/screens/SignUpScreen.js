@@ -105,6 +105,7 @@ export default function SignUpScreen({ navigation }) {
         wins: 0,
         totals: 0,
         friends: [],
+        hasCompletedOnboarding: false, // New users should see the tutorial
       });
 
       // 5. Create a reverse lookup document for the username to enforce uniqueness

@@ -1,36 +1,68 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Using v1 suffix ensures existing users will see it once
-const ONBOARDING_COMPLETED_KEY = 'onboarding_completed_v1';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 class OnboardingService {
   constructor() {
     this.targetMeasurements = new Map();
   }
 
-  async hasCompletedOnboarding() {
+  async hasCompletedOnboarding(userId) {
+    if (!userId) {
+      console.log('No userId provided, returning false');
+      return false;
+    }
+    
     try {
-      const completed = await AsyncStorage.getItem(ONBOARDING_COMPLETED_KEY);
-      return completed === 'true';
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        // If field doesn't exist (existing users), default to false so they see tutorial once
+        return userData.hasCompletedOnboarding === true;
+      }
+      return false;
     } catch (error) {
       console.error('Error checking onboarding status:', error);
       return false;
     }
   }
 
-  async completeOnboarding() {
+  async completeOnboarding(userId) {
+    if (!userId) {
+      console.log('No userId provided, cannot complete onboarding');
+      return;
+    }
+    
     try {
-      await AsyncStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
-      console.log('Onboarding marked as completed');
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        hasCompletedOnboarding: true
+      });
+      console.log('Onboarding marked as completed for user:', userId);
     } catch (error) {
       console.error('Error completing onboarding:', error);
+      // If document doesn't exist, create it with the field
+      try {
+        await setDoc(doc(db, 'users', userId), {
+          hasCompletedOnboarding: true
+        }, { merge: true });
+      } catch (setError) {
+        console.error('Error setting onboarding complete:', setError);
+      }
     }
   }
 
-  async resetOnboarding() {
+  async resetOnboarding(userId) {
+    if (!userId) {
+      console.log('No userId provided, cannot reset onboarding');
+      return;
+    }
+    
     try {
-      await AsyncStorage.removeItem(ONBOARDING_COMPLETED_KEY);
-      console.log('Onboarding reset - will show on next app launch');
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        hasCompletedOnboarding: false
+      });
+      console.log('Onboarding reset for user:', userId);
     } catch (error) {
       console.error('Error resetting onboarding:', error);
     }

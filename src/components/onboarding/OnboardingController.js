@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Dimensions } from 'react-native';
 import onboardingService from '../../services/onboardingService';
 import { ONBOARDING_STEPS } from './onboardingSteps';
+import { AuthContext } from '../../contexts/AuthContext';
 
 const OnboardingContext = createContext();
 
@@ -14,6 +15,7 @@ export const useOnboarding = () => {
 };
 
 export const OnboardingProvider = ({ children }) => {
+  const { user } = useContext(AuthContext);
   const [isActive, setIsActive] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [targetMeasurements, setTargetMeasurements] = useState({});
@@ -22,6 +24,12 @@ export const OnboardingProvider = ({ children }) => {
     // Don't start if already active
     if (isActive) {
       console.log('Onboarding already active, skipping start');
+      return;
+    }
+
+    // Check if user is authenticated
+    if (!user?.uid) {
+      console.log('No authenticated user, skipping onboarding');
       return;
     }
     
@@ -34,7 +42,7 @@ export const OnboardingProvider = ({ children }) => {
     }
     
     // Otherwise check completion status as normal
-    const hasCompleted = await onboardingService.hasCompletedOnboarding();
+    const hasCompleted = await onboardingService.hasCompletedOnboarding(user.uid);
     if (!hasCompleted) {
       console.log('Starting onboarding tutorial for user');
       setIsActive(true);
@@ -59,15 +67,23 @@ export const OnboardingProvider = ({ children }) => {
   };
 
   const skipOnboarding = async () => {
+    if (!user?.uid) {
+      console.log('No authenticated user, cannot skip onboarding');
+      return;
+    }
     console.log('User skipped onboarding');
-    await onboardingService.completeOnboarding(); // Mark as complete even when skipped
+    await onboardingService.completeOnboarding(user.uid); // Mark as complete even when skipped
     setIsActive(false);
     setCurrentStep(0);
   };
 
   const completeOnboarding = async () => {
+    if (!user?.uid) {
+      console.log('No authenticated user, cannot complete onboarding');
+      return;
+    }
     console.log('User completed onboarding');
-    await onboardingService.completeOnboarding();
+    await onboardingService.completeOnboarding(user.uid);
     setIsActive(false);
     setCurrentStep(0);
   };

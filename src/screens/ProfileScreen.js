@@ -36,6 +36,7 @@ import {
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useOnboarding } from '../hooks/useOnboarding';
+import onboardingService from '../services/onboardingService';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -417,7 +418,11 @@ export default function ProfileScreen({ route, navigation }) {
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'View Tutorial', 
-          onPress: () => {
+          onPress: async () => {
+            // Reset the user's onboarding status in Firestore
+            if (user?.uid) {
+              await onboardingService.resetOnboarding(user.uid);
+            }
             // Force start onboarding, bypassing completion check
             startOnboarding(true);
           }
