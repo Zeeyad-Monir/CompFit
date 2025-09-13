@@ -8,7 +8,7 @@ import React, { useEffect, useContext } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import CustomBottomNavigation from '../components/CustomBottomNavigation';
-import { useOnboarding } from '../hooks/useOnboarding';
+import { useOnboarding } from '../components/onboarding/OnboardingController';
 import onboardingService from '../services/onboardingService';
 import { AuthContext } from '../contexts/AuthContext';
 

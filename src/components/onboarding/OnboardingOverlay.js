@@ -4,14 +4,11 @@ import {
   Modal,
   Animated,
   Dimensions,
-  TouchableWithoutFeedback,
   StyleSheet,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { useOnboarding } from './OnboardingController';
-import OnboardingSpotlight from './OnboardingSpotlight';
 import OnboardingContent from './OnboardingContent';
-import OnboardingProgress from './OnboardingProgress';
+import OnboardingMask from './OnboardingMask';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -23,42 +20,25 @@ const OnboardingOverlay = () => {
     currentStepData,
     nextStep,
     skipOnboarding,
-    getTargetMeasurements,
   } = useOnboarding();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
   useEffect(() => {
     if (isActive) {
       // Animate in
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
     } else {
       // Animate out
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 0.9,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
     }
   }, [isActive]);
 
@@ -66,12 +46,10 @@ const OnboardingOverlay = () => {
     return null;
   }
 
-  const targetMeasurements = getTargetMeasurements(currentStepData.targetId);
-
   return (
     <Modal
       visible={isActive}
-      transparent
+      transparent={true}
       animationType="none"
       statusBarTranslucent
     >
@@ -83,45 +61,22 @@ const OnboardingOverlay = () => {
           }
         ]}
       >
-        {/* Dark backdrop with blur */}
-        <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark">
-          <View style={styles.backdrop} />
-        </BlurView>
+        {/* Darkening mask with highlight cutout */}
+        <OnboardingMask 
+          highlightBounds={currentStepData.highlightBounds}
+          fadeOpacity={0.85}
+        />
 
-        {/* Spotlight cutout */}
-        {targetMeasurements && (
-          <OnboardingSpotlight
-            measurements={targetMeasurements}
-            shape={currentStepData.spotlightShape}
-            padding={currentStepData.spotlightPadding}
-            radius={currentStepData.spotlightRadius}
-          />
-        )}
-
-        {/* Content card */}
-        <Animated.View
-          style={[
-            styles.contentContainer,
-            {
-              transform: [{ scale: scaleAnim }],
-            }
-          ]}
-        >
-          <OnboardingContent
-            title={currentStepData.title}
-            description={currentStepData.description}
-            onNext={nextStep}
-            onSkip={skipOnboarding}
-            isLastStep={currentStep === totalSteps - 1}
-            targetMeasurements={targetMeasurements}
-            position={currentStepData.position}
-          />
-        </Animated.View>
-
-        {/* Progress indicator */}
-        <OnboardingProgress
+        {/* Tutorial content */}
+        <OnboardingContent
+          title={currentStepData.title}
+          description={currentStepData.description}
+          onNext={nextStep}
+          onSkip={skipOnboarding}
+          isLastStep={currentStep === totalSteps - 1}
           currentStep={currentStep}
           totalSteps={totalSteps}
+          contentPosition={currentStepData.contentPosition}
         />
       </Animated.View>
     </Modal>
@@ -131,17 +86,6 @@ const OnboardingOverlay = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  contentContainer: {
-    position: 'absolute',
-    width: SCREEN_WIDTH,
-    alignItems: 'center',
   },
 });
 

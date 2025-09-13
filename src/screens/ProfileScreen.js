@@ -35,7 +35,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
-import { useOnboarding } from '../hooks/useOnboarding';
+import { useOnboarding } from '../components/onboarding/OnboardingController';
 import onboardingService from '../services/onboardingService';
 
 const screenWidth = Dimensions.get('window').width;

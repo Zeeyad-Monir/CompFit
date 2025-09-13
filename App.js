@@ -22,15 +22,15 @@ export default function App() {
   return (
     // AuthProvider wraps the entire app to provide authentication context
     <AuthProvider>
-      {/* OnboardingProvider manages the tutorial state */}
-      <OnboardingProvider>
-        {/* NavigationContainer enables navigation throughout the app */}
-        <NavigationContainer ref={navigationRef}>
+      {/* NavigationContainer enables navigation throughout the app */}
+      <NavigationContainer ref={navigationRef}>
+        {/* OnboardingProvider manages the tutorial state */}
+        <OnboardingProvider navigationRef={navigationRef}>
           <RootNavigator navigationRef={navigationRef} />
           {/* Onboarding overlay that appears for new users */}
           <OnboardingOverlay />
-        </NavigationContainer>
-      </OnboardingProvider>
+        </OnboardingProvider>
+      </NavigationContainer>
     </AuthProvider>
   );
 }

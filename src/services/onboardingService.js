@@ -2,9 +2,6 @@ import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 class OnboardingService {
-  constructor() {
-    this.targetMeasurements = new Map();
-  }
 
   async hasCompletedOnboarding(userId) {
     if (!userId) {
@@ -66,19 +63,6 @@ class OnboardingService {
     } catch (error) {
       console.error('Error resetting onboarding:', error);
     }
-  }
-
-  registerTarget(id, layout) {
-    const { x, y, width, height } = layout.nativeEvent.layout;
-    this.targetMeasurements.set(id, { x, y, width, height });
-  }
-
-  getTargetMeasurements(id) {
-    return this.targetMeasurements.get(id);
-  }
-
-  clearTargets() {
-    this.targetMeasurements.clear();
   }
 }
 

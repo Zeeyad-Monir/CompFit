@@ -14,11 +14,20 @@ export const useOnboarding = () => {
   return context;
 };
 
-export const OnboardingProvider = ({ children }) => {
+export const OnboardingProvider = ({ children, navigationRef }) => {
   const { user } = useContext(AuthContext);
   const [isActive, setIsActive] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
-  const [targetMeasurements, setTargetMeasurements] = useState({});
+
+  const navigateToScreen = (stack, screen) => {
+    if (navigationRef?.current) {
+      try {
+        navigationRef.current.navigate(stack, { screen });
+      } catch (error) {
+        console.log('Navigation error:', error);
+      }
+    }
+  };
 
   const startOnboarding = async (forceStart = false) => {
     // Don't start if already active
@@ -38,6 +47,8 @@ export const OnboardingProvider = ({ children }) => {
       console.log('Manually starting onboarding tutorial');
       setIsActive(true);
       setCurrentStep(0);
+      // Navigate to home screen for the tutorial
+      navigateToScreen('HomeStack', 'ActiveCompetitions');
       return;
     }
     
@@ -47,6 +58,8 @@ export const OnboardingProvider = ({ children }) => {
       console.log('Starting onboarding tutorial for user');
       setIsActive(true);
       setCurrentStep(0);
+      // Navigate to home screen for the tutorial
+      navigateToScreen('HomeStack', 'ActiveCompetitions');
     } else {
       console.log('User has already completed onboarding');
     }
@@ -54,7 +67,15 @@ export const OnboardingProvider = ({ children }) => {
 
   const nextStep = () => {
     if (currentStep < ONBOARDING_STEPS.length - 1) {
-      setCurrentStep(currentStep + 1);
+      const nextStepIndex = currentStep + 1;
+      const nextStepData = ONBOARDING_STEPS[nextStepIndex];
+      
+      // Navigate to required screen if specified
+      if (nextStepData.requiresScreen && nextStepData.navigateTo) {
+        navigateToScreen(nextStepData.requiresScreen, nextStepData.navigateTo);
+      }
+      
+      setCurrentStep(nextStepIndex);
     } else {
       completeOnboarding();
     }
@@ -88,17 +109,6 @@ export const OnboardingProvider = ({ children }) => {
     setCurrentStep(0);
   };
 
-  const registerTarget = (id, measurements) => {
-    setTargetMeasurements(prev => ({
-      ...prev,
-      [id]: measurements
-    }));
-  };
-
-  const getTargetMeasurements = (id) => {
-    return targetMeasurements[id] || null;
-  };
-
   const value = {
     isActive,
     currentStep,
@@ -108,8 +118,6 @@ export const OnboardingProvider = ({ children }) => {
     nextStep,
     previousStep,
     skipOnboarding,
-    registerTarget,
-    getTargetMeasurements,
   };
 
   return (
