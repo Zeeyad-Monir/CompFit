@@ -538,7 +538,7 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
     <View style={styles.container}>
       <Header 
         title="" 
-        backgroundColor="#F8F8F8"
+        backgroundColor="#FFFFFF"
       />
       <StatusBar style="dark" />
       
@@ -556,11 +556,19 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
       >
         {!showTransitionState ? (
           <>
+            {/* Back Button */}
+            <View style={styles.backButtonContainer}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <Ionicons name="chevron-back" size={20} color="#A4D65E" />
+                <Text style={styles.backButtonText}>Back</Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Competition Title Card */}
             <View style={styles.titleCard}>
-          <Text style={styles.competitionName}>{competition.name}</Text>
-          <Text style={styles.competitionDescription}>{competition.description}</Text>
-        </View>
+              <Text style={styles.competitionName}>{competition.name}</Text>
+              <Text style={styles.competitionDescription}>{competition.description}</Text>
+            </View>
 
         {/* Competition Status Warning */}
         {hasCompetitionStarted() && !allInvitationsResolved() && (
@@ -830,13 +838,20 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
           </>
         ) : (
           <>
+            {/* Back Button */}
+            <View style={styles.backButtonContainer}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                <Ionicons name="chevron-back" size={20} color="#A4D65E" />
+                <Text style={styles.backButtonText}>Back</Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Competition Live Transition Screen */}
             <View style={styles.liveHeader}>
               <Ionicons name="rocket" size={32} color="#A4D65E" />
               <Text style={styles.liveTitle}>Competition is Live!</Text>
               <Text style={styles.liveSubtitle}>All participants are confirmed</Text>
             </View>
-
             {/* Competition Details Card */}
             <View style={styles.titleCard}>
               <Text style={styles.competitionName}>{competition.name}</Text>
@@ -962,6 +977,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#A4D65E',
+    textAlign: 'center',
     marginBottom: 8,
   },
   competitionDescription: {
@@ -969,6 +985,23 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     opacity: 0.9,
     lineHeight: 22,
+  },
+  
+  // Back Button
+  backButtonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 5,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#A4D65E',
+    marginLeft: 4,
   },
   
   // Warning Card
