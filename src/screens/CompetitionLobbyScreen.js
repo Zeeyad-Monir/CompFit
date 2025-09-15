@@ -544,6 +544,7 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
       
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -964,6 +965,9 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 120,
+  },
   
   // Title Card
   titleCard: {
@@ -1176,6 +1180,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
     marginTop: 2,
+    marginBottom: 24,
     borderRadius: 12,
     padding: 16,
     shadowColor: '#000',
@@ -1437,6 +1442,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
     marginTop: 20,
+    marginBottom: 24,
     borderRadius: 12,
     padding: 16,
     shadowColor: '#000',
