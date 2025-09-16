@@ -1391,7 +1391,7 @@ export default function CompetitionCreationScreen({ navigation }) {
                 {/* Max Submissions Per Day */}
                 <View style={styles.limitControl}>
                   <FormInput
-                    label="Max submissions per day"
+                    label="Daily Points limit"
                     keyboardType="numeric"
                     value={act.maxSubmissionsPerDay?.toString() || ''}
                     onChangeText={(value) => {
@@ -1412,7 +1412,7 @@ export default function CompetitionCreationScreen({ navigation }) {
                 {/* Max Points Per Week */}
                 <View style={styles.limitControl}>
                   <FormInput
-                    label="Max points per week for this activity"
+                    label="Max points per week"
                     keyboardType="numeric"
                     value={act.maxPointsPerWeek?.toString() || ''}
                     onChangeText={(value) => {
@@ -1433,7 +1433,7 @@ export default function CompetitionCreationScreen({ navigation }) {
                 {/* Per-Submission Point Cap */}
                 <View style={styles.limitControl}>
                   <FormInput
-                    label="Per-submission point cap"
+                    label="Max points per entry"
                     keyboardType="numeric"
                     value={act.perSubmissionCap?.toString() || ''}
                     onChangeText={(value) => {
