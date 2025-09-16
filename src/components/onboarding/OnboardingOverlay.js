@@ -8,7 +8,6 @@ import {
 } from 'react-native';
 import { useOnboarding } from './OnboardingController';
 import OnboardingContent from './OnboardingContent';
-import OnboardingMask from './OnboardingMask';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -55,17 +54,14 @@ const OnboardingOverlay = () => {
     >
       <Animated.View 
         style={[
-          styles.container,
+          styles.overlay,
           {
             opacity: fadeAnim,
           }
         ]}
       >
-        {/* Darkening mask with highlight cutout */}
-        <OnboardingMask 
-          highlightBounds={currentStepData.highlightBounds}
-          fadeOpacity={0.85}
-        />
+        {/* Simple dark background */}
+        <View style={styles.backdrop} />
 
         {/* Tutorial content */}
         <OnboardingContent
@@ -84,8 +80,14 @@ const OnboardingOverlay = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
   },
 });
 

@@ -60,43 +60,34 @@ const OnboardingContent = ({
   const getPositionStyle = () => {
     switch (contentPosition) {
       case 'center':
-        // Center of screen for welcome
+        // Center of screen - simplified since all steps are now centered
         return {
-          position: 'absolute',
-          top: (SCREEN_HEIGHT - 280) / 2,
-          left: 0,
-          right: 0,
+          alignSelf: 'center',
         };
       case 'below':
-        // Below the highlighted element (tabs or cards)
+        // Keep for potential future use
         return {
           position: 'absolute',
-          top: 150, // Adjust based on typical element position
-          left: 0,
-          right: 0,
+          bottom: 40,
+          left: 20,
+          right: 20,
         };
       case 'middle':
-        // Middle of screen for create button
+        // Same as center
         return {
-          position: 'absolute',
-          top: (SCREEN_HEIGHT - 280) / 2,
-          left: 0,
-          right: 0,
+          alignSelf: 'center',
         };
       case 'above':
-        // Above the highlighted element (for profile)
+        // Keep for potential future use
         return {
           position: 'absolute',
           bottom: 150,
-          left: 0,
-          right: 0,
+          left: 20,
+          right: 20,
         };
       default:
         return {
-          position: 'absolute',
-          top: (SCREEN_HEIGHT - 280) / 2,
-          left: 0,
-          right: 0,
+          alignSelf: 'center',
         };
     }
   };
@@ -137,7 +128,7 @@ const OnboardingContent = ({
               onPress={handleSkip}
               activeOpacity={0.7}
             >
-              <Text style={styles.skipText}>Skip Tutorial</Text>
+              <Text style={styles.skipText}>Skip</Text>
             </TouchableOpacity>
           )}
           
@@ -164,14 +155,17 @@ const OnboardingContent = ({
 
 const styles = StyleSheet.create({
   container: {
-    width: SCREEN_WIDTH,
-    paddingHorizontal: 24,
+    width: 320,
     zIndex: 2,
   },
   content: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: 16,
+    padding: 20,
+    width: 320,
+    minHeight: 200,
+    maxHeight: 220,
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -179,17 +173,17 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   title: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#111111',
-    marginBottom: 12,
+    marginBottom: 10,
     textAlign: 'center',
   },
   description: {
-    fontSize: 17,
+    fontSize: 15,
     color: '#444444',
-    lineHeight: 24,
-    marginBottom: 24,
+    lineHeight: 20,
+    marginBottom: 20,
     textAlign: 'center',
   },
   progressContainer: {
@@ -197,7 +191,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   progressDot: {
     width: 8,

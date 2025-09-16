@@ -11,6 +11,7 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header } from '../components';
@@ -32,11 +33,20 @@ import {
   arrayUnion,
   arrayRemove,
   getDoc,
-  serverTimestamp
+  serverTimestamp,
+  orderBy,
+  limit
 } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useOnboarding } from '../components/onboarding/OnboardingController';
 import onboardingService from '../services/onboardingService';
+
+// Import new stats components
+import AnimatedProgressRing from '../components/stats/AnimatedProgressRing';
+import AchievementBadges from '../components/stats/AchievementBadges';
+import GlassmorphicStatCard from '../components/stats/GlassmorphicStatCard';
+import PerformanceTrend from '../components/stats/PerformanceTrend';
+import CompetitiveRank from '../components/stats/CompetitiveRank';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -158,6 +168,11 @@ export default function ProfileScreen({ route, navigation }) {
   const [friendUsername, setFriendUsername] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loadingFriends, setLoadingFriends] = useState(false);
+  
+  // New state for competition stats
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [recentCompetitions, setRecentCompetitions] = useState([]);
+  const [globalRank, setGlobalRank] = useState(null);
 
   /* ----- Real-time profile subscription with wins/losses ----- */
   useEffect(() => {
@@ -655,6 +670,88 @@ export default function ProfileScreen({ route, navigation }) {
     return `${Math.round(rate)}%`;
   };
 
+  // Calculate current streak from recent competition results
+  const calculateCurrentStreak = () => {
+    if (recentCompetitions.length === 0) return 0;
+    
+    let streak = 0;
+    // Count consecutive 1st place finishes from most recent competitions
+    for (let i = recentCompetitions.length - 1; i >= 0; i--) {
+      if (recentCompetitions[i].position === 1) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  };
+
+  // Fetch recent competitions (real data from Firestore)
+  const fetchRecentCompetitions = async () => {
+    if (!user?.uid) return;
+    
+    try {
+      // Query completed competitions where user participated
+      // Note: May need to create composite index in Firebase Console if not exists
+      const competitionsQuery = query(
+        collection(db, 'competitions'),
+        where('status', '==', 'completed'),
+        where('participants', 'array-contains', user.uid),
+        orderBy('endDate', 'desc'),  // Use endDate which should always exist
+        limit(10)
+      );
+      
+      const snapshot = await getDocs(competitionsQuery);
+      const competitions = [];
+      
+      snapshot.docs.forEach(doc => {
+        const comp = doc.data();
+        
+        // Find user's position from finalRankings - ONLY use real data
+        const userRanking = comp.finalRankings?.find(r => r.userId === user.uid);
+        
+        // Skip this competition if no valid position data exists
+        if (!userRanking?.position) {
+          console.log(`Skipping competition ${comp.name || doc.id} - no valid position data for user`);
+          return;
+        }
+        
+        const position = userRanking.position;
+        
+        // Position 1 = win, anything else = loss
+        const isWin = position === 1;
+        
+        competitions.push({
+          date: comp.completedAt?.toDate ? comp.completedAt.toDate() : new Date(comp.endDate),
+          result: isWin ? 'win' : 'loss',
+          position: position,
+          name: comp.name,
+          points: userRanking.points || 0
+        });
+      });
+      
+      // Sort by date (oldest to newest for chart)
+      competitions.sort((a, b) => a.date - b.date);
+      
+      setRecentCompetitions(competitions);
+    } catch (error) {
+      console.error('Error fetching recent competitions:', error);
+      setRecentCompetitions([]);
+    }
+  };
+
+  // Fetch recent competitions when user changes
+  useEffect(() => {
+    if (user?.uid) {
+      fetchRecentCompetitions();
+    }
+  }, [user?.uid]);
+  
+  // Update streak when recent competitions change
+  useEffect(() => {
+    setCurrentStreak(calculateCurrentStreak());
+  }, [recentCompetitions]);
+
   // Format last updated time
   const getLastUpdatedText = () => {
     if (!profile.lastUpdated) return null;
@@ -696,34 +793,74 @@ export default function ProfileScreen({ route, navigation }) {
         </View>
       </View>
 
-      {/* Competition Stats - READ ONLY, Updated by Backend */}
+      {/* Competition Stats - Revolutionary Design */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Competition Stats</Text>
-        <View style={styles.statsGrid}>
-          <View style={[styles.statCard, styles.winsCard]}>
-            <Ionicons name="trophy" size={32} color="#FFD700" />
-            <Text style={styles.statNumber}>{profile.wins}</Text>
-            <Text style={styles.statLabel}>Wins</Text>
-          </View>
-          
-          <View style={[styles.statCard, styles.lossesCard]}>
-            <Ionicons name="trending-down" size={32} color="#FF6B6B" />
-            <Text style={styles.statNumber}>{profile.losses}</Text>
-            <Text style={styles.statLabel}>Losses</Text>
-          </View>
-          
-          <View style={[styles.statCard, styles.rateCard]}>
-            <Ionicons name="stats-chart" size={32} color="#A4D65E" />
-            <Text style={styles.statNumber}>{getWinRate()}</Text>
-            <Text style={styles.statLabel}>Win Rate</Text>
-          </View>
-          
-          <View style={[styles.statCard, styles.totalCard]}>
-            <Ionicons name="bar-chart" size={32} color="#6B7280" />
-            <Text style={styles.statNumber}>{profile.wins + profile.losses}</Text>
-            <Text style={styles.statLabel}>Total</Text>
-          </View>
+        
+        {/* Hero Win Rate Progress Ring */}
+        <AnimatedProgressRing 
+          percentage={getWinRate()} 
+          wins={profile.wins}
+          losses={profile.losses}
+        />
+        
+        {/* Achievement Badges */}
+        <AchievementBadges 
+          wins={profile.wins}
+          losses={profile.losses}
+          totals={profile.wins + profile.losses}
+          userId={user?.uid}
+          currentStreak={currentStreak}
+        />
+        
+        {/* Glassmorphic Stats Cards Grid */}
+        <View style={styles.modernStatsGrid}>
+          <GlassmorphicStatCard
+            icon="trophy"
+            iconColor="#F59E0B"
+            value={profile.wins}
+            label="Victories"
+            gradient={['#FEF3C7', '#FDE68A']}
+            delay={0}
+          />
+          <GlassmorphicStatCard
+            icon="close-circle"
+            iconColor="#EF4444"
+            value={profile.losses}
+            label="Defeats"
+            gradient={['#FEE2E2', '#FECACA']}
+            delay={100}
+          />
+          <GlassmorphicStatCard
+            icon="flame"
+            iconColor="#F97316"
+            value={currentStreak}
+            label="Streak"
+            gradient={['#FED7AA', '#FDBA74']}
+            delay={200}
+          />
+          <GlassmorphicStatCard
+            icon="analytics"
+            iconColor="#8B5CF6"
+            value={profile.wins + profile.losses}
+            label="Total"
+            gradient={['#EDE9FE', '#DDD6FE']}
+            delay={300}
+          />
         </View>
+        
+        {/* Performance Trend Chart */}
+        <PerformanceTrend 
+          userId={user?.uid}
+          recentMatches={recentCompetitions}
+        />
+        
+        {/* Competitive Rank Display */}
+        <CompetitiveRank
+          wins={profile.wins}
+          losses={profile.losses}
+          globalRank={globalRank}
+        />
         
         {profile.lastUpdated && (
           <Text style={styles.lastUpdatedText}>{getLastUpdatedText()}</Text>
@@ -1140,7 +1277,13 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1, paddingHorizontal: 16 },
   scrollViewContent: { paddingBottom: 110 },
   section: { marginTop: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1A1E23', marginBottom: 12 },
+  sectionTitle: { 
+    fontSize: 20, 
+    fontWeight: '800', 
+    color: '#1A1E23', 
+    marginBottom: 16,
+    letterSpacing: -0.5,
+  },
   loadingContainer: { padding: 20, alignItems: 'center' },
   loadingText: { color: '#6B7280', fontSize: 16 },
 
@@ -1165,58 +1308,19 @@ const styles = StyleSheet.create({
   profileName: { fontSize: 18, fontWeight: 'bold', color: '#1A1E23' },
   profileUsername: { fontSize: 14, color: '#1A1E23', opacity: 0.8 },
   
-  // Stats Grid
-  statsGrid: {
+  // Modern Stats Grid
+  modernStatsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-  },
-  statCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    flex: 1,
-    minWidth: '45%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  winsCard: {
-    borderLeftWidth: 3,
-    borderLeftColor: '#FFD700',
-  },
-  lossesCard: {
-    borderLeftWidth: 3,
-    borderLeftColor: '#FF6B6B',
-  },
-  rateCard: {
-    borderLeftWidth: 3,
-    borderLeftColor: '#A4D65E',
-  },
-  totalCard: {
-    borderLeftWidth: 3,
-    borderLeftColor: '#6B7280',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1A1E23',
-    marginTop: 8,
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 4,
+    marginTop: 16,
   },
   lastUpdatedText: {
     fontSize: 12,
-    color: '#999',
+    color: '#6B7280',
     textAlign: 'center',
-    marginTop: 12,
-    fontStyle: 'italic',
+    marginTop: 16,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'Roboto',
   },
   
   // About You
