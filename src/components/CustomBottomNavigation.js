@@ -90,6 +90,12 @@ const CustomBottomNavigation = ({
                   screen: 'ActiveCompetitions',
                   params: { reset: true }
                 });
+              } else if (route.name === 'CreateStack') {
+                // When navigating to CreateStack from another tab, always reset to presets
+                navigation.navigate(route.name, {
+                  screen: 'CompetitionCreation',
+                  params: { reset: true }
+                });
               } else {
                 navigation.navigate(route.name);
               }
@@ -105,6 +111,12 @@ const CustomBottomNavigation = ({
                 // Navigate with scrollToTop param for smooth scroll animation
                 navigation.navigate(route.name, {
                   screen: 'ActiveCompetitions',
+                  params: { scrollToTop: true }
+                });
+              } else if (route.name === 'CreateStack') {
+                // Navigate with scrollToTop param for smooth scroll animation to presets
+                navigation.navigate(route.name, {
+                  screen: 'CompetitionCreation',
                   params: { scrollToTop: true }
                 });
               } else {

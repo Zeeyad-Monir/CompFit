@@ -684,7 +684,11 @@ const handleCompetitionPress = async (competition) => {
   const status = getCompetitionStatus(competition);
   
   if (status === 'completed') {
-    navigation.navigate('Leaderboard', { competition });
+    // Navigate directly to CompetitionDetails with rank tab, bypassing LeaderboardScreen
+    navigation.navigate('CompetitionDetails', { 
+      competition,
+      initialTab: 'rank'
+    });
   } else if (status === 'upcoming') {
     // Navigate to lobby for competitions that haven't started
     navigation.navigate('CompetitionLobby', { competition });

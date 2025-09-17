@@ -41,13 +41,15 @@ const LeaderboardScreen = ({ route, navigation }) => {
   const [isCompleting, setIsCompleting] = useState(false);
   const [visibility, setVisibility] = useState(null);
 
-  // Immediately redirect to CompetitionDetails with rank tab active
-  useEffect(() => {
-    navigation.replace('CompetitionDetails', { 
-      competition,
-      initialTab: 'rank'
-    });
-  }, []);
+  // NOTE: This screen is now only accessed directly from navigation menu or other specific paths
+  // Completed competitions from ActiveCompetitionsScreen now go directly to CompetitionDetails
+  // Remove automatic redirect to prevent double navigation
+  // useEffect(() => {
+  //   navigation.replace('CompetitionDetails', { 
+  //     competition,
+  //     initialTab: 'rank'
+  //   });
+  // }, []);
 
   /* ---------------- refresh handler -------------------- */
   const onRefresh = () => {

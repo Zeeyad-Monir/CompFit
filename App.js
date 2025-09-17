@@ -41,8 +41,8 @@ export default function App() {
  * @returns {JSX.Element} Either AppNavigator (for authenticated users) or AuthNavigator (for unauthenticated users)
  */
 function RootNavigator({ navigationRef }) {
-  // Get the current user and logout state from the authentication context
-  const { user, isLoggingOut } = useContext(AuthContext);
+  // Get the current user from the authentication context
+  const { user } = useContext(AuthContext);
   
   // Set up push notifications when user is authenticated
   useEffect(() => {
@@ -61,11 +61,6 @@ function RootNavigator({ navigationRef }) {
       notificationService.removeNotificationListeners();
     };
   }, [user, navigationRef]);
-  
-  // Keep showing AppNavigator during logout to prevent flash
-  if (isLoggingOut) {
-    return <AppNavigator />;
-  }
   
   // If user is authenticated, show the main app navigator
   // Otherwise, show the authentication navigator (login/signup screens)

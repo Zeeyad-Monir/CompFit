@@ -32,6 +32,15 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { AuthContext } from '../contexts/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { 
+  saveDraft, 
+  loadDrafts, 
+  loadDraft, 
+  deleteDraft, 
+  draftWithNameExists,
+  formatDraftDate 
+} from '../utils/competitionDrafts';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -191,12 +200,12 @@ const getUnitsPlaceholder = unit => unit === 'Custom' ? 'e.g., 30 custom-units' 
 const getPointsLabel = unit => unit === 'Custom' ? 'Points per custom unit' : `Points per ${unit.toLowerCase()}`;
 const getUnitsLabel = unit => unit === 'Custom' ? 'Custom units required per point' : `Units required per point (${unit.toLowerCase()})`;
 
-export default function CompetitionCreationScreen({ navigation }) {
+export default function CompetitionCreationScreen({ navigation, route }) {
   const { user } = useContext(AuthContext);
 
   // Tab state - dynamic based on preset selection
   const [selectedPreset, setSelectedPreset] = useState(null);
-  const [activeTab, setActiveTab] = useState('presets'); // 'presets', 'manual', 'schedule', 'friends', 'rules'
+  const [activeTab, setActiveTab] = useState('presets'); // 'presets', 'manual', 'drafts', 'schedule', 'friends', 'rules'
   
   // Track which activity cards have expanded "More" sections
   const [expandedCards, setExpandedCards] = useState({});
@@ -222,8 +231,9 @@ export default function CompetitionCreationScreen({ navigation }) {
   
   // Tab measurements for underline positioning
   const [tabMeasurements, setTabMeasurements] = useState({
-    presets: { scale: 1.2, x: calculateInitialTabX(0, 2) },
-    manual: { scale: 1.2, x: calculateInitialTabX(1, 2) },
+    presets: { scale: 1.2, x: calculateInitialTabX(0, 3) },
+    manual: { scale: 1.2, x: calculateInitialTabX(1, 3) },
+    drafts: { scale: 1.2, x: calculateInitialTabX(2, 3) },
     schedule: { scale: 1.2, x: calculateInitialTabX(0, 3) },
     friends: { scale: 1.2, x: calculateInitialTabX(1, 3) },
     rules: { scale: 1.2, x: calculateInitialTabX(2, 3) }
@@ -234,9 +244,13 @@ export default function CompetitionCreationScreen({ navigation }) {
   const underlineScale = React.useRef(new Animated.Value(1.2)).current;
   const presetsScale = React.useRef(new Animated.Value(1)).current;
   const manualScale = React.useRef(new Animated.Value(1)).current;
+  const draftsScale = React.useRef(new Animated.Value(1)).current;
   const scheduleScale = React.useRef(new Animated.Value(1)).current;
   const friendsScale = React.useRef(new Animated.Value(1)).current;
   const rulesScale = React.useRef(new Animated.Value(1)).current;
+  
+  // ScrollView ref for resetting position
+  const scrollViewRef = React.useRef(null);
 
   // Animate to new tab
   const animateToTab = (newTab) => {
@@ -284,6 +298,51 @@ export default function CompetitionCreationScreen({ navigation }) {
   React.useEffect(() => {
     underlineScale.setValue(1.2);
   }, []);
+
+  // Handle scroll reset and smooth scroll to top
+  React.useLayoutEffect(() => {
+    // Check for reset and scrollToTop params
+    const resetRequested = route?.params?.reset;
+    const scrollToTopRequested = route?.params?.scrollToTop;
+    
+    // Handle instant reset when coming from other tabs
+    if (resetRequested) {
+      // Ensure we're on presets tab
+      if (activeTab !== 'presets') {
+        setActiveTab('presets');
+        // Set underline position immediately
+        underlinePosition.setValue(tabMeasurements.presets.x);
+        underlineScale.setValue(tabMeasurements.presets.scale);
+      }
+      
+      // Instant scroll to top
+      Promise.resolve().then(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+      });
+      
+      // Clear the reset param after handling
+      navigation.setParams({ reset: undefined });
+    }
+    
+    // Handle smooth scroll when already on create tab
+    if (scrollToTopRequested) {
+      // Ensure we're on presets tab
+      if (activeTab !== 'presets') {
+        setActiveTab('presets');
+        // Set underline position immediately
+        underlinePosition.setValue(tabMeasurements.presets.x);
+        underlineScale.setValue(tabMeasurements.presets.scale);
+      }
+      
+      // Smooth animated scroll to top
+      Promise.resolve().then(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      });
+      
+      // Clear the scrollToTop param after handling
+      navigation.setParams({ scrollToTop: undefined });
+    }
+  }, [route?.params?.reset, route?.params?.scrollToTop, activeTab, tabMeasurements, navigation]);
 
   // Helper function to get initial form values
   const getInitialFormValues = () => {
@@ -339,6 +398,11 @@ export default function CompetitionCreationScreen({ navigation }) {
   const [invitedFriends, setInvitedFriends] = useState([]);
   const [userFriends, setUserFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
+  
+  // Draft state
+  const [drafts, setDrafts] = useState([]);
+  const [currentDraftId, setCurrentDraftId] = useState(null);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
   
   // Handler for competition name with 18-character limit
   const handleNameChange = (text) => {
@@ -445,6 +509,134 @@ export default function CompetitionCreationScreen({ navigation }) {
     fetchUserFriends();
   }, [user]);
 
+  // Load drafts when component mounts or activeTab changes to drafts
+  useEffect(() => {
+    if (activeTab === 'drafts') {
+      fetchDrafts();
+    }
+  }, [activeTab]);
+
+  const fetchDrafts = async () => {
+    setLoadingDrafts(true);
+    try {
+      const loadedDrafts = await loadDrafts();
+      setDrafts(loadedDrafts);
+    } catch (error) {
+      console.error('Error fetching drafts:', error);
+    } finally {
+      setLoadingDrafts(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!name.trim()) {
+      Alert.alert('Validation', 'Please enter a competition name before saving to drafts');
+      return;
+    }
+
+    const draftData = {
+      name: name.trim(),
+      description: description.trim(),
+      startDate: startDate.toISOString(),
+      startTime: startTime.toISOString(),
+      endDate: endDate.toISOString(),
+      endTime: endTime.toISOString(),
+      dailyCap,
+      photoProofRequired,
+      invitationGracePeriod,
+      leaderboardUpdateDays,
+      activities: activities.map(a => ({ ...a })),
+      invitedFriends: invitedFriends.map(f => ({ ...f }))
+    };
+
+    try {
+      await saveDraft(draftData, currentDraftId);
+      
+      // Reset form to fresh state after save
+      const initialValues = getInitialFormValues();
+      setName(initialValues.name); 
+      setNameWarning(false); 
+      setDesc(initialValues.description);
+      setStart(initialValues.startDate); 
+      setStartTime(initialValues.startTime);
+      setEnd(initialValues.endDate); 
+      setEndTime(initialValues.endTime);
+      setDailyCap(initialValues.dailyCap); 
+      setPhotoProofRequired(initialValues.photoProofRequired);
+      setInvitationGracePeriod(initialValues.invitationGracePeriod);
+      setLeaderboardUpdateDays(initialValues.leaderboardUpdateDays);
+      setActs(initialValues.activities);
+      setInviteUsername(initialValues.inviteUsername); 
+      setInvitedFriends(initialValues.invitedFriends);
+      setExpandedCards({});
+      setCurrentDraftId(null); // Clear draft ID after save
+      
+      Alert.alert(
+        'Success', 
+        'Competition saved to drafts!',
+        [{ text: 'OK', onPress: () => animateToTab('drafts') }]
+      );
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      Alert.alert('Error', 'Failed to save draft. Please try again.');
+    }
+  };
+
+  const handleLoadDraft = async (draft) => {
+    try {
+      // Load the draft data into the form
+      setName(draft.name || '');
+      setDesc(draft.description || '');
+      setStart(new Date(draft.startDate));
+      setStartTime(new Date(draft.startTime));
+      setEnd(new Date(draft.endDate));
+      setEndTime(new Date(draft.endTime));
+      setDailyCap(draft.dailyCap || '');
+      setPhotoProofRequired(draft.photoProofRequired || false);
+      setInvitationGracePeriod(draft.invitationGracePeriod !== undefined ? draft.invitationGracePeriod : true);
+      setLeaderboardUpdateDays(draft.leaderboardUpdateDays || 0);
+      setActs(draft.activities || []);
+      setInvitedFriends(draft.invitedFriends || []);
+      
+      // Set the current draft ID for updates
+      setCurrentDraftId(draft.id);
+      
+      // Switch to manual tab
+      animateToTab('manual');
+    } catch (error) {
+      console.error('Error loading draft:', error);
+      Alert.alert('Error', 'Failed to load draft. Please try again.');
+    }
+  };
+
+  const handleDeleteDraft = async (draftId) => {
+    Alert.alert(
+      'Delete Draft',
+      'Are you sure you want to delete this draft?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const updatedDrafts = await deleteDraft(draftId);
+              setDrafts(updatedDrafts);
+              
+              // Clear currentDraftId if we're deleting the draft being edited
+              if (currentDraftId === draftId) {
+                setCurrentDraftId(null);
+              }
+            } catch (error) {
+              console.error('Error deleting draft:', error);
+              Alert.alert('Error', 'Failed to delete draft.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // Function to reset all form values
   const resetForm = () => {
     const initialValues = getInitialFormValues();
@@ -458,6 +650,7 @@ export default function CompetitionCreationScreen({ navigation }) {
     setInviteUsername(initialValues.inviteUsername); setInvitedFriends(initialValues.invitedFriends);
     setSelectedPreset(null); animateToTab('presets');
     setExpandedCards({}); // Reset expanded cards state
+    setCurrentDraftId(null); // Reset draft ID
   };
 
   /* ---------- leaderboard helpers ---------- */
@@ -880,6 +1073,7 @@ export default function CompetitionCreationScreen({ navigation }) {
   
   const renderPresetsTab = () => (
     <ScrollView 
+      ref={scrollViewRef}
       style={styles.scrollView} 
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
@@ -1223,6 +1417,92 @@ export default function CompetitionCreationScreen({ navigation }) {
     </ScrollView>
   );
 
+  const renderDraftsTab = () => (
+    <ScrollView 
+      style={styles.scrollView} 
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Saved Drafts</Text>
+        <Text style={styles.sectionSubtext}>Continue working on your saved competition drafts</Text>
+        
+        {loadingDrafts ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading drafts...</Text>
+          </View>
+        ) : drafts.length === 0 ? (
+          <View style={styles.emptyStateContainer}>
+            <Ionicons name="document-outline" size={48} color="#B3B3B3" />
+            <Text style={styles.emptyStateText}>No saved drafts</Text>
+            <Text style={styles.emptyStateSubtext}>
+              Save your competition as a draft from the Manual tab to continue editing later
+            </Text>
+          </View>
+        ) : (
+          drafts.map(draft => (
+            <TouchableOpacity
+              key={draft.id}
+              style={styles.draftCard}
+              onPress={() => handleLoadDraft(draft)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.draftCardContent}>
+                <View style={styles.draftCardHeader}>
+                  <View style={styles.draftCardIcon}>
+                    <Ionicons name="document-text" size={24} color="#A4D65E" />
+                  </View>
+                  <View style={styles.draftCardInfo}>
+                    <Text style={styles.draftCardName} numberOfLines={1}>
+                      {draft.name}
+                    </Text>
+                    <Text style={styles.draftCardDate}>
+                      Last saved {formatDraftDate(draft.updatedAt)}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.draftDeleteButton}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDeleteDraft(draft.id);
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#FF6B6B" />
+                  </TouchableOpacity>
+                </View>
+                {draft.description && (
+                  <Text style={styles.draftCardDescription} numberOfLines={2}>
+                    {draft.description}
+                  </Text>
+                )}
+                <View style={styles.draftCardDetails}>
+                  <View style={styles.draftCardDetailItem}>
+                    <Ionicons name="calendar-outline" size={14} color="#6B7280" />
+                    <Text style={styles.draftCardDetailText}>
+                      {Math.ceil((new Date(draft.endDate) - new Date(draft.startDate)) / (1000 * 60 * 60 * 24))} days
+                    </Text>
+                  </View>
+                  <View style={styles.draftCardDetailItem}>
+                    <Ionicons name="fitness-outline" size={14} color="#6B7280" />
+                    <Text style={styles.draftCardDetailText}>
+                      {draft.activities?.length || 0} activities
+                    </Text>
+                  </View>
+                  <View style={styles.draftCardDetailItem}>
+                    <Ionicons name="people-outline" size={14} color="#6B7280" />
+                    <Text style={styles.draftCardDetailText}>
+                      {draft.invitedFriends?.length || 0} invited
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
+      </View>
+    </ScrollView>
+  );
+
   const renderManualTab = () => (
     <ScrollView 
       style={styles.scrollView} 
@@ -1230,7 +1510,14 @@ export default function CompetitionCreationScreen({ navigation }) {
       nestedScrollEnabled
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.sectionTitle}>Competition Details</Text>
+      <View style={styles.competitionDetailsHeader}>
+        <Text style={styles.sectionTitle}>Competition Details</Text>
+        <TouchableOpacity style={styles.saveDraftButton} onPress={handleSaveDraft}>
+          <Text style={styles.saveDraftButtonText}>
+            {currentDraftId ? 'Update Draft' : 'Save to Drafts'}
+          </Text>
+        </TouchableOpacity>
+      </View>
       <View style={styles.nameInputContainer}>
         <Text style={styles.label}>Competition Name</Text>
         <View style={styles.nameInputWrapper}>
@@ -1670,7 +1957,7 @@ export default function CompetitionCreationScreen({ navigation }) {
 
         {/* Dynamic Tab Navigation - ProfileScreen Style */}
         <View style={styles.topNavContainer}>
-        {/* Tab row with 2 equal columns */}
+        {/* Tab row with 3 equal columns for main tabs */}
         <View style={styles.tabRow}>
           {showPresetTabs ? (
             <>
@@ -1685,7 +1972,7 @@ export default function CompetitionCreationScreen({ navigation }) {
                     const textWidth = width * 0.8;
                     const indicatorWidth = textWidth + 12;
                     const scale = indicatorWidth / baseUnderlineWidth;
-                    const columnCenter = (screenWidth - 48) / 2 * 0 + (screenWidth - 48) / 4;
+                    const columnCenter = (screenWidth - 48) / 3 * 0 + (screenWidth - 48) / 6;
                     setTabMeasurements(prev => ({
                       ...prev,
                       presets: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
@@ -1718,7 +2005,7 @@ export default function CompetitionCreationScreen({ navigation }) {
                     const textWidth = width * 0.8;
                     const indicatorWidth = textWidth + 12;
                     const scale = indicatorWidth / baseUnderlineWidth;
-                    const columnCenter = (screenWidth - 48) / 2 * 1 + (screenWidth - 48) / 4;
+                    const columnCenter = (screenWidth - 48) / 3 * 1 + (screenWidth - 48) / 6;
                     setTabMeasurements(prev => ({
                       ...prev,
                       manual: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
@@ -1736,6 +2023,39 @@ export default function CompetitionCreationScreen({ navigation }) {
                     }
                   ]}>
                     Manual
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+
+              {/* Drafts Tab */}
+              <Animated.View style={[styles.tabColumn, { transform: [{ scale: draftsScale }] }]}>
+                <TouchableOpacity
+                  style={styles.tabButton}
+                  onPressIn={() => handlePressIn(draftsScale)}
+                  onPressOut={() => handlePressOut('drafts', draftsScale)}
+                  onLayout={(event) => {
+                    const { x, width } = event.nativeEvent.layout;
+                    const textWidth = width * 0.8;
+                    const indicatorWidth = textWidth + 12;
+                    const scale = indicatorWidth / baseUnderlineWidth;
+                    const columnCenter = (screenWidth - 48) / 3 * 2 + (screenWidth - 48) / 6;
+                    setTabMeasurements(prev => ({
+                      ...prev,
+                      drafts: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
+                    }));
+                    setMeasurementsReady(true);
+                  }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: activeTab === 'drafts' }}
+                >
+                  <Text style={[
+                    styles.tabLabel,
+                    { 
+                      color: activeTab === 'drafts' ? colors.nav.activeGreen : colors.nav.inactiveGray,
+                      fontSize: activeTab === 'drafts' ? 23 : 21
+                    }
+                  ]}>
+                    Drafts
                   </Text>
                 </TouchableOpacity>
               </Animated.View>
@@ -1863,6 +2183,7 @@ export default function CompetitionCreationScreen({ navigation }) {
       {/* Tab Content */}
       {activeTab === 'presets' && renderPresetsTab()}
       {activeTab === 'manual' && renderManualTab()}
+      {activeTab === 'drafts' && renderDraftsTab()}
       {activeTab === 'schedule' && renderScheduleTab()}
       {activeTab === 'friends' && renderFriendsTab()}
       {activeTab === 'rules' && renderRulesTab()}
@@ -2359,6 +2680,120 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FF6B6B',
     marginTop: 4,
+  },
+  
+  // Competition Details Header with Save to Drafts button
+  competitionDetailsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 24,  // Added spacing from nav bar
+    marginBottom: 16,
+  },
+  saveDraftButton: {
+    backgroundColor: '#A4D65E',  // Solid green background for visibility
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginTop: 7.5,  // Center with sectionTitle text
+  },
+  saveDraftButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',  // White text on green background
+  },
+  
+  // Draft Card Styles
+  draftCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  draftCardContent: {
+    padding: 16,
+  },
+  draftCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  draftCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#F0F9E8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  draftCardInfo: {
+    flex: 1,
+  },
+  draftCardName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1E23',
+    marginBottom: 2,
+  },
+  draftCardDate: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  draftDeleteButton: {
+    padding: 8,
+  },
+  draftCardDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  draftCardDetails: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  draftCardDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  draftCardDetailText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  
+  // Empty State Styles
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1E23',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    lineHeight: 20,
+  },
+  
+  // Loading Container
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#6B7280',
   },
   
 });

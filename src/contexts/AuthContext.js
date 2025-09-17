@@ -7,12 +7,10 @@ export const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(true);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const performLogout = async () => {
-    setIsLoggingOut(true);
     await signOut(auth);
-    setIsLoggingOut(false);
+    // The auth state listener will handle the navigation automatically
   };
 
   useEffect(() => {
@@ -44,7 +42,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoggingOut, performLogout }}>
+    <AuthContext.Provider value={{ user, performLogout }}>
       {children}
     </AuthContext.Provider>
   );
