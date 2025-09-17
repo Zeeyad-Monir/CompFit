@@ -799,13 +799,47 @@ export default function ProfileScreen({ route, navigation }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    
+    // Set timeout fallback to stop refreshing after 3 seconds (matching other screens)
+    const timeout = setTimeout(() => {
+      setRefreshing(false);
+    }, 3000);
+    
     try {
-      if (profile.friends?.length > 0) {
-        await fetchFriendsDetails(profile.friends);
+      if (user?.uid) {
+        if (activeTab === 'profile') {
+          // Refresh profile tab data
+          const promises = [fetchRecentCompetitions()];
+          
+          // Only calculate BPR rankings if there are friends
+          if (friendsList.length > 0) {
+            promises.push(calculateFriendsBPRRankings());
+          }
+          
+          await Promise.all(promises);
+          // Profile data refreshes automatically via onSnapshot listener
+        } else if (activeTab === 'friends') {
+          // Refresh friends tab data
+          const promises = [];
+          
+          if (profile.friends?.length > 0) {
+            promises.push(fetchFriendsDetails(profile.friends));
+          }
+          
+          // Only calculate BPR rankings if there are friends
+          if (friendsList.length > 0) {
+            promises.push(calculateFriendsBPRRankings());
+          }
+          
+          if (promises.length > 0) {
+            await Promise.all(promises);
+          }
+        }
       }
     } catch (error) {
-      console.error('Error refreshing friends:', error);
+      console.error(`Error refreshing ${activeTab}:`, error);
     } finally {
+      clearTimeout(timeout);
       setRefreshing(false);
     }
   };
@@ -1178,6 +1212,14 @@ export default function ProfileScreen({ route, navigation }) {
       style={styles.scrollView}
       contentContainerStyle={styles.scrollViewContent}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={['#A4D65E']}  // Android
+          tintColor="#A4D65E"   // iOS
+        />
+      }
     >
       {/* Profile section - Centered */}
       <View style={styles.section}>
