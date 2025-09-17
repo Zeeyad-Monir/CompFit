@@ -47,6 +47,11 @@ import AchievementBadges from '../components/stats/AchievementBadges';
 import GlassmorphicStatCard from '../components/stats/GlassmorphicStatCard';
 import PerformanceTrend from '../components/stats/PerformanceTrend';
 import CompetitiveRank from '../components/stats/CompetitiveRank';
+import { 
+  calculateBPR, 
+  calculateFriendsRankings,
+  transformCompetitionData 
+} from '../utils/bprCalculation';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -173,6 +178,16 @@ export default function ProfileScreen({ route, navigation }) {
   const [currentStreak, setCurrentStreak] = useState(0);
   const [recentCompetitions, setRecentCompetitions] = useState([]);
   const [globalRank, setGlobalRank] = useState(null);
+  
+  // Friends ranking state for BPR
+  const [friendsRankingData, setFriendsRankingData] = useState({
+    friendsRank: null,
+    totalFriends: 0,
+    friendsPercentile: null,
+    bprScore: null,
+    isProvisional: true,
+    friendsRankingList: []
+  });
 
   /* ----- Real-time profile subscription with wins/losses ----- */
   useEffect(() => {
@@ -726,7 +741,8 @@ export default function ProfileScreen({ route, navigation }) {
           result: isWin ? 'win' : 'loss',
           position: position,
           name: comp.name,
-          points: userRanking.points || 0
+          points: userRanking.points || 0,
+          fieldSize: comp.finalRankings?.length || comp.participants?.length || 2 // Add actual field size
         });
       });
       
@@ -751,7 +767,116 @@ export default function ProfileScreen({ route, navigation }) {
   useEffect(() => {
     setCurrentStreak(calculateCurrentStreak());
   }, [recentCompetitions]);
+  
+  // Calculate friends rankings when competitions or friends list changes
+  useEffect(() => {
+    if (user?.uid && friendsList.length > 0) {
+      calculateFriendsBPRRankings();
+    } else if (friendsList.length === 0) {
+      // Reset ranking data if no friends
+      setFriendsRankingData({
+        friendsRank: null,
+        totalFriends: 0,
+        friendsPercentile: null,
+        bprScore: null,
+        isProvisional: true,
+        friendsRankingList: []
+      });
+    }
+  }, [recentCompetitions, friendsList]);
 
+  // Calculate BPR rankings for user and friends
+  const calculateFriendsBPRRankings = async () => {
+    if (!user?.uid || friendsList.length === 0) return;
+    
+    try {
+      // Get all friend IDs
+      const friendIds = friendsList.map(f => f.id);
+      
+      // Fetch competitions for all friends
+      const friendsCompetitionsData = [];
+      
+      for (const friendId of friendIds) {
+        try {
+          // Query completed competitions where friend participated
+          const friendCompsQuery = query(
+            collection(db, 'competitions'),
+            where('status', '==', 'completed'),
+            where('participants', 'array-contains', friendId),
+            orderBy('endDate', 'desc'),
+            limit(40) // BPR MAX_HISTORY
+          );
+          
+          const snapshot = await getDocs(friendCompsQuery);
+          const friendComps = [];
+          
+          snapshot.docs.forEach(doc => {
+            const comp = doc.data();
+            const transformed = transformCompetitionData([{ ...comp, id: doc.id }], friendId);
+            if (transformed.length > 0) {
+              friendComps.push(...transformed);
+            }
+          });
+          
+          // Calculate BPR for this friend
+          const friendBPR = calculateBPR(friendComps);
+          
+          friendsCompetitionsData.push({
+            id: friendId,
+            ...friendBPR
+          });
+        } catch (error) {
+          console.log(`Error fetching competitions for friend ${friendId}:`, error);
+          // Add default BPR data for friends with errors
+          friendsCompetitionsData.push({
+            id: friendId,
+            bpr: 0.50,
+            competitionsCount: 0,
+            isProvisional: true,
+            weightedAverage: 0.50,
+            totalWeight: 0
+          });
+        }
+      }
+      
+      // Transform user's recent competitions for BPR calculation
+      const userCompetitionsForBPR = recentCompetitions.map(comp => ({
+        competitionId: comp.name || 'unknown',
+        finishRank: comp.position,
+        fieldSize: comp.fieldSize || Math.max(comp.position + 1, 2), // Use actual field size when available
+        endedAt: comp.date,
+        points: comp.points
+      }));
+      
+      // Calculate user's BPR
+      const userBPR = calculateBPR(userCompetitionsForBPR);
+      
+      // Calculate rankings
+      const rankings = calculateFriendsRankings(user.uid, userBPR, friendsCompetitionsData);
+      
+      // Prepare rankings list for display
+      const rankingsList = rankings.rankings.map(userRank => ({
+        rank: userRank.rank,
+        name: userRank.id === user.uid ? 'You' : friendsList.find(f => f.id === userRank.id)?.username || 'Unknown',
+        bpr: userRank.bpr,
+        isCurrentUser: userRank.id === user.uid
+      }));
+      
+      // Update state with ranking data
+      setFriendsRankingData({
+        friendsRank: rankings.friendsRank,
+        totalFriends: rankings.totalFriends,
+        friendsPercentile: rankings.friendsPercentile,
+        bprScore: rankings.bprScore,
+        isProvisional: rankings.isProvisional,
+        friendsRankingList: rankingsList // Add the formatted list
+      });
+      
+    } catch (error) {
+      console.error('Error calculating friends BPR rankings:', error);
+    }
+  };
+  
   // Format last updated time
   const getLastUpdatedText = () => {
     if (!profile.lastUpdated) return null;
@@ -855,11 +980,14 @@ export default function ProfileScreen({ route, navigation }) {
           recentMatches={recentCompetitions}
         />
         
-        {/* Competitive Rank Display */}
+        {/* Competitive Rank Display - Friends-based with BPR */}
         <CompetitiveRank
-          wins={profile.wins}
-          losses={profile.losses}
-          globalRank={globalRank}
+          friendsRank={friendsRankingData.friendsRank}
+          totalFriends={friendsRankingData.totalFriends}
+          friendsPercentile={friendsRankingData.friendsPercentile}
+          bprScore={friendsRankingData.bprScore}
+          isProvisional={friendsRankingData.isProvisional}
+          friendsRankingList={friendsRankingData.friendsRankingList}
         />
         
         {profile.lastUpdated && (
