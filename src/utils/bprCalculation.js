@@ -46,7 +46,10 @@ function calculateSizeWeight(fieldSize) {
  * @returns {Object} BPR calculation result
  */
 export function calculateBPR(competitions, now = new Date()) {
+  console.log(`[BPR Calc Debug] Input competitions: ${competitions?.length || 0}`);
+  
   if (!competitions || competitions.length === 0) {
+    console.log('[BPR Calc Debug] No competitions - returning default BPR of 0.50');
     return {
       bpr: BPR_CONFIG.mu0,
       competitionsCount: 0,
@@ -134,14 +137,21 @@ export function getRecentForm(competitions, count = 5) {
  * @returns {Object} Rankings data
  */
 export function calculateFriendsRankings(userId, userBPR, friendsBPRData) {
-  // Combine user with friends for ranking
+  // Combine user with friends for ranking - they should already have consistent ranks
   const allUsers = [
-    { id: userId, ...userBPR },
+    userBPR,
     ...friendsBPRData
   ];
   
-  // Sort by BPR descending with tiebreakers
+  // Use the pre-calculated ranks (from ProfileScreen where all data was processed consistently)
+  // Sort by the rank property that was already assigned
   allUsers.sort((a, b) => {
+    // Use existing rank if available
+    if (a.rank !== undefined && b.rank !== undefined) {
+      return a.rank - b.rank;
+    }
+    
+    // Fallback to BPR-based sorting with consistent tiebreakers
     // Primary: Higher BPR wins
     if (a.bpr !== b.bpr) {
       return b.bpr - a.bpr;
@@ -157,13 +167,13 @@ export function calculateFriendsRankings(userId, userBPR, friendsBPRData) {
       return b.weightedAverage - a.weightedAverage;
     }
     
-    // Final tiebreaker: User ID for consistency
+    // Final tiebreaker: User ID for consistency (ensures same ordering on all devices)
     return a.id.localeCompare(b.id);
   });
   
-  // Find user's position
-  const userIndex = allUsers.findIndex(u => u.id === userId);
-  const friendsRank = userIndex + 1;
+  // Find user's position using the consistent ranking
+  const userRankData = allUsers.find(u => u.id === userId);
+  const friendsRank = userRankData ? userRankData.rank : allUsers.findIndex(u => u.id === userId) + 1;
   const totalFriends = allUsers.length;
   
   // Calculate percentile (0 to 100)
@@ -182,7 +192,7 @@ export function calculateFriendsRankings(userId, userBPR, friendsBPRData) {
     competitionsCount: userBPR.competitionsCount,
     rankings: allUsers.map((user, idx) => ({
       ...user,
-      rank: idx + 1
+      rank: user.rank !== undefined ? user.rank : idx + 1
     }))
   };
 }
@@ -194,21 +204,64 @@ export function calculateFriendsRankings(userId, userBPR, friendsBPRData) {
  * @returns {Array} Transformed competition records for BPR calculation
  */
 export function transformCompetitionData(firestoreCompetitions, userId) {
-  return firestoreCompetitions
-    .map(comp => {
+  console.log(`[Transform Debug] Processing ${firestoreCompetitions.length} competitions for user ${userId}`);
+  
+  const transformed = firestoreCompetitions
+    .map((comp, index) => {
+      // Log structure of first competition for debugging
+      if (index === 0) {
+        console.log('[Transform Debug] Competition structure:', {
+          id: comp.id,
+          hasFinalRankings: !!comp.finalRankings,
+          finalRankingsLength: comp.finalRankings?.length,
+          firstRanking: comp.finalRankings?.[0],
+          hasParticipants: !!comp.participants,
+          participantsIncludesUser: comp.participants?.includes(userId)
+        });
+      }
+      
       // Find user's ranking in the competition
-      const userRanking = comp.finalRankings?.find(r => r.userId === userId);
-      if (!userRanking?.position) return null;
+      const userRanking = comp.finalRankings?.find(r => {
+        // Handle different possible field names for user ID
+        return r.userId === userId || r.uid === userId || r.id === userId;
+      });
+      
+      if (!userRanking) {
+        // User didn't finish this competition or isn't in final rankings
+        return null;
+      }
+      
+      // Get position from various possible field names
+      const position = userRanking.position || userRanking.rank || userRanking.place;
+      if (!position) {
+        console.log(`[Transform Debug] No position found for user in comp ${comp.id}`);
+        return null;
+      }
+      
+      // Determine the date - handle various field names and formats
+      let endedAt;
+      if (comp.completedAt) {
+        endedAt = comp.completedAt.toDate ? comp.completedAt.toDate() : new Date(comp.completedAt);
+      } else if (comp.endDate) {
+        endedAt = comp.endDate.toDate ? comp.endDate.toDate() : new Date(comp.endDate);
+      } else if (comp.endedAt) {
+        endedAt = comp.endedAt.toDate ? comp.endedAt.toDate() : new Date(comp.endedAt);
+      } else {
+        endedAt = new Date(); // Fallback to now
+      }
       
       return {
         competitionId: comp.id,
-        finishRank: userRanking.position,
-        fieldSize: comp.finalRankings?.length || comp.participants?.length || 0,
-        endedAt: comp.completedAt?.toDate ? comp.completedAt.toDate() : new Date(comp.endDate),
-        points: userRanking.points || 0
+        finishRank: position,
+        fieldSize: comp.finalRankings?.length || comp.participants?.length || 2,
+        endedAt: endedAt,
+        points: userRanking.points || userRanking.score || 0
       };
     })
     .filter(comp => comp !== null); // Remove invalid competitions
+    
+  console.log(`[Transform Debug] Successfully transformed ${transformed.length} competitions for user ${userId}`);
+  return transformed;
 }
 
 /**

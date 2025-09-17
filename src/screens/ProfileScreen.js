@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -173,6 +173,8 @@ export default function ProfileScreen({ route, navigation }) {
   const [friendUsername, setFriendUsername] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loadingFriends, setLoadingFriends] = useState(false);
+  const [showAllFriends, setShowAllFriends] = useState(false);
+  const friendsListHeight = useRef(new Animated.Value(0)).current;
   
   // New state for competition stats
   const [currentStreak, setCurrentStreak] = useState(0);
@@ -664,6 +666,19 @@ export default function ProfileScreen({ route, navigation }) {
     );
   };
 
+  const toggleFriendsList = () => {
+    const toValue = showAllFriends ? 0 : Math.min((friendsList.length - 3) * 70, 210); // Max 3 more friends visible
+    
+    Animated.timing(friendsListHeight, {
+      toValue,
+      duration: 250,
+      easing: Easing.bezier(0.0, 0.0, 0.2, 1),
+      useNativeDriver: false,
+    }).start();
+    
+    setShowAllFriends(!showAllFriends);
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     try {
@@ -790,46 +805,162 @@ export default function ProfileScreen({ route, navigation }) {
     if (!user?.uid || friendsList.length === 0) return;
     
     try {
-      // Get all friend IDs
-      const friendIds = friendsList.map(f => f.id);
+      // Get all user IDs (current user + all friends)
+      const allUserIds = [user.uid, ...friendsList.map(f => f.id)];
       
-      // Fetch competitions for all friends
-      const friendsCompetitionsData = [];
+      console.log('[BPR Debug] Starting calculation for users:', allUserIds);
       
-      for (const friendId of friendIds) {
-        try {
-          // Query completed competitions where friend participated
-          const friendCompsQuery = query(
-            collection(db, 'competitions'),
-            where('status', '==', 'completed'),
-            where('participants', 'array-contains', friendId),
-            orderBy('endDate', 'desc'),
-            limit(40) // BPR MAX_HISTORY
-          );
-          
-          const snapshot = await getDocs(friendCompsQuery);
-          const friendComps = [];
-          
-          snapshot.docs.forEach(doc => {
-            const comp = doc.data();
-            const transformed = transformCompetitionData([{ ...comp, id: doc.id }], friendId);
-            if (transformed.length > 0) {
-              friendComps.push(...transformed);
+      // First, let's fetch competitions without date filtering to see what we get
+      // We'll try multiple query approaches to find what works
+      let relevantCompetitions = [];
+      
+      try {
+        // Approach 1: Get all completed competitions, no date filter
+        const allCompetitionsQuery = query(
+          collection(db, 'competitions'),
+          where('status', '==', 'completed'),
+          limit(200)
+        );
+        
+        const snapshot = await getDocs(allCompetitionsQuery);
+        console.log(`[BPR Debug] Total completed competitions found: ${snapshot.docs.length}`);
+        
+        // Log first competition structure for debugging
+        if (snapshot.docs.length > 0) {
+          const sampleComp = snapshot.docs[0].data();
+          console.log('[BPR Debug] Sample competition structure:', {
+            id: snapshot.docs[0].id,
+            hasParticipants: !!sampleComp.participants,
+            participantsCount: sampleComp.participants?.length,
+            hasFinalRankings: !!sampleComp.finalRankings,
+            finalRankingsCount: sampleComp.finalRankings?.length,
+            hasEndDate: !!sampleComp.endDate,
+            hasCompletedAt: !!sampleComp.completedAt,
+            status: sampleComp.status,
+            fields: Object.keys(sampleComp)
+          });
+        }
+        
+        // Filter competitions that include at least one of our users
+        snapshot.docs.forEach(doc => {
+          const comp = doc.data();
+          // Check if any of our users participated
+          if (comp.participants && Array.isArray(comp.participants)) {
+            const hasOurUsers = comp.participants.some(p => allUserIds.includes(p));
+            if (hasOurUsers) {
+              relevantCompetitions.push({ ...comp, id: doc.id });
             }
+          }
+        });
+        
+        console.log(`[BPR Debug] Relevant competitions (with our users): ${relevantCompetitions.length}`);
+        
+        // If we found competitions, log details about the first one
+        if (relevantCompetitions.length > 0) {
+          const sample = relevantCompetitions[0];
+          console.log('[BPR Debug] Sample relevant competition:', {
+            id: sample.id,
+            participants: sample.participants,
+            finalRankings: sample.finalRankings?.slice(0, 3), // First 3 rankings
+            ourUsersInComp: sample.participants.filter(p => allUserIds.includes(p))
+          });
+        } else {
+          console.log('[BPR Debug] No competitions found with our users. Trying alternative approach...');
+          
+          // Alternative approach: Query competitions for each user individually
+          for (const uid of allUserIds) {
+            try {
+              const userCompsQuery = query(
+                collection(db, 'competitions'),
+                where('participants', 'array-contains', uid),
+                where('status', '==', 'completed'),
+                limit(50)
+              );
+              
+              const userSnapshot = await getDocs(userCompsQuery);
+              console.log(`[BPR Debug] Found ${userSnapshot.docs.length} competitions for user ${uid}`);
+              
+              userSnapshot.docs.forEach(doc => {
+                const comp = doc.data();
+                // Check if we already have this competition
+                if (!relevantCompetitions.some(c => c.id === doc.id)) {
+                  relevantCompetitions.push({ ...comp, id: doc.id });
+                }
+              });
+            } catch (err) {
+              console.log(`[BPR Debug] Error fetching competitions for user ${uid}:`, err);
+            }
+          }
+          
+          console.log(`[BPR Debug] After alternative approach: ${relevantCompetitions.length} total competitions`);
+        }
+      } catch (queryError) {
+        console.error('[BPR Debug] Query error:', queryError);
+        // Fallback: try to get competitions differently
+        relevantCompetitions = [];
+      }
+      
+      // Now calculate BPR for each user using the SAME competition dataset
+      const allUsersBPRData = [];
+      
+      // Process each user
+      for (const userId of allUserIds) {
+        try {
+          // Get username for debugging
+          const userName = userId === user.uid ? 'Current User' : 
+            friendsList.find(f => f.id === userId)?.username || userId.substring(0, 8);
+          
+          console.log(`[BPR Debug] Processing user: ${userName} (${userId})`);
+          
+          let userCompetitions;
+          
+          // For the current user, we can also use recentCompetitions as a fallback
+          if (userId === user.uid && recentCompetitions.length > 0) {
+            console.log(`[BPR Debug] Using existing recentCompetitions for current user: ${recentCompetitions.length} competitions`);
+            
+            // Transform recentCompetitions to BPR format
+            userCompetitions = recentCompetitions.map(comp => ({
+              competitionId: comp.name || 'unknown',
+              finishRank: comp.position,
+              fieldSize: comp.fieldSize || Math.max(comp.position + 1, 2),
+              endedAt: comp.date,
+              points: comp.points
+            }));
+          } else {
+            // Transform competitions from fetched data
+            userCompetitions = transformCompetitionData(relevantCompetitions, userId);
+          }
+          
+          console.log(`[BPR Debug] ${userName} - Transformed competitions: ${userCompetitions.length}`);
+          
+          // Log first transformed competition for debugging
+          if (userCompetitions.length > 0) {
+            console.log(`[BPR Debug] ${userName} - Sample transformed comp:`, userCompetitions[0]);
+          }
+          
+          // Take only the most recent 40 competitions for BPR calculation (as per MAX_HISTORY)
+          const recentUserComps = userCompetitions.slice(0, 40);
+          
+          // Calculate BPR for this user
+          const userBPR = calculateBPR(recentUserComps);
+          console.log(`[BPR Debug] ${userName} - BPR calculation result:`, {
+            bpr: userBPR.bpr,
+            competitionsCount: recentUserComps.length,
+            isProvisional: userBPR.isProvisional,
+            weightedAverage: userBPR.weightedAverage,
+            totalWeight: userBPR.totalWeight
           });
           
-          // Calculate BPR for this friend
-          const friendBPR = calculateBPR(friendComps);
-          
-          friendsCompetitionsData.push({
-            id: friendId,
-            ...friendBPR
+          allUsersBPRData.push({
+            id: userId,
+            ...userBPR,
+            competitionsCount: recentUserComps.length
           });
         } catch (error) {
-          console.log(`Error fetching competitions for friend ${friendId}:`, error);
-          // Add default BPR data for friends with errors
-          friendsCompetitionsData.push({
-            id: friendId,
+          console.log(`Error calculating BPR for user ${userId}:`, error);
+          // Add default BPR data for users with errors
+          allUsersBPRData.push({
+            id: userId,
             bpr: 0.50,
             competitionsCount: 0,
             isProvisional: true,
@@ -839,20 +970,46 @@ export default function ProfileScreen({ route, navigation }) {
         }
       }
       
-      // Transform user's recent competitions for BPR calculation
-      const userCompetitionsForBPR = recentCompetitions.map(comp => ({
-        competitionId: comp.name || 'unknown',
-        finishRank: comp.position,
-        fieldSize: comp.fieldSize || Math.max(comp.position + 1, 2), // Use actual field size when available
-        endedAt: comp.date,
-        points: comp.points
-      }));
+      // Sort all users by BPR score (descending) with consistent tiebreakers
+      allUsersBPRData.sort((a, b) => {
+        // Primary: Higher BPR wins
+        if (a.bpr !== b.bpr) {
+          return b.bpr - a.bpr;
+        }
+        
+        // Tiebreaker 1: More competitions wins
+        if (a.competitionsCount !== b.competitionsCount) {
+          return b.competitionsCount - a.competitionsCount;
+        }
+        
+        // Tiebreaker 2: Higher weighted average (unshrunk performance)
+        if (a.weightedAverage !== b.weightedAverage) {
+          return b.weightedAverage - a.weightedAverage;
+        }
+        
+        // Final tiebreaker: User ID for consistency (ensures same ordering on all devices)
+        return a.id.localeCompare(b.id);
+      });
       
-      // Calculate user's BPR
-      const userBPR = calculateBPR(userCompetitionsForBPR);
+      // Assign ranks based on sorted order
+      allUsersBPRData.forEach((userData, index) => {
+        userData.rank = index + 1;
+      });
       
-      // Calculate rankings
-      const rankings = calculateFriendsRankings(user.uid, userBPR, friendsCompetitionsData);
+      // Log final rankings for debugging
+      console.log('[BPR] Final Rankings:');
+      allUsersBPRData.forEach(u => {
+        const name = u.id === user.uid ? 'Current User' : 
+          friendsList.find(f => f.id === u.id)?.username || u.id.substring(0, 8);
+        console.log(`  ${u.rank}. ${name}: BPR=${u.bpr.toFixed(3)}`);
+      });
+      
+      // Find current user's data and friends data
+      const currentUserData = allUsersBPRData.find(u => u.id === user.uid);
+      const friendsData = allUsersBPRData.filter(u => u.id !== user.uid);
+      
+      // Calculate rankings using the consistent data
+      const rankings = calculateFriendsRankings(user.uid, currentUserData, friendsData);
       
       // Prepare rankings list for display
       const rankingsList = rankings.rankings.map(userRank => ({
@@ -980,16 +1137,6 @@ export default function ProfileScreen({ route, navigation }) {
           recentMatches={recentCompetitions}
         />
         
-        {/* Competitive Rank Display - Friends-based with BPR */}
-        <CompetitiveRank
-          friendsRank={friendsRankingData.friendsRank}
-          totalFriends={friendsRankingData.totalFriends}
-          friendsPercentile={friendsRankingData.friendsPercentile}
-          bprScore={friendsRankingData.bprScore}
-          isProvisional={friendsRankingData.isProvisional}
-          friendsRankingList={friendsRankingData.friendsRankingList}
-        />
-        
         {profile.lastUpdated && (
           <Text style={styles.lastUpdatedText}>{getLastUpdatedText()}</Text>
         )}
@@ -1102,6 +1249,18 @@ export default function ProfileScreen({ route, navigation }) {
         />
       }
     >
+      {/* Friends Ranking Section - Moved from Profile tab */}
+      <View style={styles.section}>
+        <CompetitiveRank
+          friendsRank={friendsRankingData.friendsRank}
+          totalFriends={friendsRankingData.totalFriends}
+          friendsPercentile={friendsRankingData.friendsPercentile}
+          bprScore={friendsRankingData.bprScore}
+          isProvisional={friendsRankingData.isProvisional}
+          friendsRankingList={friendsRankingData.friendsRankingList}
+        />
+      </View>
+
       {/* Add Friend Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Add Friend</Text>
@@ -1185,7 +1344,19 @@ export default function ProfileScreen({ route, navigation }) {
 
       {/* Friends List */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Friends ({friendsList.length})</Text>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Friends ({friendsList.length})</Text>
+          {friendsList.length > 3 && (
+            <TouchableOpacity 
+              onPress={toggleFriendsList}
+              style={styles.viewMoreButton}
+            >
+              <Text style={styles.viewMoreButtonText}>
+                {showAllFriends ? 'Show less' : `View all (${friendsList.length - 3} more)`}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
         {loadingFriends ? (
           <View style={styles.loadingContainer}>
             <Text style={styles.loadingText}>Loading friends...</Text>
@@ -1197,25 +1368,61 @@ export default function ProfileScreen({ route, navigation }) {
             <Text style={styles.emptySubtext}>Add friends to see them here</Text>
           </View>
         ) : (
-          <View style={styles.friendsContainer}>
-            {friendsList.map((friend) => (
-              <View key={friend.id} style={styles.friendItem}>
-                <View style={styles.friendUserInfo}>
-                  <Ionicons name="person-circle" size={40} color="#A4D65E" />
-                  <View style={styles.friendUserText}>
-                    <Text style={styles.friendUsername}>{friend.username}</Text>
-                    <Text style={styles.friendSubtext}>@{friend.handle}</Text>
+          <>
+            {/* First 3 friends always visible */}
+            <View style={styles.friendsContainer}>
+              {friendsList.slice(0, 3).map((friend) => (
+                <View key={friend.id} style={styles.friendItem}>
+                  <View style={styles.friendUserInfo}>
+                    <View style={styles.friendProfilePic}>
+                      <Ionicons name="person" size={24} color="#A4D65E" />
+                    </View>
+                    <View style={styles.friendUserText}>
+                      <Text style={styles.friendUsername}>{friend.username}</Text>
+                      <Text style={styles.friendSubtext}>@{friend.handle}</Text>
+                    </View>
                   </View>
+                  <TouchableOpacity
+                    style={styles.removeFriendButton}
+                    onPress={() => removeFriend(friend)}
+                  >
+                    <Ionicons name="person-remove" size={18} color="#EF4444" />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  style={styles.removeFriendButton}
-                  onPress={() => removeFriend(friend)}
+              ))}
+            </View>
+            
+            {/* Expandable section for remaining friends */}
+            {friendsList.length > 3 && (
+              <Animated.View style={[styles.expandableFriendsContainer, { height: friendsListHeight }]}>
+                <ScrollView 
+                  style={styles.expandableFriendsList}
+                  nestedScrollEnabled={true}
+                  showsVerticalScrollIndicator={true}
                 >
-                  <Ionicons name="person-remove" size={20} color="#FF6B6B" />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
+                  {friendsList.slice(3).map((friend) => (
+                    <View key={friend.id} style={styles.friendItem}>
+                      <View style={styles.friendUserInfo}>
+                        <View style={styles.friendProfilePic}>
+                          <Ionicons name="person" size={24} color="#A4D65E" />
+                        </View>
+                        <View style={styles.friendUserText}>
+                          <Text style={styles.friendUsername}>{friend.username}</Text>
+                          <Text style={styles.friendSubtext}>@{friend.handle}</Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.removeFriendButton}
+                        onPress={() => removeFriend(friend)}
+                      >
+                        <Ionicons name="person-remove" size={18} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              </Animated.View>
+            )}
+          </>
         )}
       </View>
     </ScrollView>
@@ -1504,16 +1711,27 @@ const styles = StyleSheet.create({
   accountOptionTitle: { fontSize: 16, fontWeight: '500', color: '#1A1E23' },
   accountOptionSubtitle: { fontSize: 12, color: '#6B7280', marginTop: 2 },
 
-  // Friends Tab
+  // Friends Tab - Modernized styles
   addFriendContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 16,
+    padding: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   addFriendSubtext: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   addFriendRow: {
     flexDirection: 'row',
@@ -1521,20 +1739,32 @@ const styles = StyleSheet.create({
   },
   addFriendInput: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: '#F5F5F7',
+    borderRadius: 12,
+    padding: 14,
     fontSize: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#E5E7EB',
+    fontWeight: '500',
   },
   addFriendButton: {
     backgroundColor: '#A4D65E',
-    borderRadius: 8,
-    width: 48,
-    height: 48,
+    borderRadius: 12,
+    width: 52,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#A4D65E',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   
   requestsContainer: {
@@ -1589,37 +1819,61 @@ const styles = StyleSheet.create({
   },
 
   friendsContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 16,
     overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   friendItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
+    backgroundColor: 'transparent',
   },
   friendUserInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
+  friendProfilePic: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F0FDF4',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   friendUserText: {
-    marginLeft: 12,
+    marginLeft: 14,
   },
   friendUsername: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#1A1E23',
   },
   friendSubtext: {
     fontSize: 14,
     color: '#6B7280',
+    marginTop: 2,
   },
   removeFriendButton: {
-    padding: 8,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#FEF2F2',
   },
 
   emptyContainer: {
@@ -1638,5 +1892,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 4,
+  },
+  
+  // Friends tab modernization styles
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  viewMoreButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F7',
+  },
+  viewMoreButtonText: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  expandableFriendsContainer: {
+    overflow: 'hidden',
+    marginTop: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  expandableFriendsList: {
+    maxHeight: 210, // Shows exactly 3 friends * 70px height
   },
 });
