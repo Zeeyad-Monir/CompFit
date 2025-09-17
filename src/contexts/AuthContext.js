@@ -1,11 +1,19 @@
 import React, { createContext, useEffect, useState } from 'react';
 import { auth } from '../firebase';
+import { signOut } from 'firebase/auth';
 
 export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const performLogout = async () => {
+    setIsLoggingOut(true);
+    await signOut(auth);
+    setIsLoggingOut(false);
+  };
 
   useEffect(() => {
     console.log('Setting up Firebase auth listener...');
@@ -36,7 +44,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user }}>
+    <AuthContext.Provider value={{ user, isLoggingOut, performLogout }}>
       {children}
     </AuthContext.Provider>
   );

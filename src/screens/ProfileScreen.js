@@ -44,7 +44,6 @@ import {
   orderBy,
   limit
 } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
 import { useOnboarding } from '../components/onboarding/OnboardingController';
 import onboardingService from '../services/onboardingService';
 
@@ -74,7 +73,7 @@ const colors = {
 
 export default function ProfileScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
-  const { user } = useContext(AuthContext);
+  const { user, performLogout } = useContext(AuthContext);
   const { startOnboarding } = useOnboarding();
 
   // Tab state - check if we should open friends tab from navigation params
@@ -468,7 +467,7 @@ export default function ProfileScreen({ route, navigation }) {
       'Are you sure you want to logout?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: () => signOut(auth) }
+        { text: 'Logout', style: 'destructive', onPress: () => performLogout() }
       ]
     );
   };
