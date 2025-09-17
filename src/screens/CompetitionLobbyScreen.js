@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Header } from '../components';
 import { Ionicons } from '@expo/vector-icons';
@@ -738,7 +739,17 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
             {participants.map((participant) => (
               <View key={participant.id} style={styles.participantCard}>
                 <View style={styles.participantInfo}>
-                  <Ionicons name="person-circle" size={36} color="#A4D65E" />
+                  <View style={styles.participantAvatar}>
+                    {participant.profilePicture ? (
+                      <Image 
+                        source={{ uri: participant.profilePicture }}
+                        style={styles.participantAvatarImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Ionicons name="person-circle" size={36} color="#A4D65E" />
+                    )}
+                  </View>
                   <View style={styles.participantText}>
                     <Text style={styles.participantName}>
                       {participant.username}
@@ -762,7 +773,17 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
             {pendingParticipants.map((participant) => (
               <View key={participant.id} style={[styles.participantCard, styles.pendingCard]}>
                 <View style={styles.participantInfo}>
-                  <Ionicons name="person-circle-outline" size={36} color="#999" />
+                  <View style={[styles.participantAvatar, styles.pendingAvatar]}>
+                    {participant.profilePicture ? (
+                      <Image 
+                        source={{ uri: participant.profilePicture }}
+                        style={styles.participantAvatarImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Ionicons name="person-circle-outline" size={36} color="#999" />
+                    )}
+                  </View>
                   <View style={styles.participantText}>
                     <Text style={[styles.participantName, styles.pendingName]}>
                       {participant.username}
@@ -868,7 +889,17 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
                 {participants.map((participant) => (
                   <View key={participant.id} style={styles.participantCard}>
                     <View style={styles.participantInfo}>
-                      <Ionicons name="person-circle" size={36} color="#A4D65E" />
+                      <View style={styles.participantAvatar}>
+                        {participant.profilePicture ? (
+                          <Image 
+                            source={{ uri: participant.profilePicture }}
+                            style={styles.participantAvatarImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <Ionicons name="person-circle" size={36} color="#A4D65E" />
+                        )}
+                      </View>
                       <View style={styles.participantText}>
                         <Text style={styles.participantName}>
                           {participant.username}
@@ -1283,6 +1314,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+  },
+  participantAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  participantAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  pendingAvatar: {
+    opacity: 0.7,
   },
   participantText: {
     marginLeft: 12,

@@ -12,6 +12,8 @@ import {
   Dimensions,
   Easing,
   Platform,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header } from '../components';
@@ -19,8 +21,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { AuthContext } from '../contexts/AuthContext';
 import { auth, db } from '../firebase';
+import { uploadProfilePicture } from '../utils/uploadProfilePicture';
 import { 
   doc, 
   onSnapshot, 
@@ -184,10 +189,12 @@ export default function ProfileScreen({ route, navigation }) {
     totals: 0,
     friends: [],
     lastUpdated: null,
+    profilePicture: null,
   });
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({});
+  const [uploadingProfilePicture, setUploadingProfilePicture] = useState(false);
 
   // Friends state
   const [friendsList, setFriendsList] = useState([]);
@@ -232,6 +239,7 @@ export default function ProfileScreen({ route, navigation }) {
             totals: userData.totals || 0,
             friends: userData.friends || [],
             lastUpdated: userData.lastUpdated,
+            profilePicture: userData.profilePicture || null,
           });
           
           // Fetch friend details when friends array changes
@@ -463,6 +471,94 @@ export default function ProfileScreen({ route, navigation }) {
         { text: 'Logout', style: 'destructive', onPress: () => signOut(auth) }
       ]
     );
+  };
+
+  // Helper function to validate image size
+  const validateImageSize = async (imageUri, maxSizeMB = 5) => {
+    try {
+      const response = await fetch(imageUri);
+      const blob = await response.blob();
+      const fileSizeInMB = blob.size / (1024 * 1024);
+      
+      console.log(`Image size: ${fileSizeInMB.toFixed(2)} MB`);
+      
+      return {
+        isValid: fileSizeInMB <= maxSizeMB,
+        sizeInMB: fileSizeInMB
+      };
+    } catch (error) {
+      console.error('Error checking file size:', error);
+      throw new Error('Unable to validate image size');
+    }
+  };
+
+  const handleProfilePictureEdit = async () => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'We need camera roll permissions to change your profile picture.');
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setUploadingProfilePicture(true);
+        
+        const imageUri = result.assets[0].uri;
+        
+        // Validate file size (5MB max)
+        const sizeCheck = await validateImageSize(imageUri, 5);
+        
+        if (!sizeCheck.isValid) {
+          Alert.alert(
+            'Image Too Large',
+            `The selected image is ${sizeCheck.sizeInMB.toFixed(2)} MB. Please select an image smaller than 5 MB.`,
+            [{ text: 'OK' }]
+          );
+          setUploadingProfilePicture(false);
+          return;
+        }
+        
+        // Resize image for optimization
+        const manipulatedImage = await ImageManipulator.manipulateAsync(
+          imageUri,
+          [{ resize: { width: 400, height: 400 } }],
+          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+        );
+
+        // Upload to Cloudinary (FREE!)
+        const photoUrl = await uploadProfilePicture(manipulatedImage.uri, user.uid);
+        
+        // Update Firestore with the Cloudinary URL
+        await updateDoc(doc(db, 'users', user.uid), {
+          profilePicture: photoUrl,
+          profilePictureUpdatedAt: serverTimestamp(),
+        });
+        
+        Alert.alert('Success', 'Profile picture updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error updating profile picture:', error);
+      
+      let errorMessage = 'Failed to update profile picture.';
+      if (error.message.includes('Cloudinary')) {
+        errorMessage = 'Failed to upload image. Please check your internet connection and try again.';
+      } else if (error.message.includes('validate image size')) {
+        errorMessage = 'Could not check image size. Please try again.';
+      }
+      
+      Alert.alert('Upload Error', errorMessage);
+    } finally {
+      setUploadingProfilePicture(false);
+    }
   };
 
   const handleViewTutorial = () => {
@@ -1084,74 +1180,56 @@ export default function ProfileScreen({ route, navigation }) {
       contentContainerStyle={styles.scrollViewContent}
       showsVerticalScrollIndicator={false}
     >
-      {/* Profile card */}
+      {/* Profile section - Centered */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Profile</Text>
         <Animated.View 
           style={[
-            styles.profileCardContainer,
+            styles.profileCenteredContainer,
             {
               transform: [{ scale: profileCardScale }],
               opacity: profileCardOpacity,
             }
           ]}
         >
-          <LinearGradient
-            colors={['#A4D65E', '#B6DB78']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.profileCard}
-          >
-            <View style={styles.profileCardContent}>
-              <View style={styles.profileImageWrapper}>
-                <LinearGradient
-                  colors={['#FFFFFF', '#F0FDF4']}
-                  style={styles.profileImageGradientRing}
-                >
-                  <View style={styles.profileImageContainer}>
-                    <Ionicons name="person-circle" size={65} color="#A4D65E" />
-                  </View>
-                </LinearGradient>
-                {currentStreak > 0 && (
-                  <View style={styles.streakBadge}>
-                    <Ionicons name="flame" size={12} color="#FFFFFF" />
-                    <Text style={styles.streakText}>{currentStreak}</Text>
-                  </View>
+          <View style={styles.profileImageWrapper}>
+            <LinearGradient
+              colors={['#A4D65E', '#B6DB78']}
+              style={styles.profileImageGradientRing}
+            >
+              <View style={styles.profileImageContainer}>
+                {profile.profilePicture ? (
+                  <Image 
+                    source={{ uri: profile.profilePicture }}
+                    style={styles.profilePicture}
+                  />
+                ) : (
+                  <Ionicons name="person-circle" size={88} color="#A4D65E" />
                 )}
               </View>
-              <View style={styles.profileInfo}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.profileName}>{profile.username}</Text>
-                  {profile.wins >= 10 && (
-                    <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" style={styles.verifiedIcon} />
-                  )}
-                </View>
-                <Text style={styles.profileUsername}>@{profile.handle}</Text>
-                <View style={styles.profileQuickStats}>
-                  <View style={styles.quickStatItem}>
-                    <Ionicons name="people" size={14} color="rgba(255,255,255,0.9)" />
-                    <Text style={styles.quickStatText}>{profile.friends?.length || 0}</Text>
-                  </View>
-                  <Text style={styles.quickStatSeparator}>•</Text>
-                  <View style={styles.quickStatItem}>
-                    <Ionicons name="trophy" size={14} color="rgba(255,255,255,0.9)" />
-                    <Text style={styles.quickStatText}>{profile.wins}</Text>
-                  </View>
-                  <Text style={styles.quickStatSeparator}>•</Text>
-                  <View style={styles.quickStatItem}>
-                    <Text style={styles.quickStatText}>{getWinRate()}</Text>
-                  </View>
-                </View>
+            </LinearGradient>
+            {uploadingProfilePicture && (
+              <View style={styles.uploadingOverlay}>
+                <ActivityIndicator size="small" color="#A4D65E" />
               </View>
-              <TouchableOpacity 
-                style={styles.profileEditButton}
-                onPress={startEdit}
-                activeOpacity={0.7}
+            )}
+            <TouchableOpacity 
+              style={styles.profilePictureEditButton}
+              onPress={handleProfilePictureEdit}
+              activeOpacity={0.8}
+              disabled={uploadingProfilePicture}
+            >
+              <LinearGradient
+                colors={['#A4D65E', '#B6DB78']}
+                style={styles.editButtonGradient}
               >
-                <Ionicons name="pencil" size={18} color="rgba(255,255,255,0.8)" />
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
+                <Ionicons name="camera" size={20} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.profileTextWrapper}>
+            <Text style={styles.profileName}>{profile.username}</Text>
+            <Text style={styles.profileUsername}>@{profile.handle}</Text>
+          </View>
         </Animated.View>
       </View>
 
@@ -1370,7 +1448,14 @@ export default function ProfileScreen({ route, navigation }) {
             {pendingRequests.map((request) => (
               <View key={request.id} style={styles.requestItem}>
                 <View style={styles.requestUserInfo}>
-                  <Ionicons name="person-circle" size={40} color="#A4D65E" />
+                  {request.senderData?.profilePicture ? (
+                    <Image 
+                      source={{ uri: request.senderData.profilePicture }} 
+                      style={styles.requestUserImage} 
+                    />
+                  ) : (
+                    <Ionicons name="person-circle" size={40} color="#A4D65E" />
+                  )}
                   <View style={styles.requestUserText}>
                     <Text style={styles.requestUsername}>{request.senderData.username}</Text>
                     <Text style={styles.requestSubtext}>wants to be friends</Text>
@@ -1404,7 +1489,14 @@ export default function ProfileScreen({ route, navigation }) {
             {sentRequests.map((request) => (
               <View key={request.id} style={styles.requestItem}>
                 <View style={styles.requestUserInfo}>
-                  <Ionicons name="person-circle" size={40} color="#A4D65E" />
+                  {request.recipientData?.profilePicture ? (
+                    <Image 
+                      source={{ uri: request.recipientData.profilePicture }} 
+                      style={styles.requestUserImage} 
+                    />
+                  ) : (
+                    <Ionicons name="person-circle" size={40} color="#A4D65E" />
+                  )}
                   <View style={styles.requestUserText}>
                     <Text style={styles.requestUsername}>{request.recipientData.username}</Text>
                     <Text style={styles.requestSubtext}>request pending</Text>
@@ -1455,7 +1547,14 @@ export default function ProfileScreen({ route, navigation }) {
                 <View key={friend.id} style={styles.friendItem}>
                   <View style={styles.friendUserInfo}>
                     <View style={styles.friendProfilePic}>
-                      <Ionicons name="person" size={24} color="#A4D65E" />
+                      {friend.profilePicture ? (
+                        <Image 
+                          source={{ uri: friend.profilePicture }} 
+                          style={styles.friendProfileImage} 
+                        />
+                      ) : (
+                        <Ionicons name="person" size={24} color="#A4D65E" />
+                      )}
                     </View>
                     <View style={styles.friendUserText}>
                       <Text style={styles.friendUsername}>{friend.username}</Text>
@@ -1484,7 +1583,14 @@ export default function ProfileScreen({ route, navigation }) {
                     <View key={friend.id} style={styles.friendItem}>
                       <View style={styles.friendUserInfo}>
                         <View style={styles.friendProfilePic}>
-                          <Ionicons name="person" size={24} color="#A4D65E" />
+                          {friend.profilePicture ? (
+                            <Image 
+                              source={{ uri: friend.profilePicture }} 
+                              style={styles.friendProfileImage} 
+                            />
+                          ) : (
+                            <Ionicons name="person" size={24} color="#A4D65E" />
+                          )}
                         </View>
                         <View style={styles.friendUserText}>
                           <Text style={styles.friendUsername}>{friend.username}</Text>
@@ -1691,7 +1797,7 @@ const styles = StyleSheet.create({
   // Common
   scrollView: { flex: 1, paddingHorizontal: 16 },
   scrollViewContent: { paddingBottom: 110 },
-  section: { marginTop: 24 },
+  section: { marginTop: 36 },
   sectionTitle: { 
     fontSize: 20, 
     fontWeight: '800', 
@@ -1702,50 +1808,30 @@ const styles = StyleSheet.create({
   loadingContainer: { padding: 20, alignItems: 'center' },
   loadingText: { color: '#6B7280', fontSize: 16 },
 
-  // Profile Tab - Enhanced Styles
-  profileCardContainer: {
-    borderRadius: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#A4D65E',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 12,
-      },
-    }),
-  },
-  profileCard: { 
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    overflow: 'hidden',
-  },
-  profileCardContent: {
+  // Profile Tab - Side-by-Side Minimal Design
+  profileCenteredContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    position: 'relative',
+    justifyContent: 'center',
+    paddingVertical: 28,
   },
   profileImageWrapper: {
+    marginRight: 20,
     position: 'relative',
-    marginRight: 18,
   },
   profileImageGradientRing: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 97,
+    height: 97,
+    borderRadius: 49,
     padding: 3,
     alignItems: 'center',
     justifyContent: 'center',
   },
   profileImageContainer: { 
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
@@ -1753,85 +1839,67 @@ const styles = StyleSheet.create({
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },
-  streakBadge: {
+  profileTextWrapper: {
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  profileName: { 
+    fontSize: 29,
+    fontWeight: '800',
+    color: '#1A1E23',
+    letterSpacing: -0.5,
+    marginBottom: 4,
+  },
+  profileUsername: { 
+    fontSize: 18,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  profilePicture: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: '#F0F0F0',
+  },
+  profilePictureEditButton: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#FF6B6B',
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 2,
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: 3,
     borderColor: '#FFFFFF',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
-  streakText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
-    marginLeft: 2,
-  },
-  profileInfo: { 
-    flex: 1,
+  editButtonGradient: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  nameRow: {
-    flexDirection: 'row',
+  uploadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     alignItems: 'center',
-  },
-  profileName: { 
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.1)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  verifiedIcon: {
-    marginLeft: 6,
-  },
-  profileUsername: { 
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  profileQuickStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  quickStatItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  quickStatText: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '600',
-  },
-  quickStatSeparator: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    marginHorizontal: 8,
-    fontSize: 13,
-  },
-  profileEditButton: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    padding: 8,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    borderRadius: 44,
   },
   
   // Modern Stats Grid - Commented out as cards are disabled
@@ -2047,6 +2115,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0FDF4',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  friendProfileImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  requestUserImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   friendUserText: {
     marginLeft: 14,

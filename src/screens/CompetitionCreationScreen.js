@@ -14,6 +14,7 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, FormInput, Dropdown, DatePicker, LeaderboardUpdatePicker } from '../components';
@@ -1054,7 +1055,17 @@ export default function CompetitionCreationScreen({ navigation }) {
                       return (
                         <View key={friend.uid} style={styles.friendListItem}>
                           <View style={styles.friendInfo}>
-                            <Ionicons name="person-circle" size={36} color="#A4D65E" />
+                            <View style={styles.friendAvatar}>
+                              {friend.profilePicture ? (
+                                <Image 
+                                  source={{ uri: friend.profilePicture }}
+                                  style={styles.friendAvatarImage}
+                                  resizeMode="cover"
+                                />
+                              ) : (
+                                <Ionicons name="person-circle" size={36} color="#A4D65E" />
+                              )}
+                            </View>
                             <Text style={styles.friendName}>{friend.username}</Text>
                           </View>
                           <TouchableOpacity
@@ -1086,7 +1097,17 @@ export default function CompetitionCreationScreen({ navigation }) {
               <Text style={styles.invitedTitle}>Invited Friends ({invitedFriends.length})</Text>
               {invitedFriends.map(f=>(
                 <View key={f.uid} style={styles.participant}>
-                  <Ionicons name="person-circle" size={40} color="#A4D65E"/>
+                  <View style={styles.participantAvatar}>
+                    {f.profilePicture ? (
+                      <Image 
+                        source={{ uri: f.profilePicture }}
+                        style={styles.participantAvatarImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Ionicons name="person-circle" size={40} color="#A4D65E"/>
+                    )}
+                  </View>
                   <View style={styles.participantInfo}>
                     <Text style={styles.participantName}>{f.username}</Text>
                     <Text style={styles.participantEmail}>{f.email}</Text>
@@ -1563,7 +1584,17 @@ export default function CompetitionCreationScreen({ navigation }) {
                   return (
                     <View key={friend.uid} style={styles.friendListItem}>
                       <View style={styles.friendInfo}>
-                        <Ionicons name="person-circle" size={36} color="#A4D65E" />
+                        <View style={styles.friendAvatar}>
+                          {friend.profilePicture ? (
+                            <Image 
+                              source={{ uri: friend.profilePicture }}
+                              style={styles.friendAvatarImage}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <Ionicons name="person-circle" size={36} color="#A4D65E" />
+                          )}
+                        </View>
                         <Text style={styles.friendName}>{friend.username}</Text>
                       </View>
                       <TouchableOpacity
@@ -1595,7 +1626,17 @@ export default function CompetitionCreationScreen({ navigation }) {
           <Text style={styles.invitedTitle}>Invited Friends ({invitedFriends.length})</Text>
           {invitedFriends.map(f=>(
             <View key={f.uid} style={styles.participant}>
-              <Ionicons name="person-circle" size={40} color="#A4D65E"/>
+              <View style={styles.participantAvatar}>
+                {f.profilePicture ? (
+                  <Image 
+                    source={{ uri: f.profilePicture }}
+                    style={styles.participantAvatarImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Ionicons name="person-circle" size={40} color="#A4D65E"/>
+                )}
+              </View>
               <View style={styles.participantInfo}>
                 <Text style={styles.participantName}>{f.username}</Text>
                 <Text style={styles.participantEmail}>{f.email}</Text>
@@ -2143,6 +2184,8 @@ const styles = StyleSheet.create({
   participantInfo: { flex: 1, marginLeft: 12 },
   participantName: { fontSize: 16, color: '#1A1E23', fontWeight: '500' },
   participantEmail: { fontSize: 14, color: '#666', marginTop: 2 },
+  participantAvatar: { width: 40, height: 40, borderRadius: 20, overflow: 'hidden' },
+  participantAvatarImage: { width: '100%', height: '100%' },
   createCompetitionButton: { marginTop: 20, marginBottom: 20 },
   
   // Friends list styles
@@ -2152,6 +2195,8 @@ const styles = StyleSheet.create({
   friendListItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
   friendInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   friendName: { fontSize: 16, color: '#1A1E23', fontWeight: '500', marginLeft: 12 },
+  friendAvatar: { width: 36, height: 36, borderRadius: 18, overflow: 'hidden' },
+  friendAvatarImage: { width: '100%', height: '100%' },
   inviteFriendButton: { backgroundColor: '#A4D65E', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 },
   invitedFriendButton: { backgroundColor: '#E5E7EB' },
   inviteFriendButtonText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },

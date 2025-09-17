@@ -1091,7 +1091,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                   name: userData.username || 'Unknown User',
                   points: pointsByUser[uid] || 0,
                   isCurrentUser: uid === user.uid,
-                  avatarUrl: userData.photoURL || userData.photoUrl || userData.avatarUrl || null,
+                  avatarUrl: userData.profilePicture || userData.photoURL || userData.photoUrl || userData.avatarUrl || null,
                 };
               } catch (error) {
                 return {
@@ -1389,7 +1389,15 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
             participants.map((participant) => (
               <View key={participant.id} style={styles.participantItem}>
                 <View style={styles.participantAvatar}>
-                  <Ionicons name="person-circle" size={40} color="#A4D65E" />
+                  {participant.profilePicture ? (
+                    <Image 
+                      source={{ uri: participant.profilePicture }}
+                      style={styles.participantAvatarImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Ionicons name="person-circle" size={40} color="#A4D65E" />
+                  )}
                 </View>
                 <View style={styles.participantInfo}>
                   <Text style={styles.participantName}>
@@ -1537,7 +1545,12 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                         </View>
                         
                         {/* Rank badge */}
-                        <View style={styles.rankBadge}>
+                        <View style={[
+                          styles.rankBadge,
+                          user.position === 1 && styles.goldBadge,
+                          user.position === 2 && styles.silverBadge,
+                          user.position === 3 && styles.bronzeBadge
+                        ]}>
                           <Text style={styles.rankBadgeText}>{user.position}</Text>
                         </View>
                       </View>
@@ -1622,9 +1635,24 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                       index === restOfRankings.length - 1 && styles.lastRankingItem
                     ]}
                   >
-                    <Text style={styles.rankingPosition}>{user.position}</Text>
+                    <View style={[
+                      styles.rankingPositionBadge,
+                      user.position === 1 && styles.goldBadge,
+                      user.position === 2 && styles.silverBadge,
+                      user.position === 3 && styles.bronzeBadge
+                    ]}>
+                      <Text style={styles.rankingPositionText}>{user.position}</Text>
+                    </View>
                     <View style={styles.rankingUserImageContainer}>
-                      <Ionicons name="person-circle" size={36} color="#777" />
+                      {user.avatarUrl ? (
+                        <Image 
+                          source={{ uri: user.avatarUrl }} 
+                          style={styles.rankingUserImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <Ionicons name="person-circle" size={36} color="#777" />
+                      )}
                     </View>
                     <Text style={[
                       styles.rankingUserName,
@@ -2541,6 +2569,14 @@ const styles = StyleSheet.create({
   },
   participantAvatar: {
     marginRight: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  participantAvatarImage: {
+    width: '100%',
+    height: '100%',
   },
   participantInfo: {
     flex: 1,
@@ -2780,9 +2816,24 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   rankBadgeText: {
-    color: '#222',
+    color: '#333333',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  goldBadge: {
+    backgroundColor: '#FFF4CC',
+    borderWidth: 2,
+    borderColor: '#A4E64F',
+  },
+  silverBadge: {
+    backgroundColor: '#ECEFF4',
+    borderWidth: 2,
+    borderColor: '#A4E64F',
+  },
+  bronzeBadge: {
+    backgroundColor: '#F3E0D3',
+    borderWidth: 2,
+    borderColor: '#A4E64F',
   },
   podiumUserName: {
     color: '#222',
@@ -2889,14 +2940,30 @@ const styles = StyleSheet.create({
   lastRankingItem: {
     marginBottom: 0,
   },
-  rankingPosition: {
+  rankingPositionBadge: {
     width: 30,
-    fontSize: 16,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  rankingPositionText: {
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#1A1E23',
+    color: '#333333',
   },
   rankingUserImageContainer: {
     marginRight: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  rankingUserImage: {
+    width: '100%',
+    height: '100%',
   },
   rankingUserName: {
     flex: 1,

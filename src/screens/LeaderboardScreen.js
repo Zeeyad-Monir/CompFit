@@ -1,7 +1,7 @@
 //LeaderboardScreen.js
 
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, Alert, Image } from 'react-native';
 import { Header, Button } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -299,6 +299,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
                 name: userData.username || 'Unknown User',
                 points: pointsByUser[uid] || 0,
                 isCurrentUser: uid === user.uid,
+                profilePicture: userData.profilePicture || null,
               };
             } catch (error) {
               console.error('Error fetching user:', error);
@@ -307,6 +308,7 @@ const LeaderboardScreen = ({ route, navigation }) => {
                 name: 'Unknown User',
                 points: pointsByUser[uid] || 0,
                 isCurrentUser: uid === user.uid,
+                profilePicture: null,
               };
             }
           });
@@ -569,7 +571,15 @@ const LeaderboardScreen = ({ route, navigation }) => {
               >
                 <Text style={styles.rankingPosition}>{user.position}</Text>
                 <View style={styles.rankingUserImageContainer}>
-                  <Ionicons name="person-circle" size={36} color="#777" />
+                  {user.profilePicture ? (
+                    <Image 
+                      source={{ uri: user.profilePicture }}
+                      style={styles.rankingUserImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Ionicons name="person-circle" size={36} color="#777" />
+                  )}
                 </View>
                 <Text style={[
                   styles.rankingUserName,
@@ -787,6 +797,14 @@ const styles = StyleSheet.create({
   },
   rankingUserImageContainer: {
     marginRight: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  rankingUserImage: {
+    width: '100%',
+    height: '100%',
   },
   rankingUserName: {
     flex: 1,

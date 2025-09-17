@@ -585,7 +585,17 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
                   <View key={comment.id} style={styles.commentCard}>
                     <View style={styles.commentHeader}>
                       <View style={styles.commentUserInfo}>
-                        <Ionicons name="person-circle" size={36} color="#A4D65E" />
+                        <View style={styles.commentUserAvatar}>
+                          {commentUser?.profilePicture ? (
+                            <Image 
+                              source={{ uri: commentUser.profilePicture }}
+                              style={styles.commentUserAvatarImage}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <Ionicons name="person-circle" size={36} color="#A4D65E" />
+                          )}
+                        </View>
                         <View style={styles.commentUserText}>
                           <Text style={styles.commentUserName}>
                             {commentUser?.username || 'Unknown User'}
@@ -969,6 +979,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+  },
+  commentUserAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  commentUserAvatarImage: {
+    width: '100%',
+    height: '100%',
   },
   commentUserText: {
     marginLeft: 10,
