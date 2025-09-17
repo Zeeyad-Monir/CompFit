@@ -54,9 +54,16 @@ const colors = {
   background: '#FFFFFF'      // Pure white
 };
 
-export default function ActiveCompetitionsScreen({ navigation }) {
+export default function ActiveCompetitionsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
+
+  // Check for reset and scrollToTop params
+  const resetRequested = route?.params?.reset;
+  const scrollToTopRequested = route?.params?.scrollToTop;
+  
+  // ScrollView ref for scroll control
+  const scrollViewRef = React.useRef(null);
 
   /* ---------------- tab state ------------------ */
   const [activeTab, setActiveTab] = useState('active');
@@ -132,6 +139,47 @@ export default function ActiveCompetitionsScreen({ navigation }) {
   React.useEffect(() => {
     underlineScale.setValue(1.2);  // Use the corrected Active scale directly
   }, []);
+
+  // Handle scroll reset and smooth scroll to top
+  React.useLayoutEffect(() => {
+    // Handle instant reset when coming from other tabs
+    if (resetRequested) {
+      // Ensure we're on active tab
+      if (activeTab !== 'active') {
+        setActiveTab('active');
+        // Set underline position immediately
+        underlinePosition.setValue(tabMeasurements.active.x);
+        underlineScale.setValue(tabMeasurements.active.scale);
+      }
+      
+      // Instant scroll to top
+      Promise.resolve().then(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+      });
+      
+      // Clear the reset param after handling
+      navigation.setParams({ reset: undefined });
+    }
+    
+    // Handle smooth scroll when already on home tab
+    if (scrollToTopRequested) {
+      // Ensure we're on active tab
+      if (activeTab !== 'active') {
+        setActiveTab('active');
+        // Set underline position immediately
+        underlinePosition.setValue(tabMeasurements.active.x);
+        underlineScale.setValue(tabMeasurements.active.scale);
+      }
+      
+      // Smooth animated scroll to top
+      Promise.resolve().then(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      });
+      
+      // Clear the scrollToTop param after handling
+      navigation.setParams({ scrollToTop: undefined });
+    }
+  }, [resetRequested, scrollToTopRequested, activeTab, tabMeasurements, navigation]);
 
   /* ---------------- live Firestore data ---------------- */
   const [activeCompetitions, setActiveCompetitions] = useState([]);
@@ -972,6 +1020,7 @@ const handleCompetitionPress = async (competition) => {
         </View>
 
         <ScrollView
+          ref={scrollViewRef}
           style={styles.scroll}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 60 }}

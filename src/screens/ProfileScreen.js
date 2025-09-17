@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useRef } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -76,10 +76,19 @@ export default function ProfileScreen({ route, navigation }) {
   const { user, performLogout } = useContext(AuthContext);
   const { startOnboarding } = useOnboarding();
 
-  // Tab state - check if we should open friends tab from navigation params
-  const initialTab = route?.params?.tab === 'friends' ? 'friends' : 'profile';
-  const [activeTab, setActiveTab] = useState(initialTab);
+  // Check for reset and scrollToTop params
+  const resetRequested = route?.params?.reset;
+  const scrollToTopRequested = route?.params?.scrollToTop;
+  
+  // Initialize state with reset in mind
+  const [activeTab, setActiveTab] = useState(
+    resetRequested ? 'profile' : (route?.params?.tab === 'friends' ? 'friends' : 'profile')
+  );
   const [measurementsReady, setMeasurementsReady] = useState(false);
+  
+  // ScrollView refs for resetting position
+  const profileScrollRef = useRef(null);
+  const friendsScrollRef = useRef(null);
   
   // Profile card animation
   const profileCardScale = useRef(new Animated.Value(0.95)).current;
@@ -102,7 +111,7 @@ export default function ProfileScreen({ route, navigation }) {
   });
 
   // Animation refs for underline and press feedback
-  const underlinePosition = React.useRef(new Animated.Value(calculateInitialTabX(initialTab === 'friends' ? 1 : 0))).current;
+  const underlinePosition = React.useRef(new Animated.Value(calculateInitialTabX(activeTab === 'friends' ? 1 : 0))).current;
   const underlineScale = React.useRef(new Animated.Value(1.2)).current;
   const profileScale = React.useRef(new Animated.Value(1)).current;
   const friendsScale = React.useRef(new Animated.Value(1)).current;
@@ -177,6 +186,47 @@ export default function ProfileScreen({ route, navigation }) {
       animateToTab('friends');
     }
   }, [route?.params?.tab]);
+
+  // Handle scroll reset and smooth scroll to top
+  useLayoutEffect(() => {
+    // Handle instant reset when coming from other tabs
+    if (resetRequested) {
+      // Ensure we're on profile tab
+      if (activeTab !== 'profile') {
+        setActiveTab('profile');
+        // Set underline position immediately
+        underlinePosition.setValue(tabMeasurements.profile.x);
+        underlineScale.setValue(tabMeasurements.profile.scale);
+      }
+      
+      // Instant scroll to top
+      Promise.resolve().then(() => {
+        profileScrollRef.current?.scrollTo({ y: 0, animated: false });
+      });
+      
+      // Clear the reset param after handling
+      navigation.setParams({ reset: undefined });
+    }
+    
+    // Handle smooth scroll when already on profile tab
+    if (scrollToTopRequested) {
+      // Ensure we're on profile tab
+      if (activeTab !== 'profile') {
+        setActiveTab('profile');
+        // Set underline position immediately
+        underlinePosition.setValue(tabMeasurements.profile.x);
+        underlineScale.setValue(tabMeasurements.profile.scale);
+      }
+      
+      // Smooth animated scroll to top
+      Promise.resolve().then(() => {
+        profileScrollRef.current?.scrollTo({ y: 0, animated: true });
+      });
+      
+      // Clear the scrollToTop param after handling
+      navigation.setParams({ scrollToTop: undefined });
+    }
+  }, [resetRequested, scrollToTopRequested, activeTab, tabMeasurements, navigation]); // Re-run when these change
 
   // Profile state - with wins/losses that are READ-ONLY from Firestore
   const [profile, setProfile] = useState({
@@ -1209,9 +1259,11 @@ export default function ProfileScreen({ route, navigation }) {
 
   const renderProfileTab = () => (
     <ScrollView 
+      ref={profileScrollRef}
       style={styles.scrollView}
       contentContainerStyle={styles.scrollViewContent}
       showsVerticalScrollIndicator={false}
+      scrollToOverflowEnabled={false}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -1436,9 +1488,11 @@ export default function ProfileScreen({ route, navigation }) {
 
   const renderFriendsTab = () => (
     <ScrollView 
+      ref={friendsScrollRef}
       style={styles.scrollView}
       contentContainerStyle={styles.scrollViewContent}
       showsVerticalScrollIndicator={false}
+      scrollToOverflowEnabled={false}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}

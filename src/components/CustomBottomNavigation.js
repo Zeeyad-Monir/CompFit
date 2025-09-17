@@ -78,13 +78,40 @@ const CustomBottomNavigation = ({
             });
 
             if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
+              // When navigating to ProfileStack from another tab, always reset
+              if (route.name === 'ProfileStack') {
+                navigation.navigate(route.name, {
+                  screen: 'Profile',
+                  params: { reset: true }
+                });
+              } else if (route.name === 'HomeStack') {
+                // When navigating to HomeStack from another tab, always reset
+                navigation.navigate(route.name, {
+                  screen: 'ActiveCompetitions',
+                  params: { reset: true }
+                });
+              } else {
+                navigation.navigate(route.name);
+              }
             } else if (isFocused) {
-              navigation.navigate(route.name, {
-                screen: route.name === 'HomeStack' ? 'ActiveCompetitions' :
-                        route.name === 'ProfileStack' ? 'Profile' :
-                        'CompetitionCreation'
-              });
+              // When already on the tab and pressing again
+              if (route.name === 'ProfileStack') {
+                // Navigate with scrollToTop param for smooth scroll animation
+                navigation.navigate(route.name, {
+                  screen: 'Profile',
+                  params: { scrollToTop: true }
+                });
+              } else if (route.name === 'HomeStack') {
+                // Navigate with scrollToTop param for smooth scroll animation
+                navigation.navigate(route.name, {
+                  screen: 'ActiveCompetitions',
+                  params: { scrollToTop: true }
+                });
+              } else {
+                navigation.navigate(route.name, {
+                  screen: 'CompetitionCreation'
+                });
+              }
             }
           };
 
