@@ -240,7 +240,8 @@ export default function CompetitionCreationScreen({ navigation, route }) {
   });
 
   // Animation refs for underline and press feedback
-  const underlinePosition = React.useRef(new Animated.Value(calculateInitialTabX(0))).current;
+  // Start with presets tab (index 0) in a 3-column layout since we show preset tabs initially
+  const underlinePosition = React.useRef(new Animated.Value(calculateInitialTabX(0, 3))).current;
   const underlineScale = React.useRef(new Animated.Value(1.2)).current;
   const presetsScale = React.useRef(new Animated.Value(1)).current;
   const manualScale = React.useRef(new Animated.Value(1)).current;

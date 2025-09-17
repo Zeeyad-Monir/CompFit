@@ -10,7 +10,6 @@ export function AuthProvider({ children }) {
 
   const performLogout = async () => {
     await signOut(auth);
-    // The auth state listener will handle the navigation automatically
   };
 
   useEffect(() => {

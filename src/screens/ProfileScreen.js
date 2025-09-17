@@ -76,6 +76,11 @@ export default function ProfileScreen({ route, navigation }) {
   const { user, performLogout } = useContext(AuthContext);
   const { startOnboarding } = useOnboarding();
 
+  // Safety check to prevent rendering with null user
+  if (!user) {
+    return null;
+  }
+
   // Check for reset and scrollToTop params
   const resetRequested = route?.params?.reset;
   const scrollToTopRequested = route?.params?.scrollToTop;
