@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -16,21 +16,79 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-export default function AnimatedProgressRing({ percentage, wins, losses }) {
+export default function AnimatedProgressRing({ wins, losses }) {
   const animatedValue = useRef(new Animated.Value(0)).current;
   const circleRef = useRef(null);
   const textAnimValue = useRef(new Animated.Value(0)).current;
+  const [displayedPercentage, setDisplayedPercentage] = useState(0);
 
   const winRate = wins + losses > 0 ? (wins / (wins + losses)) * 100 : 0;
 
   useEffect(() => {
-    // Animate the progress ring
+    // Reset to 0 and ensure it's visible
+    setDisplayedPercentage(0);
+    
+    const targetPercentage = Math.round(winRate);
+    console.log('Starting count animation from 0 to', targetPercentage);
+    
+    // Skip animation if target is 0
+    if (targetPercentage === 0) {
+      setDisplayedPercentage(0);
+      // Still animate the ring
+      Animated.parallel([
+        Animated.timing(animatedValue, {
+          toValue: winRate,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(textAnimValue, {
+          toValue: 1,
+          duration: 1000,
+          delay: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      return;
+    }
+    
+    // Use requestAnimationFrame for smoother, more reliable animation
+    const duration = 1300; // Slower for visibility (was 400ms)
+    const startTime = Date.now();
+    let animationFrame;
+    
+    const animateCount = () => {
+      const now = Date.now();
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Calculate current value with cubic ease-out
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      const currentValue = Math.round(targetPercentage * easedProgress);
+      
+      setDisplayedPercentage(currentValue);
+      
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animateCount);
+      } else {
+        // Ensure we end at the exact target
+        setDisplayedPercentage(targetPercentage);
+      }
+    };
+    
+    // Start the counting after a small delay to ensure component is mounted
+    const timeout = setTimeout(() => {
+      animationFrame = requestAnimationFrame(animateCount);
+    }, 50);
+    
+    // Animate the ring and text appearance
     Animated.parallel([
+      // Ring animation
       Animated.timing(animatedValue, {
         toValue: winRate,
         duration: 1500,
         useNativeDriver: true,
       }),
+      // Text scale/opacity animation
       Animated.timing(textAnimValue, {
         toValue: 1,
         duration: 1000,
@@ -38,6 +96,14 @@ export default function AnimatedProgressRing({ percentage, wins, losses }) {
         useNativeDriver: true,
       }),
     ]).start();
+    
+    // Cleanup
+    return () => {
+      clearTimeout(timeout);
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+    };
   }, [winRate]);
 
   const strokeDashoffset = animatedValue.interpolate({
@@ -110,7 +176,7 @@ export default function AnimatedProgressRing({ percentage, wins, losses }) {
             }
           ]}
         >
-          <Text style={styles.percentageText}>{Math.round(winRate)}%</Text>
+          <Text style={styles.percentageText}>{displayedPercentage}%</Text>
           <Text style={styles.winRateLabel}>Win Rate</Text>
           <View style={styles.statsRow}>
             <Text style={styles.winText}>{wins}W</Text>

@@ -17,6 +17,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Header } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { AuthContext } from '../contexts/AuthContext';
 import { auth, db } from '../firebase';
 import { 
@@ -74,6 +76,10 @@ export default function ProfileScreen({ route, navigation }) {
   const initialTab = route?.params?.tab === 'friends' ? 'friends' : 'profile';
   const [activeTab, setActiveTab] = useState(initialTab);
   const [measurementsReady, setMeasurementsReady] = useState(false);
+  
+  // Profile card animation
+  const profileCardScale = useRef(new Animated.Value(0.95)).current;
+  const profileCardOpacity = useRef(new Animated.Value(0)).current;
   
   // Base width for the underline
   const baseUnderlineWidth = 60;
@@ -142,6 +148,23 @@ export default function ProfileScreen({ route, navigation }) {
   // Set initial underline scale to match the active tab
   React.useEffect(() => {
     underlineScale.setValue(1.2);
+  }, []);
+  
+  // Animate profile card entrance
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.spring(profileCardScale, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+      Animated.timing(profileCardOpacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      })
+    ]).start();
   }, []);
   
   // Update tab when navigation params change
@@ -1064,15 +1087,72 @@ export default function ProfileScreen({ route, navigation }) {
       {/* Profile card */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Profile</Text>
-        <View style={styles.profileCard}>
-          <View style={styles.profileImageContainer}>
-            <Ionicons name="person-circle" size={60} color="#A4D65E" />
-          </View>
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{profile.username}</Text>
-            <Text style={styles.profileUsername}>@{profile.handle}</Text>
-          </View>
-        </View>
+        <Animated.View 
+          style={[
+            styles.profileCardContainer,
+            {
+              transform: [{ scale: profileCardScale }],
+              opacity: profileCardOpacity,
+            }
+          ]}
+        >
+          <LinearGradient
+            colors={['#A4D65E', '#B6DB78']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.profileCard}
+          >
+            <View style={styles.profileCardContent}>
+              <View style={styles.profileImageWrapper}>
+                <LinearGradient
+                  colors={['#FFFFFF', '#F0FDF4']}
+                  style={styles.profileImageGradientRing}
+                >
+                  <View style={styles.profileImageContainer}>
+                    <Ionicons name="person-circle" size={65} color="#A4D65E" />
+                  </View>
+                </LinearGradient>
+                {currentStreak > 0 && (
+                  <View style={styles.streakBadge}>
+                    <Ionicons name="flame" size={12} color="#FFFFFF" />
+                    <Text style={styles.streakText}>{currentStreak}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.profileInfo}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.profileName}>{profile.username}</Text>
+                  {profile.wins >= 10 && (
+                    <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" style={styles.verifiedIcon} />
+                  )}
+                </View>
+                <Text style={styles.profileUsername}>@{profile.handle}</Text>
+                <View style={styles.profileQuickStats}>
+                  <View style={styles.quickStatItem}>
+                    <Ionicons name="people" size={14} color="rgba(255,255,255,0.9)" />
+                    <Text style={styles.quickStatText}>{profile.friends?.length || 0}</Text>
+                  </View>
+                  <Text style={styles.quickStatSeparator}>•</Text>
+                  <View style={styles.quickStatItem}>
+                    <Ionicons name="trophy" size={14} color="rgba(255,255,255,0.9)" />
+                    <Text style={styles.quickStatText}>{profile.wins}</Text>
+                  </View>
+                  <Text style={styles.quickStatSeparator}>•</Text>
+                  <View style={styles.quickStatItem}>
+                    <Text style={styles.quickStatText}>{getWinRate()}</Text>
+                  </View>
+                </View>
+              </View>
+              <TouchableOpacity 
+                style={styles.profileEditButton}
+                onPress={startEdit}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="pencil" size={18} color="rgba(255,255,255,0.8)" />
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </Animated.View>
       </View>
 
       {/* Competition Stats - Revolutionary Design */}
@@ -1081,7 +1161,7 @@ export default function ProfileScreen({ route, navigation }) {
         
         {/* Hero Win Rate Progress Ring */}
         <AnimatedProgressRing 
-          percentage={getWinRate()} 
+          key={`${profile.wins}-${profile.losses}`}
           wins={profile.wins}
           losses={profile.losses}
         />
@@ -1095,8 +1175,8 @@ export default function ProfileScreen({ route, navigation }) {
           currentStreak={currentStreak}
         />
         
-        {/* Glassmorphic Stats Cards Grid */}
-        <View style={styles.modernStatsGrid}>
+        {/* Glassmorphic Stats Cards Grid - Commented out to avoid duplication */}
+        {/* <View style={styles.modernStatsGrid}>
           <GlassmorphicStatCard
             icon="trophy"
             iconColor="#F59E0B"
@@ -1129,7 +1209,7 @@ export default function ProfileScreen({ route, navigation }) {
             gradient={['#EDE9FE', '#DDD6FE']}
             delay={300}
           />
-        </View>
+        </View> */}
         
         {/* Performance Trend Chart */}
         <PerformanceTrend 
@@ -1622,34 +1702,145 @@ const styles = StyleSheet.create({
   loadingContainer: { padding: 20, alignItems: 'center' },
   loadingText: { color: '#6B7280', fontSize: 16 },
 
-  // Profile Tab
+  // Profile Tab - Enhanced Styles
+  profileCardContainer: {
+    borderRadius: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#A4D65E',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
+  },
   profileCard: { 
-    backgroundColor: '#A4D65E', 
-    borderRadius: 12, 
-    padding: 16, 
-    flexDirection: 'row', 
-    alignItems: 'center' 
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    overflow: 'hidden',
+  },
+  profileCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  profileImageWrapper: {
+    position: 'relative',
+    marginRight: 18,
+  },
+  profileImageGradientRing: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    padding: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   profileImageContainer: { 
-    width: 60, 
-    height: 60, 
-    borderRadius: 30, 
-    backgroundColor: '#FFFFFF', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    marginRight: 16 
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  profileInfo: { flex: 1 },
-  profileName: { fontSize: 18, fontWeight: 'bold', color: '#1A1E23' },
-  profileUsername: { fontSize: 14, color: '#1A1E23', opacity: 0.8 },
-  
-  // Modern Stats Grid
-  modernStatsGrid: {
+  streakBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#FF6B6B',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
+  streakText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+    marginLeft: 2,
+  },
+  profileInfo: { 
+    flex: 1,
+    justifyContent: 'center',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileName: { 
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  verifiedIcon: {
+    marginLeft: 6,
+  },
+  profileUsername: { 
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  profileQuickStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  quickStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  quickStatText: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '600',
+  },
+  quickStatSeparator: {
+    color: 'rgba(255, 255, 255, 0.4)',
+    marginHorizontal: 8,
+    fontSize: 13,
+  },
+  profileEditButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  
+  // Modern Stats Grid - Commented out as cards are disabled
+  // modernStatsGrid: {
+  //   flexDirection: 'row',
+  //   flexWrap: 'wrap',
+  //   gap: 12,
+  //   marginTop: 16,
+  // },
   lastUpdatedText: {
     fontSize: 12,
     color: '#6B7280',
