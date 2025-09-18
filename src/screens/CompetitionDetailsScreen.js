@@ -2084,6 +2084,14 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         </View>
       )}
       
+      {/* Back Button */}
+      <View style={styles.backButtonContainer}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={20} color="#A4D65E" />
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
+      
       <View style={[styles.tabContainer, competition.status === 'completed' && styles.completedTabContainer]}>
         {competition.status === 'completed' ? (
           // Completed competition - only show Rank and Rules tabs
@@ -2445,6 +2453,7 @@ const styles = StyleSheet.create({
   rulesContainer: {
     flex: 1,
     paddingHorizontal: 16,
+    paddingTop: 20,
   },
   rulesSection: {
     marginBottom: 24,
@@ -3306,6 +3315,23 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 8,
     fontStyle: 'italic',
+  },
+  
+  // Back Button Styles
+  backButtonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 7,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#A4D65E',
+    marginLeft: 4,
   },
 });
 
