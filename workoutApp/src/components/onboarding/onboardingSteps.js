@@ -1,0 +1,47 @@
+export const ONBOARDING_STEPS = [
+  {
+    id: 'welcome',
+    title: 'Welcome to CompFit!',
+    description: 'Compete with friends and track your fitness journey.',
+    contentPosition: 'center',
+    requiresScreen: null,
+  },
+  {
+    id: 'competitions',
+    title: 'Your Competition Hub',
+    description: 'Three tabs at the top: Active, Invites, and Results.',
+    contentPosition: 'center',
+    requiresScreen: 'HomeStack',
+    navigateTo: 'ActiveCompetitions',
+  },
+  {
+    id: 'create',
+    title: 'Create Competitions',
+    description: 'Tap the green + button to create new competitions.',
+    contentPosition: 'center',
+    requiresScreen: null,
+  },
+  {
+    id: 'submit',
+    title: 'Track Your Workouts',
+    description: 'Tap competition cards to submit workouts and earn points.',
+    contentPosition: 'center',
+    requiresScreen: 'HomeStack',
+    navigateTo: 'ActiveCompetitions',
+  },
+  {
+    id: 'leaderboard',
+    title: 'Check Your Ranking',
+    description: 'Check leaderboards to see your ranking against friends.',
+    contentPosition: 'center',
+    requiresScreen: 'HomeStack',
+    navigateTo: 'ActiveCompetitions',
+  },
+  {
+    id: 'profile',
+    title: 'Connect with Friends',
+    description: 'Access your profile to add friends and track stats. Ready to compete?',
+    contentPosition: 'center',
+    requiresScreen: null,
+  },
+];
