@@ -116,7 +116,7 @@ const AppNavigator = () => {
         headerShown: false,           // Hide default headers (screens handle their own)
         tabBarShowLabel: false,       // Hide tab labels, show only icons
       }}
-      tabBar={props => <CustomBottomNavigation {...props} />}
+      
     >
       {/* Home Tab - Competition browsing and participation */}
       <Tab.Screen
