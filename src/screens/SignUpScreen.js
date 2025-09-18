@@ -167,8 +167,8 @@ export default function SignUpScreen({ navigation }) {
             placeholderTextColor="#6B7280"
             style={styles.passwordInput}
             secureTextEntry={!showPassword1}
-            textContentType="newPassword"
-            autoComplete="password-new"
+            textContentType="none"
+            autoComplete="off"
             value={pass1}
             onChangeText={setPass1}
             editable={!loading}
@@ -193,8 +193,8 @@ export default function SignUpScreen({ navigation }) {
             placeholderTextColor="#6B7280"
             style={styles.passwordInput}
             secureTextEntry={!showPassword2}
-            textContentType="newPassword"
-            autoComplete="password-new"
+            textContentType="none"
+            autoComplete="off"
             value={pass2}
             onChangeText={setPass2}
             editable={!loading}
