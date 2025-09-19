@@ -10,41 +10,30 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const OnboardingContent = ({
-  title,
-  description,
+  steps,
+  currentStep,
+  totalSteps,
   onNext,
   onSkip,
-  isLastStep,
-  currentStep = 0,
-  totalSteps = 6,
-  contentPosition = 'center',
 }) => {
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const prevStep = useRef(0);
 
   useEffect(() => {
-    // Reset animation values
-    slideAnim.setValue(30);
-    fadeAnim.setValue(0);
-    
-    // Slide up animation
-    Animated.parallel([
+    if (currentStep !== prevStep.current) {
+      // Animate content slide
       Animated.spring(slideAnim, {
-        toValue: 0,
+        toValue: -currentStep * 280, // Width of content area
         friction: 8,
-        tension: 40,
+        tension: 50,
         useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [title]); // Re-animate on step change
+      }).start();
+      prevStep.current = currentStep;
+    }
+  }, [currentStep]);
 
   const handleNext = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -56,59 +45,32 @@ const OnboardingContent = ({
     onSkip();
   };
 
-  // Calculate position based on contentPosition prop
-  const getPositionStyle = () => {
-    switch (contentPosition) {
-      case 'center':
-        // Center of screen - simplified since all steps are now centered
-        return {
-          alignSelf: 'center',
-        };
-      case 'below':
-        // Keep for potential future use
-        return {
-          position: 'absolute',
-          bottom: 40,
-          left: 20,
-          right: 20,
-        };
-      case 'middle':
-        // Same as center
-        return {
-          alignSelf: 'center',
-        };
-      case 'above':
-        // Keep for potential future use
-        return {
-          position: 'absolute',
-          bottom: 150,
-          left: 20,
-          right: 20,
-        };
-      default:
-        return {
-          alignSelf: 'center',
-        };
-    }
-  };
+  const isLastStep = currentStep === totalSteps - 1;
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        getPositionStyle(),
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }],
-        },
-      ]}
-      pointerEvents="box-none"
-    >
-      <View style={styles.content}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.description}>{description}</Text>
+    <View style={styles.container}>
+      <View style={styles.card}>
+        {/* Sliding content area */}
+        <View style={styles.contentWindow}>
+          <Animated.View 
+            style={[
+              styles.contentTrack,
+              {
+                transform: [{ translateX: slideAnim }],
+              },
+            ]}
+          >
+            {/* Render all step contents horizontally */}
+            {steps.map((step, index) => (
+              <View key={step.id} style={styles.contentItem}>
+                <Text style={styles.title}>{step.title}</Text>
+                <Text style={styles.description}>{step.description}</Text>
+              </View>
+            ))}
+          </Animated.View>
+        </View>
         
-        {/* Progress dots */}
+        {/* Static progress dots */}
         <View style={styles.progressContainer}>
           {[...Array(totalSteps)].map((_, index) => (
             <View
@@ -121,6 +83,7 @@ const OnboardingContent = ({
           ))}
         </View>
         
+        {/* Static buttons */}
         <View style={styles.buttonContainer}>
           {!isLastStep && (
             <TouchableOpacity
@@ -149,28 +112,39 @@ const OnboardingContent = ({
           </TouchableOpacity>
         </View>
       </View>
-    </Animated.View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    width: 320,
     zIndex: 2,
   },
-  content: {
+  card: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 16,
     padding: 20,
     width: 320,
-    minHeight: 200,
-    maxHeight: 220,
-    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 16,
     elevation: 10,
+  },
+  contentWindow: {
+    width: 280, // Card width minus padding
+    height: 120, // Fixed height for content
+    overflow: 'hidden',
+    marginBottom: 4, // Minimal spacing
+  },
+  contentTrack: {
+    flexDirection: 'row',
+  },
+  contentItem: {
+    width: 280, // Same as contentWindow
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 22,
@@ -183,7 +157,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#444444',
     lineHeight: 20,
-    marginBottom: 20,
     textAlign: 'center',
   },
   progressContainer: {

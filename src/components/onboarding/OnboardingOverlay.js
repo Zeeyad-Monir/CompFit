@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useOnboarding } from './OnboardingController';
 import OnboardingContent from './OnboardingContent';
+import { ONBOARDING_STEPS } from './onboardingSteps';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -60,19 +61,16 @@ const OnboardingOverlay = () => {
           }
         ]}
       >
-        {/* Simple dark background */}
+        {/* Dark background */}
         <View style={styles.backdrop} />
 
-        {/* Tutorial content */}
+        {/* Single card container */}
         <OnboardingContent
-          title={currentStepData.title}
-          description={currentStepData.description}
-          onNext={nextStep}
-          onSkip={skipOnboarding}
-          isLastStep={currentStep === totalSteps - 1}
+          steps={ONBOARDING_STEPS}
           currentStep={currentStep}
           totalSteps={totalSteps}
-          contentPosition={currentStepData.contentPosition}
+          onNext={nextStep}
+          onSkip={skipOnboarding}
         />
       </Animated.View>
     </Modal>
