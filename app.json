@@ -31,6 +31,9 @@
       "permissions": [
         "android.permission.NOTIFICATIONS",
         "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.NOTIFICATIONS",
+        "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -50,6 +53,12 @@
       "eas": {
         "projectId": "2a164143-d166-4aa9-9418-8a93cad01e9e"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2a164143-d166-4aa9-9418-8a93cad01e9e"
     }
   }
 }

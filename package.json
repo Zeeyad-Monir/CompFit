@@ -26,6 +26,7 @@
     "expo-linear-gradient": "~15.0.7",
     "expo-notifications": "~0.32.11",
     "expo-status-bar": "~3.0.8",
+    "expo-updates": "~29.0.11",
     "firebase": "^9.23.0",
     "hasown": "^2.0.2",
     "react": "19.1.0",
