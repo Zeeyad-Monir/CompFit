@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   selectedText: {
-    fontSize: 16,
+    fontSize: 17,
     color: '#1A1E23',
   },
   /* Fixed height scrollable container for smooth scrolling */

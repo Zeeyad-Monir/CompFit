@@ -1610,14 +1610,19 @@ export default function CompetitionCreationScreen({ navigation, route }) {
         
         return (
           <View key={`activity-${idx}`} style={[styles.activityCard,{zIndex:z}]}>
-            <Dropdown
-              label="Activity Type"
-              selectedValue={act.type}
-              onValueChange={val=>handleActivityTypeChange(idx, val)}
-              items={availableTypes}
-              priorityItems={['Custom']}
-              containerStyle={{zIndex:z+3}}
-            />
+            <View style={styles.activityTypeSection}>
+              <Text style={styles.activityTypeTitle}>Select Activity</Text>
+              <View style={styles.activityTypeDropdownContainer}>
+                <Dropdown
+                  label=""
+                  selectedValue={act.type}
+                  onValueChange={val=>handleActivityTypeChange(idx, val)}
+                  items={availableTypes}
+                  priorityItems={['Custom']}
+                  containerStyle={{zIndex:z+3, marginBottom: 0}}
+                />
+              </View>
+            </View>
             
             {act.type === 'Custom' && (
               <View style={styles.customActivityContainer}>
@@ -2525,17 +2530,38 @@ const styles = StyleSheet.create({
   invitedFriendButtonText: { color: '#6B7280' },
   
   // More Section Styles
+  // Activity Type Clean Typography Styles
+  activityTypeSection: {
+    marginBottom: 25,  // Increased spacing after separator
+    paddingBottom: 12,  // Padding before separator
+    borderBottomWidth: 1.2,
+    borderBottomColor: '#E5E7EB',
+  },
+  activityTypeTitle: {
+    fontSize: 18,
+    fontWeight: '600', 
+    color: '#1A1E23',
+    marginBottom: 8,
+  },
+  activityTypeDropdownContainer: {
+    borderWidth: 0.45,  // Very subtle green border
+    borderColor: '#A4D65E',  // Green accent on the dropdown itself
+    borderRadius: 10,  // Slightly rounder
+    overflow: 'hidden',
+  },
+  
   moreSectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
-    marginTop: 12,
+    marginTop: 18,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
   },
   moreSectionTitleContainer: {
     flex: 1,
+    marginTop: 3,
   },
   moreSectionTitle: {
     fontSize: 16,
