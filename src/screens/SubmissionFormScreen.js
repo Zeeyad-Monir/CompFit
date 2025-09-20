@@ -28,8 +28,10 @@ import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { AuthContext } from '../contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';  // KEEP ONLY THIS ONE
-import { uploadToCloudinary } from '../utils/uploadImage';
+import { uploadToCloudinary, uploadMultipleToCloudinary } from '../utils/uploadImage';
 import { getScoreVisibility, filterVisibleSubmissionsWithSelf } from '../utils/scoreVisibility';
+import SwipeablePhotoGallery from '../components/SwipeablePhotoGallery';
+import FullScreenPhotoViewer from '../components/FullScreenPhotoViewer';
 
 // Remove any duplicate ImagePicker import that might be elsewhere in the file
 
@@ -54,10 +56,13 @@ export default function SubmissionFormScreen({ route, navigation }) {
   // State to prevent double submissions
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // NEW: Photo-related state
-  const [selectedImageUri, setSelectedImageUri] = useState(null);
+  // NEW: Photo-related state - now supports multiple photos
+  const [selectedImageUris, setSelectedImageUris] = useState([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState(null);
+  const [showFullScreenViewer, setShowFullScreenViewer] = useState(false);
+  const [fullScreenInitialIndex, setFullScreenInitialIndex] = useState(0);
+  const MAX_PHOTOS = 3;
   
   // State for managing activity display
   const [showAllActivities, setShowAllActivities] = useState(false);
@@ -564,8 +569,8 @@ export default function SubmissionFormScreen({ route, navigation }) {
     }
     
     // Check if photo is required
-    if (competition.photoProofRequired && !selectedImageUri) {
-      Alert.alert('Photo Required', 'This competition requires a photo with every submission');
+    if (competition.photoProofRequired && selectedImageUris.length === 0) {
+      Alert.alert('Photo Required', 'This competition requires at least one photo with every submission');
       return false;
     }
     
@@ -598,11 +603,21 @@ export default function SubmissionFormScreen({ route, navigation }) {
     return true;
   };
 
-  // NEW: Handle image selection from camera roll
+  // NEW: Handle image selection from camera roll - now supports multiple
   const pickImage = async () => {
     try {
       // Clear any previous errors
       setImageUploadError(null);
+      
+      // Check if we've reached the max photo limit
+      if (selectedImageUris.length >= MAX_PHOTOS) {
+        Alert.alert(
+          'Photo Limit Reached',
+          `You can attach a maximum of ${MAX_PHOTOS} photos per submission.`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
       
       // Request permission
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -616,28 +631,67 @@ export default function SubmissionFormScreen({ route, navigation }) {
         return;
       }
 
-      // Launch image picker
+      // Launch image picker with multiple selection
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
+        allowsMultipleSelection: true,
+        selectionLimit: MAX_PHOTOS - selectedImageUris.length,
         quality: 0.7, // Compress to 70% quality to reduce upload size
       });
 
-      if (!result.canceled && result.assets && result.assets[0]) {
-        setSelectedImageUri(result.assets[0].uri);
-        console.log('Image selected:', result.assets[0].uri);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        // Validate file sizes (5MB limit per photo)
+        const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+        const oversizedImages = [];
+        const validImages = [];
+        
+        for (const asset of result.assets) {
+          // Check if fileSize is available (it might not be on all platforms)
+          if (asset.fileSize && asset.fileSize > MAX_SIZE_BYTES) {
+            oversizedImages.push({
+              uri: asset.uri,
+              sizeMB: (asset.fileSize / (1024 * 1024)).toFixed(2)
+            });
+          } else {
+            validImages.push(asset.uri);
+          }
+        }
+        
+        // If there are oversized images, show warning
+        if (oversizedImages.length > 0) {
+          const message = oversizedImages.length === 1
+            ? `1 photo exceeds the 5MB size limit (${oversizedImages[0].sizeMB}MB) and was not added.`
+            : `${oversizedImages.length} photos exceed the 5MB size limit and were not added.`;
+          
+          Alert.alert('File Size Limit', message);
+        }
+        
+        // Add valid photos to existing selection (up to max)
+        if (validImages.length > 0) {
+          const combinedUris = [...selectedImageUris, ...validImages].slice(0, MAX_PHOTOS);
+          setSelectedImageUris(combinedUris);
+          console.log(`${validImages.length} valid images added, total: ${combinedUris.length}`);
+        }
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to select image. Please try again.');
+      Alert.alert('Error', 'Failed to select images. Please try again.');
     }
   };
 
-  // NEW: Remove selected image
-  const removeImage = () => {
-    setSelectedImageUri(null);
-    setImageUploadError(null);
+  // NEW: Remove selected image by index
+  const removeImage = (index) => {
+    const updatedUris = selectedImageUris.filter((_, i) => i !== index);
+    setSelectedImageUris(updatedUris);
+    if (updatedUris.length === 0) {
+      setImageUploadError(null);
+    }
+  };
+
+  // Handle photo press to open full screen viewer
+  const handlePhotoPress = (index) => {
+    setFullScreenInitialIndex(index);
+    setShowFullScreenViewer(true);
   };
 
   // UPDATED: Handle submit with photo upload
@@ -664,26 +718,34 @@ export default function SubmissionFormScreen({ route, navigation }) {
     const rule = getRule();
     
     try {
-      let photoUrl = null;
+      let photoUrls = [];
       
-      // NEW: Upload photo if selected
-      if (selectedImageUri) {
+      // NEW: Upload photos if selected (multiple)
+      if (selectedImageUris.length > 0) {
         try {
           setIsUploadingImage(true);
           setImageUploadError(null);
-          console.log('Uploading photo to Cloudinary...');
-          photoUrl = await uploadToCloudinary(selectedImageUri);
-          console.log('Photo uploaded successfully:', photoUrl);
+          console.log(`Uploading ${selectedImageUris.length} photos to Cloudinary...`);
+          
+          // Upload all photos in parallel with progress tracking
+          photoUrls = await uploadMultipleToCloudinary(
+            selectedImageUris,
+            (progress) => {
+              console.log(`Upload progress: ${progress.completed}/${progress.total} (${progress.percentage}%)`);
+            }
+          );
+          
+          console.log('All photos uploaded successfully:', photoUrls);
         } catch (uploadError) {
           console.error('Photo upload failed:', uploadError);
           setImageUploadError(uploadError.message);
           setIsUploadingImage(false);
           setIsSubmitting(false);
           
-          // Ask user if they want to continue without photo
+          // Ask user if they want to continue without photos
           Alert.alert(
             'Photo Upload Failed',
-            'Failed to upload photo. Do you want to submit without the photo?',
+            'Failed to upload photos. Do you want to submit without photos?',
             [
               {
                 text: 'Cancel',
@@ -693,10 +755,10 @@ export default function SubmissionFormScreen({ route, navigation }) {
                 }
               },
               {
-                text: 'Submit Without Photo',
+                text: 'Submit Without Photos',
                 onPress: async () => {
-                  // Continue with submission without photo
-                  await submitWorkout(points, rule, null);
+                  // Continue with submission without photos
+                  await submitWorkout(points, rule, []);
                 }
               }
             ]
@@ -707,8 +769,8 @@ export default function SubmissionFormScreen({ route, navigation }) {
         }
       }
       
-      // Submit workout with or without photo
-      await submitWorkout(points, rule, photoUrl);
+      // Submit workout with or without photos
+      await submitWorkout(points, rule, photoUrls);
       
     } catch(e) {
       console.error(e);
@@ -719,7 +781,7 @@ export default function SubmissionFormScreen({ route, navigation }) {
   };
 
   // NEW: Separate function to handle workout submission
-  const submitWorkout = async (points, rule, photoUrl) => {
+  const submitWorkout = async (points, rule, photoUrls) => {
     try {
       const submissionData = {
         competitionId: competition.id,
@@ -740,15 +802,16 @@ export default function SubmissionFormScreen({ route, navigation }) {
         createdAt: serverTimestamp(),
       };
       
-      // Add photo URL if available
-      if (photoUrl) {
-        submissionData.photoUrl = photoUrl;
+      // Add photo URLs if available (supporting both single and multiple)
+      if (photoUrls && photoUrls.length > 0) {
+        submissionData.photoUrls = photoUrls; // New array field
+        submissionData.photoUrl = photoUrls[0]; // Keep backward compatibility
       }
       
       await addDoc(collection(db,'submissions'), submissionData);
       
-      const successMessage = photoUrl 
-        ? `Workout submitted with photo! You earned ${points.toFixed(1)} points.`
+      const successMessage = photoUrls && photoUrls.length > 0
+        ? `Workout submitted with ${photoUrls.length} photo${photoUrls.length > 1 ? 's' : ''}! You earned ${points.toFixed(1)} points.`
         : `Workout submitted! You earned ${points.toFixed(1)} points.`;
       
       Alert.alert(
@@ -1104,40 +1167,60 @@ export default function SubmissionFormScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* NEW: Photo Evidence Section */}
+        {/* NEW: Photo Evidence Section - now supports multiple photos */}
         <Text style={styles.label}>
           Add Photo Evidence {competition.photoProofRequired ? '(Required)' : '(Optional)'}
+          {selectedImageUris.length > 0 ? ` (${selectedImageUris.length}/${MAX_PHOTOS})` : ''}
         </Text>
         {competition.photoProofRequired && (
           <Text style={styles.photoRequiredText}>
-            ⚠️ Photo proof is required for this competition
+            ⚠️ Photo proof is required for this competition (up to {MAX_PHOTOS} photos)
           </Text>
         )}
         
-        {!selectedImageUri ? (
-          // Show attach photo button when no image is selected
+        {selectedImageUris.length > 0 ? (
+          // Show photo gallery when images are selected
+          <View style={styles.photoGalleryContainer}>
+            <SwipeablePhotoGallery
+              photos={selectedImageUris}
+              onPhotoPress={handlePhotoPress}
+              onRemovePhoto={removeImage}
+              showRemoveButton={true}
+              height={250}
+              showIndicator={true}
+            />
+            {selectedImageUris.length < MAX_PHOTOS && (
+              <TouchableOpacity 
+                style={[styles.addMorePhotosButton, isSubmitting && styles.disabledButton]}
+                onPress={pickImage}
+                disabled={isSubmitting}
+              >
+                <Ionicons name="add-circle-outline" size={24} color="#A4D65E"/>
+                <Text style={styles.addMorePhotosText}>
+                  Add More Photos ({MAX_PHOTOS - selectedImageUris.length} remaining)
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          // Show attach photo button when no images are selected
           <TouchableOpacity 
             style={[styles.addPhotoButton, isSubmitting && styles.disabledButton]}
             onPress={pickImage}
             disabled={isSubmitting}
           >
             <Ionicons name="camera" size={40} color="#A4D65E"/>
-            <Text style={styles.addPhotoText}>Attach Photo from Gallery</Text>
+            <Text style={styles.addPhotoText}>Attach Photos from Gallery (up to {MAX_PHOTOS})</Text>
           </TouchableOpacity>
-        ) : (
-          // Show image preview when image is selected
-          <View style={styles.imagePreviewContainer}>
-            <Image source={{ uri: selectedImageUri }} style={styles.imagePreview} />
-            <TouchableOpacity 
-              style={styles.removeImageButton}
-              onPress={removeImage}
-              disabled={isSubmitting}
-            >
-              <Ionicons name="close-circle" size={30} color="#FF6B6B"/>
-            </TouchableOpacity>
-            <Text style={styles.imageSelectedText}>Photo attached ✓</Text>
-          </View>
         )}
+
+        {/* Full Screen Photo Viewer */}
+        <FullScreenPhotoViewer
+          visible={showFullScreenViewer}
+          photos={selectedImageUris}
+          initialIndex={fullScreenInitialIndex}
+          onClose={() => setShowFullScreenViewer(false)}
+        />
 
         {/* Show upload error if any */}
         {imageUploadError && (
@@ -1152,7 +1235,7 @@ export default function SubmissionFormScreen({ route, navigation }) {
         <Button 
           title={
             isUploadingImage 
-              ? "Uploading Photo..." 
+              ? `Uploading ${selectedImageUris.length} Photo${selectedImageUris.length > 1 ? 's' : ''}...`
               : isSubmitting 
                 ? "Submitting..." 
                 : "Submit Workout"
@@ -1169,7 +1252,9 @@ export default function SubmissionFormScreen({ route, navigation }) {
         {isUploadingImage && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#A4D65E" />
-            <Text style={styles.uploadingText}>Uploading photo to cloud...</Text>
+            <Text style={styles.uploadingText}>
+              Uploading {selectedImageUris.length} photo{selectedImageUris.length > 1 ? 's' : ''} to cloud...
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -1388,5 +1473,27 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 8,
     fontStyle: 'italic',
+  },
+  
+  // New styles for multiple photo support
+  photoGalleryContainer: {
+    marginVertical: 10,
+  },
+  addMorePhotosButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#A4D65E',
+  },
+  addMorePhotosText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#A4D65E',
+    fontWeight: '600',
   },
 });

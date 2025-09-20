@@ -29,7 +29,9 @@ import {
   getVisibilityMessage 
 } from '../utils/scoreVisibility';
 import * as ImagePicker from 'expo-image-picker';
-import { uploadToCloudinary } from '../utils/uploadImage';
+import { uploadToCloudinary, uploadMultipleToCloudinary } from '../utils/uploadImage';
+import SwipeablePhotoGallery from '../components/SwipeablePhotoGallery';
+import FullScreenPhotoViewer from '../components/FullScreenPhotoViewer';
 
 const CompetitionDetailsScreen = ({ route, navigation }) => {
   const { competition, initialTab } = route.params;
@@ -86,9 +88,12 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
   const [currentDayPoints, setCurrentDayPoints] = useState(0);
   const [loadingDayPoints, setLoadingDayPoints] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedImageUri, setSelectedImageUri] = useState(null);
+  const [selectedImageUris, setSelectedImageUris] = useState([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState(null);
+  const [showFullScreenViewer, setShowFullScreenViewer] = useState(false);
+  const [fullScreenInitialIndex, setFullScreenInitialIndex] = useState(0);
+  const MAX_PHOTOS = 3;
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [activityDailySubmissions, setActivityDailySubmissions] = useState(0);
   const [activityWeeklyPoints, setActivityWeeklyPoints] = useState(0);
@@ -459,8 +464,8 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
       return false;
     }
     
-    if (competition.photoProofRequired && !selectedImageUri) {
-      Alert.alert('Photo Required', 'This competition requires a photo with every submission');
+    if (competition.photoProofRequired && selectedImageUris.length === 0) {
+      Alert.alert('Photo Required', 'This competition requires at least one photo with every submission');
       return false;
     }
     
@@ -497,6 +502,16 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     try {
       setImageUploadError(null);
       
+      // Check if we've reached the max photo limit
+      if (selectedImageUris.length >= MAX_PHOTOS) {
+        Alert.alert(
+          'Photo Limit Reached',
+          `You can attach a maximum of ${MAX_PHOTOS} photos per submission.`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== 'granted') {
@@ -510,27 +525,61 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
       
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
+        allowsMultipleSelection: true,
+        selectionLimit: MAX_PHOTOS - selectedImageUris.length,
         quality: 0.7,
       });
       
-      if (!result.canceled && result.assets && result.assets[0]) {
-        setSelectedImageUri(result.assets[0].uri);
-        console.log('Image selected:', result.assets[0].uri);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        // Validate file sizes (5MB limit per photo)
+        const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+        const oversizedImages = [];
+        const validImages = [];
+        
+        for (const asset of result.assets) {
+          if (asset.fileSize && asset.fileSize > MAX_SIZE_BYTES) {
+            oversizedImages.push({
+              uri: asset.uri,
+              sizeMB: (asset.fileSize / (1024 * 1024)).toFixed(2)
+            });
+          } else {
+            validImages.push(asset.uri);
+          }
+        }
+        
+        if (oversizedImages.length > 0) {
+          const message = oversizedImages.length === 1
+            ? `1 photo exceeds the 5MB size limit (${oversizedImages[0].sizeMB}MB) and was not added.`
+            : `${oversizedImages.length} photos exceed the 5MB size limit and were not added.`;
+          Alert.alert('File Size Limit', message);
+        }
+        
+        if (validImages.length > 0) {
+          const combinedUris = [...selectedImageUris, ...validImages].slice(0, MAX_PHOTOS);
+          setSelectedImageUris(combinedUris);
+          console.log(`${validImages.length} valid images added, total: ${combinedUris.length}`);
+        }
       }
     } catch (error) {
       console.error('Error picking image:', error);
-      Alert.alert('Error', 'Failed to select image. Please try again.');
+      Alert.alert('Error', 'Failed to select images. Please try again.');
     }
   };
   
-  const removeImage = () => {
-    setSelectedImageUri(null);
-    setImageUploadError(null);
+  const removeImage = (index) => {
+    const updatedUris = selectedImageUris.filter((_, i) => i !== index);
+    setSelectedImageUris(updatedUris);
+    if (updatedUris.length === 0) {
+      setImageUploadError(null);
+    }
   };
   
-  const submitWorkout = async (points, rule, photoUrl) => {
+  const handlePhotoPress = (index) => {
+    setFullScreenInitialIndex(index);
+    setShowFullScreenViewer(true);
+  };
+  
+  const submitWorkout = async (points, rule, photoUrls) => {
     try {
       const submissionData = {
         competitionId: competition.id,
@@ -552,8 +601,9 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         createdAt: serverTimestamp(),
       };
       
-      if (photoUrl) {
-        submissionData.photoUrl = photoUrl;
+      if (photoUrls && photoUrls.length > 0) {
+        submissionData.photoUrls = photoUrls; // New array field
+        submissionData.photoUrl = photoUrls[0]; // Keep backward compatibility
       }
       
       await addDoc(collection(db,'submissions'), submissionData);
@@ -569,14 +619,14 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
       setCustomValue('');
       setPace('');
       setNotes('');
-      setSelectedImageUri(null);
+      setSelectedImageUris([]);
       setDate(new Date());
       
       // Switch to Me tab to show the new submission
       setActiveTab('me');
       
-      const successMessage = photoUrl 
-        ? `Workout submitted with photo! You earned ${points.toFixed(1)} points.`
+      const successMessage = photoUrls && photoUrls.length > 0
+        ? `Workout submitted with ${photoUrls.length} photo${photoUrls.length > 1 ? 's' : ''}! You earned ${points.toFixed(1)} points.`
         : `Workout submitted! You earned ${points.toFixed(1)} points.`;
       
       Alert.alert(
@@ -611,15 +661,22 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     const rule = getRule();
     
     try {
-      let photoUrl = null;
+      let photoUrls = [];
       
-      if (selectedImageUri) {
+      if (selectedImageUris.length > 0) {
         try {
           setIsUploadingImage(true);
           setImageUploadError(null);
-          console.log('Uploading photo to Cloudinary...');
-          photoUrl = await uploadToCloudinary(selectedImageUri);
-          console.log('Photo uploaded successfully:', photoUrl);
+          console.log(`Uploading ${selectedImageUris.length} photos to Cloudinary...`);
+          
+          photoUrls = await uploadMultipleToCloudinary(
+            selectedImageUris,
+            (progress) => {
+              console.log(`Upload progress: ${progress.completed}/${progress.total} (${progress.percentage}%)`);
+            }
+          );
+          
+          console.log('All photos uploaded successfully:', photoUrls);
         } catch (uploadError) {
           console.error('Photo upload failed:', uploadError);
           setImageUploadError(uploadError.message);
@@ -628,7 +685,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
           
           Alert.alert(
             'Photo Upload Failed',
-            'Failed to upload photo. Do you want to submit without the photo?',
+            'Failed to upload photos. Do you want to submit without photos?',
             [
               {
                 text: 'Cancel',
@@ -638,10 +695,10 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                 }
               },
               {
-                text: 'Submit Without Photo',
+                text: 'Submit Without Photos',
                 onPress: async () => {
                   try {
-                    await submitWorkout(points, rule, null);
+                    await submitWorkout(points, rule, []);
                   } catch (error) {
                     // Error handling is already done in submitWorkout
                   }
@@ -655,7 +712,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         }
       }
       
-      await submitWorkout(points, rule, photoUrl);
+      await submitWorkout(points, rule, photoUrls);
       
     } catch(e) {
       console.error(e);
@@ -2137,40 +2194,60 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
           </View>
         )}
 
-        {/* Photo Evidence Section */}
+        {/* Photo Evidence Section - now supports multiple photos */}
         <Text style={styles.label}>
           Add Photo Evidence {competition.photoProofRequired ? '(Required)' : '(Optional)'}
+          {selectedImageUris.length > 0 ? ` (${selectedImageUris.length}/${MAX_PHOTOS})` : ''}
         </Text>
         {competition.photoProofRequired && (
           <Text style={styles.photoRequiredText}>
-            ⚠️ Photo proof is required for this competition
+            ⚠️ Photo proof is required for this competition (up to {MAX_PHOTOS} photos)
           </Text>
         )}
         
-        {!selectedImageUri ? (
-          // Show attach photo button when no image is selected
+        {selectedImageUris.length > 0 ? (
+          // Show photo gallery when images are selected
+          <View style={styles.photoGalleryContainer}>
+            <SwipeablePhotoGallery
+              photos={selectedImageUris}
+              onPhotoPress={handlePhotoPress}
+              onRemovePhoto={removeImage}
+              showRemoveButton={true}
+              height={250}
+              showIndicator={true}
+            />
+            {selectedImageUris.length < MAX_PHOTOS && (
+              <TouchableOpacity 
+                style={[styles.addMorePhotosButton, isSubmitting && styles.disabledButton]}
+                onPress={pickImage}
+                disabled={isSubmitting}
+              >
+                <Ionicons name="add-circle-outline" size={24} color="#A4D65E"/>
+                <Text style={styles.addMorePhotosText}>
+                  Add More Photos ({MAX_PHOTOS - selectedImageUris.length} remaining)
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          // Show attach photo button when no images are selected
           <TouchableOpacity 
             style={[styles.addPhotoButton, isSubmitting && styles.disabledButton]}
             onPress={pickImage}
             disabled={isSubmitting}
           >
             <Ionicons name="camera" size={40} color="#A4D65E"/>
-            <Text style={styles.addPhotoText}>Attach Photo from Gallery</Text>
+            <Text style={styles.addPhotoText}>Attach Photos from Gallery (up to {MAX_PHOTOS})</Text>
           </TouchableOpacity>
-        ) : (
-          // Show image preview when image is selected
-          <View style={styles.imagePreviewContainer}>
-            <Image source={{ uri: selectedImageUri }} style={styles.imagePreview} />
-            <TouchableOpacity 
-              style={styles.removeImageButton}
-              onPress={removeImage}
-              disabled={isSubmitting}
-            >
-              <Ionicons name="close-circle" size={30} color="#FF6B6B"/>
-            </TouchableOpacity>
-            <Text style={styles.imageSelectedText}>Photo attached ✓</Text>
-          </View>
         )}
+
+        {/* Full Screen Photo Viewer */}
+        <FullScreenPhotoViewer
+          visible={showFullScreenViewer}
+          photos={selectedImageUris}
+          initialIndex={fullScreenInitialIndex}
+          onClose={() => setShowFullScreenViewer(false)}
+        />
 
         {/* Show upload error if any */}
         {imageUploadError && (
@@ -3458,6 +3535,28 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 8,
     fontStyle: 'italic',
+  },
+  
+  // New styles for multiple photo support
+  photoGalleryContainer: {
+    marginVertical: 10,
+  },
+  addMorePhotosButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#A4D65E',
+  },
+  addMorePhotosText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#A4D65E',
+    fontWeight: '600',
   },
   
   // Back Button Styles

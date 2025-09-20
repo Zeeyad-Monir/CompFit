@@ -24,6 +24,8 @@ import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '../contexts/AuthContext';
 import { getScoreVisibility, getVisibilityMessage } from '../utils/scoreVisibility';
 import { db } from '../firebase';
+import SwipeablePhotoGallery from '../components/SwipeablePhotoGallery';
+import FullScreenPhotoViewer from '../components/FullScreenPhotoViewer';
 import { 
   doc, 
   getDoc, 
@@ -50,6 +52,26 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [showImageOverlay, setShowImageOverlay] = useState(false);
   const [imageAspectRatio, setImageAspectRatio] = useState(1);
+  const [showFullScreenViewer, setShowFullScreenViewer] = useState(false);
+  const [fullScreenInitialIndex, setFullScreenInitialIndex] = useState(0);
+  
+  // Get photos array - support both old single photo and new multiple photos
+  const getPhotos = () => {
+    if (workout.photoUrls && workout.photoUrls.length > 0) {
+      return workout.photoUrls;
+    } else if (workout.photoUrl) {
+      return [workout.photoUrl];
+    }
+    return [];
+  };
+  
+  const photos = getPhotos();
+  
+  // Handle photo press to open full screen viewer
+  const handlePhotoPress = (index) => {
+    setFullScreenInitialIndex(index);
+    setShowFullScreenViewer(true);
+  };
   
   // Comment-related state
   const [comments, setComments] = useState([]);
@@ -380,7 +402,7 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <ImageOverlay />
+      {/* ImageOverlay replaced by FullScreenPhotoViewer */}
       <Header 
         title="" 
         backgroundColor="#F8F8F8"
@@ -415,49 +437,32 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
             />
           }
         >
-        {/* Photo Section */}
-        {workout.photoUrl ? (
+        {/* Photo Section - now supports multiple photos */}
+        {photos.length > 0 ? (
           <View style={styles.photoContainer}>
-            {imageLoading && !imageError && (
-              <View style={styles.imageLoadingContainer}>
-                <ActivityIndicator size="large" color="#A4D65E" />
-                <Text style={styles.loadingText}>Loading photo...</Text>
-              </View>
-            )}
-            {!imageError ? (
-              <TouchableOpacity 
-                activeOpacity={0.95}
-                onPress={() => setShowImageOverlay(true)}
-              >
-                <Image
-                  source={{ uri: workout.photoUrl }}
-                  style={styles.workoutPhoto}
-                  onLoad={(e) => {
-                    setImageLoading(false);
-                    // Calculate and store aspect ratio
-                    const { width, height } = e.nativeEvent.source;
-                    setImageAspectRatio(width / height);
-                  }}
-                  onError={() => {
-                    setImageLoading(false);
-                    setImageError(true);
-                  }}
-                  resizeMode="cover"
-                />
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.noPhotoContainer}>
-                <Ionicons name="image-outline" size={60} color="#999" />
-                <Text style={styles.noPhotoText}>Failed to load photo</Text>
-              </View>
-            )}
+            <SwipeablePhotoGallery
+              photos={photos}
+              onPhotoPress={handlePhotoPress}
+              showRemoveButton={false}
+              height={300}
+              showIndicator={true}
+              containerStyle={styles.galleryContainer}
+            />
           </View>
         ) : (
           <View style={styles.noPhotoContainer}>
             <Ionicons name="image-outline" size={60} color="#999" />
-            <Text style={styles.noPhotoText}>No photo submitted</Text>
+            <Text style={styles.noPhotoText}>No photos submitted</Text>
           </View>
         )}
+        
+        {/* Full Screen Photo Viewer */}
+        <FullScreenPhotoViewer
+          visible={showFullScreenViewer}
+          photos={photos}
+          initialIndex={fullScreenInitialIndex}
+          onClose={() => setShowFullScreenViewer(false)}
+        />
 
         {/* Back Button */}
         <View style={styles.backButtonContainer}>
@@ -679,9 +684,11 @@ const styles = StyleSheet.create({
   // Photo Section
   photoContainer: {
     width: screenWidth,
-    height: screenWidth * 0.75,
-    backgroundColor: '#000',
+    backgroundColor: '#F8F8F8',
     position: 'relative',
+  },
+  galleryContainer: {
+    marginBottom: 0,
   },
   workoutPhoto: {
     width: '100%',

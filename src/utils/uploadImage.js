@@ -208,3 +208,156 @@ export const validateImageSize = (fileSize, maxSizeMB = 10) => {
   const maxSizeBytes = maxSizeMB * 1024 * 1024;
   return fileSize <= maxSizeBytes;
 };
+
+/**
+ * Uploads multiple images to Cloudinary in parallel
+ * @param {Array<string>} imageUris - Array of local URIs of images to upload
+ * @param {Function} onProgress - Callback for progress updates (optional)
+ * @returns {Promise<Array<string>>} - Array of secure URLs of uploaded images
+ * @throws {Error} - If any upload fails
+ */
+export const uploadMultipleToCloudinary = async (imageUris, onProgress) => {
+  if (!imageUris || imageUris.length === 0) {
+    return [];
+  }
+
+  const totalImages = imageUris.length;
+  let completedUploads = 0;
+
+  try {
+    // Upload all images in parallel
+    const uploadPromises = imageUris.map(async (uri, index) => {
+      try {
+        const url = await uploadToCloudinary(uri);
+        completedUploads++;
+        
+        // Call progress callback if provided
+        if (onProgress) {
+          onProgress({
+            completed: completedUploads,
+            total: totalImages,
+            percentage: Math.round((completedUploads / totalImages) * 100),
+            currentIndex: index,
+          });
+        }
+        
+        return url;
+      } catch (error) {
+        console.error(`Failed to upload image ${index + 1}:`, error);
+        throw error;
+      }
+    });
+
+    const uploadedUrls = await Promise.all(uploadPromises);
+    return uploadedUrls;
+
+  } catch (error) {
+    console.error('Batch upload error:', error);
+    throw new Error(`Failed to upload images: ${error.message}`);
+  }
+};
+
+/**
+ * Uploads multiple images with individual error handling
+ * @param {Array<string>} imageUris - Array of local URIs of images to upload
+ * @param {Function} onProgress - Callback for progress updates (optional)
+ * @returns {Promise<Object>} - Object with successful uploads and errors
+ */
+export const uploadMultipleWithFallback = async (imageUris, onProgress) => {
+  if (!imageUris || imageUris.length === 0) {
+    return { successful: [], failed: [] };
+  }
+
+  const totalImages = imageUris.length;
+  let completedAttempts = 0;
+  const results = {
+    successful: [],
+    failed: [],
+  };
+
+  try {
+    // Upload all images in parallel with individual error handling
+    const uploadPromises = imageUris.map(async (uri, index) => {
+      try {
+        const url = await uploadToCloudinary(uri);
+        completedAttempts++;
+        
+        // Call progress callback if provided
+        if (onProgress) {
+          onProgress({
+            completed: completedAttempts,
+            total: totalImages,
+            percentage: Math.round((completedAttempts / totalImages) * 100),
+            currentIndex: index,
+            status: 'success',
+          });
+        }
+        
+        return { index, url, success: true };
+      } catch (error) {
+        completedAttempts++;
+        
+        // Call progress callback for failed upload
+        if (onProgress) {
+          onProgress({
+            completed: completedAttempts,
+            total: totalImages,
+            percentage: Math.round((completedAttempts / totalImages) * 100),
+            currentIndex: index,
+            status: 'failed',
+            error: error.message,
+          });
+        }
+        
+        console.error(`Failed to upload image ${index + 1}:`, error);
+        return { index, error: error.message, success: false };
+      }
+    });
+
+    const uploadResults = await Promise.all(uploadPromises);
+    
+    // Separate successful and failed uploads
+    uploadResults.forEach((result) => {
+      if (result.success) {
+        results.successful.push({ index: result.index, url: result.url });
+      } else {
+        results.failed.push({ index: result.index, error: result.error });
+      }
+    });
+
+    return results;
+
+  } catch (error) {
+    console.error('Batch upload error:', error);
+    throw new Error(`Failed to process images: ${error.message}`);
+  }
+};
+
+/**
+ * Validates multiple image file sizes
+ * @param {Array<Object>} images - Array of image objects with size property
+ * @param {number} maxSizeMB - Maximum allowed size in MB per image
+ * @returns {Object} - Object with valid and invalid images
+ */
+export const validateMultipleImageSizes = (images, maxSizeMB = 5) => {
+  const maxSizeBytes = maxSizeMB * 1024 * 1024;
+  const results = {
+    valid: [],
+    invalid: [],
+  };
+
+  images.forEach((image, index) => {
+    if (image.fileSize && image.fileSize <= maxSizeBytes) {
+      results.valid.push({ ...image, index });
+    } else {
+      results.invalid.push({ 
+        ...image, 
+        index,
+        reason: `Image exceeds ${maxSizeMB}MB limit`,
+        sizeMB: image.fileSize ? (image.fileSize / (1024 * 1024)).toFixed(2) : 'unknown',
+      });
+    }
+  });
+
+  return results;
+};
