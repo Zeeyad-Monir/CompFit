@@ -721,6 +721,11 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
                     <Text style={styles.activityScoring}>
                       {rule.unitsPerPoint} {rule.unit.toLowerCase()} = {rule.pointsPerUnit} point{rule.pointsPerUnit !== 1 ? 's' : ''}
                     </Text>
+                    {(rule.minPace !== null && rule.minPace !== undefined) && (
+                      <Text style={styles.activityPace}>
+                        Min pace: {rule.minPace} {rule.paceUnit || 'min/km'}
+                      </Text>
+                    )}
                   </View>
                 </View>
               ))}
@@ -964,6 +969,11 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
                         <Text style={styles.activityScoring}>
                           {rule.unitsPerPoint} {rule.unit.toLowerCase()} = {rule.pointsPerUnit} point{rule.pointsPerUnit !== 1 ? 's' : ''}
                         </Text>
+                        {(rule.minPace !== null && rule.minPace !== undefined) && (
+                          <Text style={styles.activityPace}>
+                            Min pace: {rule.minPace} {rule.paceUnit || 'min/km'}
+                          </Text>
+                        )}
                       </View>
                     </View>
                   ))}
@@ -1276,6 +1286,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666',
     marginTop: 2,
+  },
+  activityPace: {
+    fontSize: 12,
+    color: '#FF9800',
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   
   // Participants Section

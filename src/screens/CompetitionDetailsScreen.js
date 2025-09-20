@@ -1433,7 +1433,9 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                   </Text>
                   {/* Display activity limits if any exist */}
                   {(rule.maxSubmissionsPerDay || 
-                    rule.maxPointsPerWeek || rule.perSubmissionCap) && (
+                    rule.maxPointsPerWeek || 
+                    rule.perSubmissionCap ||
+                    (rule.minPace !== null && rule.minPace !== undefined)) && (
                     <View style={styles.activityLimits}>
                       {rule.maxSubmissionsPerDay && (
                         <Text style={styles.activityLimit}>
