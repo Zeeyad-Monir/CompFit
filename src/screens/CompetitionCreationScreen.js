@@ -179,6 +179,24 @@ const workoutTypes = [
   'Custom', 'Aerobics', 'Archery', 'Backpacking', 'Badminton', 'Ballroom Dancing', 'Barre', 'Baseball', 'Basketball', 'Bodybuilding', 'Bouldering', 'Bowling', 'Boxing', 'Brazilian Jiu-Jitsu', 'Calisthenics', 'Camping Activities', 'Canoeing', 'Capoeira', 'Cardio Session', 'Cheerleading', 'Cricket', 'CrossFit', 'Cross-country Skiing', 'Cycling', 'Dance', 'Dance Fitness', 'Dog Walking', 'Dumbbell Training', 'Elliptical', 'Fencing', 'Figure Skating', 'Foam Rolling', 'Football', 'Frisbee', 'Gardening', 'Golf', 'Gymnastics', 'HIIT', 'Hiking', 'Hip Hop Dancing', 'Hockey', 'Horseback Riding', 'Hot Yoga', 'House Cleaning', 'Ice Hockey', 'Ice Skating', 'Jet Skiing', 'Jogging', 'Judo', 'Jump Rope', 'Karate', 'Kayaking', 'Kettlebell', 'Lacrosse', 'Manual Labor', 'Martial Arts', 'Massage Therapy', 'Meditation', 'MMA', 'Mountain Biking', 'Mountain Climbing', 'Muay Thai', 'Parkour', 'Physical Therapy', 'Pilates', 'Pole Dancing', 'Powerlifting', 'Racquetball', 'Rehabilitation', 'Resistance Training', 'Restorative Yoga', 'Rock Climbing', 'Rock Wall Climbing', 'Rowing', 'Rugby', 'Running', 'Sailing', 'Skateboarding', 'Skiing', 'Sledding', 'Snowboarding', 'Snowshoeing', 'Soccer', 'Softball', 'Spin Class', 'Sprinting', 'Squash', 'Stair Climbing', 'Stand-up Paddleboarding', 'Step Aerobics', 'Stretching', 'Stretching Session', 'Surfing', 'Swimming', 'Table Tennis', 'Tai Chi', 'Taekwondo', 'Tennis', 'Track and Field', 'Trail Running', 'Treadmill', 'Ultimate Frisbee', 'Volleyball', 'Walking', 'Water Aerobics', 'Water Skiing', 'Weightlifting', 'Wrestling', 'Yard Work', 'Yoga', 'Zumba'
 ];
 
+// Activities that typically have pace/speed metrics
+const PACE_BASED_ACTIVITIES = [
+  'Running', 'Jogging', 'Walking', 'Cycling', 'Swimming', 
+  'Trail Running', 'Mountain Biking', 'Hiking', 'Sprinting',
+  'Treadmill', 'Elliptical', 'Rowing', 'Cross-country Skiing',
+  'Kayaking', 'Canoeing', 'Stand-up Paddleboarding'
+];
+
+// Available pace units for minimum pace requirements
+const PACE_UNITS = [
+  'min/km',     // Minutes per kilometer
+  'min/mile',   // Minutes per mile  
+  'km/h',       // Kilometers per hour
+  'mph',        // Miles per hour
+  'm/min',      // Meters per minute
+  'min/100m'    // For swimming
+];
+
 // Universal units available for all activities
 const universalUnits = [
   'Custom', 'Calorie', 'Class', 'Hour', 'Kilometre', 'Meter', 'Mile', 'Minute', 'Rep', 'Session', 'Set', 'Step', 'Yard',
@@ -390,7 +408,10 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       // NEW FIELDS for activity-specific limits
       maxSubmissionsPerDay: null,
       maxPointsPerWeek: null,
-      perSubmissionCap: null
+      perSubmissionCap: null,
+      // NEW FIELDS for pace requirements
+      minPace: null,
+      paceUnit: 'min/km'
     }
   ]);
 
@@ -747,7 +768,10 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       // NEW FIELDS for activity-specific limits
       maxSubmissionsPerDay: null,
       maxPointsPerWeek: null,
-      perSubmissionCap: null
+      perSubmissionCap: null,
+      // NEW FIELDS for pace requirements
+      minPace: null,
+      paceUnit: 'min/km'
     }]);
   };
 
@@ -1040,8 +1064,29 @@ export default function CompetitionCreationScreen({ navigation, route }) {
         // NEW FIELDS for activity-specific limits
         maxSubmissionsPerDay: a.maxSubmissionsPerDay || null,
         maxPointsPerWeek: a.maxPointsPerWeek || null,
-        perSubmissionCap: a.perSubmissionCap || null
+        perSubmissionCap: a.perSubmissionCap || null,
+        // NEW FIELDS for pace requirements - properly handle 0 and falsy values
+        minPace: a.minPace !== null && a.minPace !== undefined ? a.minPace : null,
+        paceUnit: a.paceUnit || 'min/km'
       }));
+      
+      // Enhanced debug log to verify pace data is being saved
+      console.log('=== CREATING COMPETITION ===');
+      activities.forEach((a, idx) => {
+        console.log(`Activity ${idx}:`, {
+          type: a.type,
+          minPace: a.minPace,
+          paceUnit: a.paceUnit,
+          hasMinPace: a.minPace !== null && a.minPace !== undefined,
+          minPaceType: typeof a.minPace
+        });
+      });
+      console.log('Creating competition with rules:', JSON.stringify(rules, null, 2));
+      console.log('Rules with pace:', rules.filter(r => r.minPace !== null && r.minPace !== undefined).map(r => ({
+        type: r.type,
+        minPace: r.minPace,
+        paceUnit: r.paceUnit
+      })));
 
       await addDoc(collection(db,'competitions'), {
         name: name.trim(), description: description.trim(),
@@ -1680,6 +1725,9 @@ export default function CompetitionCreationScreen({ navigation, route }) {
             <View style={styles.activitySummary}>
               <Text style={styles.activitySummaryText}>
                 {getActivityDisplayName(act)} • {act.unitsPerPoint} {getUnitDisplayName(act).toLowerCase()} = {act.points} point{act.points !== '1' ? 's' : ''}
+                {(act.minPace !== null && act.minPace !== undefined) && (
+                  `\n• Min pace: ${act.minPace} ${act.paceUnit || 'min/km'}`
+                )}
               </Text>
             </View>
 
@@ -1764,6 +1812,69 @@ export default function CompetitionCreationScreen({ navigation, route }) {
                     Maximum points per single submission
                   </Text>
                 </View>
+
+                {/* Minimum Pace Requirement - Only for pace-based activities */}
+                {(PACE_BASED_ACTIVITIES.includes(act.type) || act.type === 'Custom') && (
+                  <View style={styles.limitControl}>
+                    <Text style={styles.limitLabel}>Minimum Pace Requirement</Text>
+                    <View style={styles.paceInputRow}>
+                      <TextInput
+                        style={styles.paceValueInput}
+                        keyboardType="numeric"
+                        value={act.minPace?.toString() || ''}
+                        onChangeText={(value) => {
+                          console.log(`=== PACE INPUT CHANGED ===`);
+                          console.log(`Raw input value: "${value}"`);
+                          console.log(`Input length: ${value.length}`);
+                          console.log(`Input type: ${typeof value}`);
+                          
+                          const updated = [...activities];
+                          const paceValue = value === '' ? null : parseFloat(value);
+                          
+                          console.log(`Parsed pace value: ${paceValue}`);
+                          console.log(`IsNaN check: ${isNaN(paceValue)}`);
+                          
+                          updated[idx] = {
+                            ...updated[idx],
+                            minPace: isNaN(paceValue) ? null : paceValue
+                          };
+                          
+                          console.log(`Activity ${idx} pace updated:`, updated[idx].minPace);
+                          console.log('Full activity object:', JSON.stringify(updated[idx], null, 2));
+                          console.log('All activities state:', updated.map((a, i) => ({
+                            index: i,
+                            type: a.type,
+                            minPace: a.minPace,
+                            paceUnit: a.paceUnit
+                          })));
+                          
+                          setActs(updated);
+                        }}
+                        placeholder="No minimum"
+                        placeholderTextColor="#999"
+                      />
+                      <View style={styles.paceUnitSelector}>
+                        <Dropdown
+                          label=""
+                          selectedValue={act.paceUnit || 'min/km'}
+                          onValueChange={(unit) => {
+                            const updated = [...activities];
+                            updated[idx] = {
+                              ...updated[idx],
+                              paceUnit: unit
+                            };
+                            setActs(updated);
+                          }}
+                          items={PACE_UNITS}
+                          containerStyle={{marginBottom: 0}}
+                        />
+                      </View>
+                    </View>
+                    <Text style={styles.limitHelper}>
+                      Submissions slower than this pace will be rejected
+                    </Text>
+                  </View>
+                )}
               </View>
             )}
 
@@ -2590,6 +2701,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     marginTop: 4,
+  },
+  
+  // Pace Input Styles
+  paceInputRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+    alignItems: 'flex-start',  // Align items to top
+  },
+  paceValueInput: {
+    width: '45%',  // Fixed width instead of flex
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#1A1E23',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  paceUnitSelector: {
+    width: '50%',  // Fixed width instead of flex
+    zIndex: 100,  // Ensure dropdown appears on top
   },
   
   // Photo Proof Styles

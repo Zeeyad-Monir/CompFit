@@ -108,12 +108,28 @@ export default function SubmissionFormScreen({ route, navigation }) {
   useEffect(() => {
     if (activityType && competition?.rules) {
       const rule = competition.rules.find(r => r.type === activityType);
+      
+      // Enhanced debug logging
+      console.log('=== ACTIVITY SELECTED ===');
+      console.log('Activity:', activityType);
+      console.log('Rule found:', rule);
+      console.log('minPace value:', rule?.minPace);
+      console.log('minPace type:', typeof rule?.minPace);
+      console.log('Has pace requirement?', rule?.minPace !== null && rule?.minPace !== undefined);
+      console.log('Should show duration field?', shouldShowField('duration'));
+      console.log('Should show distance field?', shouldShowField('distance'));
+      
       if (rule) {
-        setActivityLimits({
+        const limits = {
           maxSubmissionsPerDay: rule.maxSubmissionsPerDay || null,
           maxPointsPerWeek: rule.maxPointsPerWeek || null,
-          perSubmissionCap: rule.perSubmissionCap || null
-        });
+          perSubmissionCap: rule.perSubmissionCap || null,
+          // Include pace fields in activity limits - properly handle 0 and falsy values
+          minPace: rule.minPace !== null && rule.minPace !== undefined ? rule.minPace : null,
+          paceUnit: rule.paceUnit || 'min/km'
+        };
+        console.log('Setting activity limits:', limits);
+        setActivityLimits(limits);
       } else {
         setActivityLimits(null);
       }
@@ -362,8 +378,18 @@ export default function SubmissionFormScreen({ route, navigation }) {
 
   // Determine which input fields to show based on the unit
   const shouldShowField = (field) => {
-    const { unit } = getRule();
+    const rule = getRule();
+    const { unit } = rule;
     
+    // If pace is required, show both duration and distance
+    if (activityLimits && activityLimits.minPace !== null && activityLimits.minPace !== undefined) {
+      console.log(`[shouldShowField] Pace required! Field: ${field}, minPace: ${activityLimits.minPace}`);
+      if (field === 'duration' || field === 'distance') {
+        return true;
+      }
+    }
+    
+    // Regular logic for non-pace activities
     switch (field) {
       case 'duration':
         return ['Minute', 'Hour'].includes(unit);
@@ -388,8 +414,16 @@ export default function SubmissionFormScreen({ route, navigation }) {
 
   // Get appropriate labels for input fields
   const getFieldLabel = (field) => {
-    const { unit } = getRule();
+    const rule = getRule();
+    const { unit } = rule;
     
+    // Special labels when pace is required
+    if (activityLimits && activityLimits.minPace !== null && activityLimits.minPace !== undefined) {
+      if (field === 'duration') return 'Duration (minutes)';
+      if (field === 'distance') return 'Distance (km)';
+    }
+    
+    // Regular labels
     switch (field) {
       case 'duration':
         return unit === 'Hour' ? 'Duration (hours)' : 'Duration (minutes)';
@@ -441,6 +475,34 @@ export default function SubmissionFormScreen({ route, navigation }) {
         return '1';
       default:
         return '0';
+    }
+  };
+
+  // Calculate pace from duration and distance
+  const calculatePace = () => {
+    if (!activityLimits || activityLimits.minPace === null || activityLimits.minPace === undefined) return null;
+    
+    const dist = parseFloat(distance) || 0;
+    const dur = parseFloat(duration) || 0;
+    
+    if (dist === 0 || dur === 0) return null;
+    
+    // Convert to the required unit for comparison
+    switch (activityLimits.paceUnit) {
+      case 'min/km':
+        return dur / dist; // minutes per km
+      case 'min/mile':
+        return dur / (dist * 0.621371); // convert km to miles
+      case 'km/h':
+        return (dist / dur) * 60; // km per hour
+      case 'mph':
+        return ((dist * 0.621371) / dur) * 60; // miles per hour
+      case 'm/min':
+        return (dist * 1000) / dur; // meters per minute
+      case 'min/100m':
+        return (dur / dist) * 0.1; // for swimming
+      default:
+        return dur / dist;
     }
   };
 
@@ -505,6 +567,32 @@ export default function SubmissionFormScreen({ route, navigation }) {
     if (competition.photoProofRequired && !selectedImageUri) {
       Alert.alert('Photo Required', 'This competition requires a photo with every submission');
       return false;
+    }
+    
+    // Check pace requirement if applicable
+    if (activityLimits && activityLimits.minPace !== null && activityLimits.minPace !== undefined) {
+      const actualPace = calculatePace();
+      if (actualPace !== null) {
+        // For speed units (km/h, mph, m/min), higher is better
+        const isSpeedUnit = ['km/h', 'mph', 'm/min'].includes(activityLimits.paceUnit);
+        
+        if (isSpeedUnit) {
+          if (actualPace < activityLimits.minPace) {
+            Alert.alert('Pace Too Slow', 
+              `Minimum required pace is ${activityLimits.minPace} ${activityLimits.paceUnit}. Your pace: ${actualPace.toFixed(2)} ${activityLimits.paceUnit}`
+            );
+            return false;
+          }
+        } else {
+          // For time units (min/km, min/mile), lower is better
+          if (actualPace > activityLimits.minPace) {
+            Alert.alert('Pace Too Slow', 
+              `Maximum allowed time is ${activityLimits.minPace} ${activityLimits.paceUnit}. Your pace: ${actualPace.toFixed(2)} ${activityLimits.paceUnit}`
+            );
+            return false;
+          }
+        }
+      }
     }
     
     return true;
@@ -889,7 +977,8 @@ export default function SubmissionFormScreen({ route, navigation }) {
 
         {/* Activity-Specific Limits Info */}
         {activityType && activityLimits && (activityLimits.maxSubmissionsPerDay || 
-          activityLimits.maxPointsPerWeek || activityLimits.perSubmissionCap) && (
+          activityLimits.maxPointsPerWeek || activityLimits.perSubmissionCap ||
+          (activityLimits.minPace !== null && activityLimits.minPace !== undefined)) && (
           <View style={styles.activityLimitsInfo}>
             <View style={styles.limitHeader}>
               <Text style={styles.limitTitle}>Activity Limits for {activityType}</Text>
@@ -927,6 +1016,39 @@ export default function SubmissionFormScreen({ route, navigation }) {
               <View style={styles.limitRow}>
                 <Text style={styles.limitLabel}>Max per submission:</Text>
                 <Text style={styles.limitValue}>{activityLimits.perSubmissionCap} pts</Text>
+              </View>
+            )}
+            
+            {/* Pace requirement */}
+            {activityLimits && activityLimits.minPace !== null && activityLimits.minPace !== undefined && (
+              <View style={styles.limitRow}>
+                <Text style={styles.limitLabel}>Minimum pace:</Text>
+                <Text style={styles.limitValue}>
+                  {activityLimits.minPace} {activityLimits.paceUnit}
+                </Text>
+              </View>
+            )}
+            
+            {/* Current pace calculation - only show when pace is required AND user has entered values */}
+            {activityLimits && activityLimits.minPace !== null && activityLimits.minPace !== undefined && 
+             duration && distance && (
+              <View style={styles.limitRow}>
+                <Text style={styles.limitLabel}>Your current pace:</Text>
+                <Text style={[
+                  styles.limitValue,
+                  calculatePace() && (
+                    ['km/h', 'mph', 'm/min'].includes(activityLimits.paceUnit)
+                      ? calculatePace() < activityLimits.minPace && styles.limitReached
+                      : calculatePace() > activityLimits.minPace && styles.limitReached
+                  )
+                ]}>
+                  {calculatePace() ? `${calculatePace().toFixed(2)} ${activityLimits.paceUnit}` : 'Enter values above'}
+                  {calculatePace() && (
+                    ['km/h', 'mph', 'm/min'].includes(activityLimits.paceUnit)
+                      ? (calculatePace() < activityLimits.minPace ? ' ❌' : ' ✅')
+                      : (calculatePace() > activityLimits.minPace ? ' ❌' : ' ✅')
+                  )}
+                </Text>
               </View>
             )}
             
@@ -1227,6 +1349,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#F59E0B',
     marginTop: 8,
+    fontStyle: 'italic',
+  },
+  
+  // Pace Display Styles
+  paceDisplay: {
+    backgroundColor: '#F9FAF9',
+    borderRadius: 8,
+    padding: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  paceLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  paceValue: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1E23',
+  },
+  paceTooSlow: {
+    color: '#FF6B6B',
+  },
+  paceWarning: {
+    fontSize: 12,
+    color: '#FF6B6B',
+    marginTop: 4,
     fontStyle: 'italic',
   },
   

@@ -33,6 +33,26 @@ import { uploadToCloudinary } from '../utils/uploadImage';
 
 const CompetitionDetailsScreen = ({ route, navigation }) => {
   const { competition, initialTab } = route.params;
+  
+  // Debug logging for competition rules
+  console.log('=== COMPETITION DETAILS LOADED ===');
+  console.log('Competition name:', competition?.name);
+  console.log('Total rules:', competition?.rules?.length);
+  competition?.rules?.forEach((rule, idx) => {
+    console.log(`Rule ${idx}:`, {
+      type: rule.type,
+      minPace: rule.minPace,
+      minPaceType: typeof rule.minPace,
+      hasPace: rule.minPace !== null && rule.minPace !== undefined,
+      paceUnit: rule.paceUnit
+    });
+  });
+  console.log('Rules with pace:', competition?.rules?.filter(r => r.minPace !== null && r.minPace !== undefined)?.map(r => ({
+    type: r.type,
+    minPace: r.minPace,
+    paceUnit: r.paceUnit
+  })));
+  
   // For completed competitions, default to 'rank' tab, otherwise use initialTab or 'me'
   const defaultTab = competition.status === 'completed' ? 'rank' : (initialTab || 'me');
   const [activeTab, setActiveTab] = useState(defaultTab);
@@ -61,6 +81,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
   const [sets, setSets] = useState('');
   const [steps, setSteps] = useState('');
   const [customValue, setCustomValue] = useState('');
+  const [pace, setPace] = useState('');
   const [notes, setNotes] = useState('');
   const [currentDayPoints, setCurrentDayPoints] = useState(0);
   const [loadingDayPoints, setLoadingDayPoints] = useState(false);
@@ -275,6 +296,12 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
   const shouldShowField = (field) => {
     const { unit } = getRule();
     
+    // Show pace field when pace is required (IN ADDITION to other fields)
+    if (field === 'pace') {
+      return activityLimits && activityLimits.minPace !== null && activityLimits.minPace !== undefined;
+    }
+    
+    // Regular logic for all other fields
     switch (field) {
       case 'duration':
         return ['Minute', 'Hour'].includes(unit);
@@ -301,6 +328,18 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     const { unit } = getRule();
     
     switch (field) {
+      case 'pace':
+        if (activityLimits && activityLimits.paceUnit) {
+          const unitLabels = {
+            'min/km': 'Pace (min/km)',
+            'min/mile': 'Pace (min/mile)',
+            'km/h': 'Speed (km/h)',
+            'mph': 'Speed (mph)',
+            'm/min': 'Speed (m/min)'
+          };
+          return unitLabels[activityLimits.paceUnit] || 'Pace';
+        }
+        return 'Pace';
       case 'duration':
         return unit === 'Hour' ? 'Duration (hours)' : 'Duration (minutes)';
       case 'distance':
@@ -332,6 +371,12 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     const { unit } = getRule();
     
     switch (field) {
+      case 'pace':
+        if (activityLimits && activityLimits.minPace !== null && activityLimits.minPace !== undefined) {
+          // Use the actual minimum pace as the placeholder
+          return activityLimits.minPace.toString();
+        }
+        return '0';
       case 'duration':
         return unit === 'Hour' ? '1.5' : '30';
       case 'distance':
@@ -352,6 +397,8 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         return '0';
     }
   };
+  
+  // calculatePace function removed - now using direct pace input
   
   const validateSubmission = () => {
     if (isActivityDailyLimitReached()) {
@@ -406,9 +453,41 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
       return false;
     }
     
+    // Validate pace field if shown
+    if (shouldShowField('pace') && (!pace || pace === '0')) {
+      Alert.alert('Validation Error', `Please enter your ${getFieldLabel('pace').toLowerCase()}`);
+      return false;
+    }
+    
     if (competition.photoProofRequired && !selectedImageUri) {
       Alert.alert('Photo Required', 'This competition requires a photo with every submission');
       return false;
+    }
+    
+    // Check pace requirement if applicable
+    if (activityLimits && activityLimits.minPace !== null && activityLimits.minPace !== undefined) {
+      const enteredPace = parseFloat(pace);
+      if (enteredPace && !isNaN(enteredPace)) {
+        const isSpeedUnit = ['km/h', 'mph', 'm/min'].includes(activityLimits.paceUnit);
+        
+        if (isSpeedUnit) {
+          // For speed units: higher is better, so entered must be >= minimum
+          if (enteredPace < activityLimits.minPace) {
+            Alert.alert('Too Slow', 
+              `Minimum speed required: ${activityLimits.minPace} ${activityLimits.paceUnit}. Your speed: ${enteredPace} ${activityLimits.paceUnit}`
+            );
+            return false;
+          }
+        } else {
+          // For time units: lower is better, so entered must be <= minimum
+          if (enteredPace > activityLimits.minPace) {
+            Alert.alert('Too Slow', 
+              `Maximum time allowed: ${activityLimits.minPace} ${activityLimits.paceUnit}. Your time: ${enteredPace} ${activityLimits.paceUnit}`
+            );
+            return false;
+          }
+        }
+      }
     }
     
     return true;
@@ -465,6 +544,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         sets: parseFloat(sets) || 0,
         steps: parseFloat(steps) || 0,
         customValue: parseFloat(customValue) || 0,
+        pace: parseFloat(pace) || 0,
         unit: rule.unit,
         points,
         notes,
@@ -487,6 +567,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
       setSets('');
       setSteps('');
       setCustomValue('');
+      setPace('');
       setNotes('');
       setSelectedImageUri(null);
       setDate(new Date());
@@ -606,7 +687,10 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         setActivityLimits({
           maxSubmissionsPerDay: rule.maxSubmissionsPerDay || null,
           maxPointsPerWeek: rule.maxPointsPerWeek || null,
-          perSubmissionCap: rule.perSubmissionCap || null
+          perSubmissionCap: rule.perSubmissionCap || null,
+          // Include pace fields - properly handle 0 and falsy values
+          minPace: rule.minPace !== null && rule.minPace !== undefined ? rule.minPace : null,
+          paceUnit: rule.paceUnit || 'min/km'
         });
       } else {
         setActivityLimits(null);
@@ -1366,6 +1450,11 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
                           • Max {rule.perSubmissionCap} pts per submission
                         </Text>
                       )}
+                      {(rule.minPace !== null && rule.minPace !== undefined) && (
+                        <Text style={styles.activityLimit}>
+                          • Min pace: {rule.minPace} {rule.paceUnit}
+                        </Text>
+                      )}
                     </View>
                   )}
                 </View>
@@ -1863,6 +1952,18 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
               editable={!isSubmitting}
             />
           )}
+
+          {/* Pace field - for pace-required activities (additional requirement) */}
+          {shouldShowField('pace') && (
+            <FormInput
+              label={getFieldLabel('pace')}
+              value={pace}
+              onChangeText={setPace}
+              keyboardType="decimal-pad"
+              placeholder={getFieldPlaceholder('pace')}
+              editable={!isSubmitting}
+            />
+          )}
         </View>
 
         {/* Notes */}
@@ -1939,6 +2040,46 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
               <View style={styles.limitRow}>
                 <Text style={styles.limitLabel}>Max per submission:</Text>
                 <Text style={styles.limitValue}>{activityLimits.perSubmissionCap} pts</Text>
+              </View>
+            )}
+            
+            {/* Pace requirement */}
+            {activityLimits.minPace !== null && activityLimits.minPace !== undefined && (
+              <View style={styles.limitRow}>
+                <Text style={styles.limitLabel}>
+                  {['km/h', 'mph', 'm/min'].includes(activityLimits.paceUnit) ? 'Minimum speed:' : 'Maximum time:'}
+                </Text>
+                <Text style={styles.limitValue}>
+                  {activityLimits.minPace} {activityLimits.paceUnit}
+                </Text>
+              </View>
+            )}
+            
+            {/* Current pace display - show entered pace with validation */}
+            {activityLimits.minPace !== null && activityLimits.minPace !== undefined && pace && (
+              <View style={styles.limitRow}>
+                <Text style={styles.limitLabel}>Your entered pace:</Text>
+                <Text style={[
+                  styles.limitValue,
+                  (() => {
+                    const enteredPace = parseFloat(pace);
+                    if (!enteredPace || isNaN(enteredPace)) return false;
+                    const isSpeedUnit = ['km/h', 'mph', 'm/min'].includes(activityLimits.paceUnit);
+                    return isSpeedUnit 
+                      ? enteredPace < activityLimits.minPace && styles.limitReached
+                      : enteredPace > activityLimits.minPace && styles.limitReached;
+                  })()
+                ]}>
+                  {pace} {activityLimits.paceUnit}
+                  {(() => {
+                    const enteredPace = parseFloat(pace);
+                    if (!enteredPace || isNaN(enteredPace)) return '';
+                    const isSpeedUnit = ['km/h', 'mph', 'm/min'].includes(activityLimits.paceUnit);
+                    return isSpeedUnit
+                      ? (enteredPace < activityLimits.minPace ? ' ❌' : ' ✅')
+                      : (enteredPace > activityLimits.minPace ? ' ❌' : ' ✅');
+                  })()}
+                </Text>
               </View>
             )}
             
