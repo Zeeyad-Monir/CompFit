@@ -22,7 +22,7 @@ import { Header } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '../contexts/AuthContext';
-import { getScoreVisibility, getVisibilityMessage } from '../utils/scoreVisibility';
+import { getScoreVisibility, getVisibilityMessage, getScoreCutoffDate } from '../utils/scoreVisibility';
 import { db } from '../firebase';
 import SwipeablePhotoGallery from '../components/SwipeablePhotoGallery';
 import FullScreenPhotoViewer from '../components/FullScreenPhotoViewer';
@@ -81,6 +81,7 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
   const [loadingComments, setLoadingComments] = useState(true);
   const [userProfiles, setUserProfiles] = useState({});
   const [deletingCommentId, setDeletingCommentId] = useState(null);
+  const [workoutUserProfile, setWorkoutUserProfile] = useState(null);
 
   // Calculate visibility status
   useEffect(() => {
@@ -90,8 +91,49 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
     }
   }, [competition]);
 
+  // Fetch workout owner's profile for display
+  useEffect(() => {
+    if (workout?.userId) {
+      fetchUserProfile(workout.userId).then(profile => {
+        setWorkoutUserProfile(profile);
+      });
+    }
+  }, [workout?.userId]);
+
   // Check if this is the current user's workout
   const isOwnWorkout = workout.userId === user?.uid;
+
+  // Check if this specific workout's score should be visible
+  const shouldShowWorkoutScore = () => {
+    // Always show score for own workout
+    if (workout.userId === user?.uid) {
+      return true;
+    }
+    
+    // If competition ended, show all scores
+    if (competition.status === 'completed') {
+      return true;
+    }
+    
+    // If live updates (no delay), show all scores
+    if (!competition.leaderboardUpdateDays || competition.leaderboardUpdateDays === 0) {
+      return true;
+    }
+    
+    // Check if this workout was submitted before the cutoff date
+    const cutoffDate = getScoreCutoffDate(competition);
+    if (!cutoffDate) {
+      return true; // No cutoff means show all
+    }
+    
+    // Get the workout submission date
+    const workoutDate = workout.createdAt?.toDate ? 
+      workout.createdAt.toDate() : 
+      new Date(workout.createdAt);
+    
+    // Show score if workout was submitted before cutoff (in a revealed cycle)
+    return workoutDate <= cutoffDate;
+  };
 
   // Format date for display
   const formatDate = (dateString) => {
@@ -409,16 +451,6 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
       />
       <StatusBar style="dark" />
       
-      {/* Visibility Status Banner */}
-      {visibility && visibility.isInHiddenPeriod && (
-        <View style={styles.visibilityBanner}>
-          <Ionicons name="eye-off" size={20} color="#FFF" />
-          <Text style={styles.visibilityText}>
-            {getVisibilityMessage(visibility)}
-          </Text>
-        </View>
-      )}
-      
       <KeyboardAvoidingView 
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -475,34 +507,42 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* User Info Card */}
-        <View style={styles.userCard}>
-          <View style={styles.userInfo}>
-            <Ionicons name="person-circle" size={48} color="#A4D65E" />
-            <View style={styles.userTextContainer}>
-              <Text style={styles.userName}>{userName || 'Unknown User'}</Text>
-              <Text style={styles.userSubtext}>
-                {isOwnWorkout ? 'Your workout' : `${userName}'s workout`}
-              </Text>
-            </View>
-          </View>
-          {isOwnWorkout && (
-            <TouchableOpacity 
-              style={styles.deleteButton}
-              onPress={handleDeleteWorkout}
-              disabled={isDeleting}
-            >
-              {isDeleting ? (
-                <ActivityIndicator size="small" color="#FF6B6B" />
+        {/* User Info Section */}
+        <View style={styles.userInfoSection}>
+          <View style={styles.userInfoContainer}>
+            <View style={styles.userAvatar}>
+              {workoutUserProfile?.profilePicture ? (
+                <Image 
+                  source={{ uri: workoutUserProfile.profilePicture }}
+                  style={styles.userAvatarImage}
+                  resizeMode="cover"
+                />
               ) : (
-                <Ionicons name="trash-outline" size={24} color="#FF6B6B" />
+                <Ionicons name="person-circle" size={68} color="#A4D65E" />
               )}
-            </TouchableOpacity>
-          )}
+            </View>
+            <Text style={styles.userName}>{userName || 'Unknown User'}</Text>
+          </View>
         </View>
 
         {/* Activity Type Card */}
         <View style={styles.activityCard}>
+          {/* Delete button for own workout */}
+          {isOwnWorkout && (
+            <TouchableOpacity 
+              style={styles.activityDeleteButton}
+              onPress={handleDeleteWorkout}
+              disabled={isDeleting}
+            >
+              <View style={styles.deleteButtonCircle}>
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color="#FF6B6B" />
+                ) : (
+                  <Ionicons name="close" size={15} color="#FF6B6B" />
+                )}
+              </View>
+            </TouchableOpacity>
+          )}
           <View style={styles.activityHeader}>
             <Ionicons name="fitness" size={32} color="#A4D65E" />
             <Text style={styles.activityType}>{workout.activityType}</Text>
@@ -544,11 +584,11 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
               <View style={styles.metricHeader}>
                 <Ionicons name="star" size={20} color="#FFD700" />
                 <Text style={styles.pointsLabel}>
-                  {visibility?.isInHiddenPeriod && workout.userId !== user.uid ? 'Points' : 'Points Earned'}
+                  {shouldShowWorkoutScore() ? 'Points Earned' : 'Points'}
                 </Text>
               </View>
               <Text style={styles.pointsValue}>
-                {visibility?.isInHiddenPeriod && workout.userId !== user.uid ? '---' : workout.points}
+                {shouldShowWorkoutScore() ? workout.points : '---'}
               </Text>
             </View>
           </View>
@@ -723,42 +763,36 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   
-  // User Card
-  userCard: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    padding: 16,
+  // User Info Section
+  userInfoSection: {
+    paddingHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  userInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    marginBottom: 12,
   },
-  userInfo: {
-    flexDirection: 'row',
+  userAvatar: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    overflow: 'hidden',
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
     alignItems: 'center',
-    flex: 1,
+    marginRight: 12,
   },
-  userTextContainer: {
-    marginLeft: 12,
+  userAvatarImage: {
+    width: '100%',
+    height: '100%',
   },
   userName: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     color: '#1A1E23',
-  },
-  userSubtext: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-  deleteButton: {
-    padding: 8,
   },
   
   // Activity Card
@@ -773,6 +807,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    position: 'relative',
+  },
+  activityDeleteButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 1,
+  },
+  deleteButtonCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFF',
+    borderWidth: 1.5,
+    borderColor: '#FF6B6B',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   activityHeader: {
     flexDirection: 'row',

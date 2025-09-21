@@ -3,6 +3,7 @@ import {
   View,
   ScrollView,
   Image,
+  ImageBackground,
   TouchableOpacity,
   Text,
   StyleSheet,
@@ -24,6 +25,7 @@ const FullScreenPhotoViewer = ({
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [loadingStates, setLoadingStates] = useState({});
+  const [imageDimensions, setImageDimensions] = useState({});
   const scrollViewRef = useRef(null);
 
   React.useEffect(() => {
@@ -51,12 +53,56 @@ const FullScreenPhotoViewer = ({
     setLoadingStates(prev => ({ ...prev, [index]: false }));
   };
 
+  const calculateImageBounds = (imageWidth, imageHeight) => {
+    const screenAspectRatio = screenWidth / screenHeight;
+    const imageAspectRatio = imageWidth / imageHeight;
+    
+    let displayWidth, displayHeight, offsetX, offsetY;
+    
+    if (imageAspectRatio > screenAspectRatio) {
+      // Image is wider than screen ratio - fit to width
+      displayWidth = screenWidth;
+      displayHeight = screenWidth / imageAspectRatio;
+      offsetX = 0;
+      offsetY = (screenHeight - displayHeight) / 2;
+    } else {
+      // Image is taller than screen ratio - fit to height
+      displayHeight = screenHeight;
+      displayWidth = screenHeight * imageAspectRatio;
+      offsetX = (screenWidth - displayWidth) / 2;
+      offsetY = 0;
+    }
+    
+    return {
+      width: displayWidth,
+      height: displayHeight,
+      x: offsetX,
+      y: offsetY,
+    };
+  };
+
+  const handleImageDimensions = (index, photoUri) => {
+    Image.getSize(
+      photoUri,
+      (width, height) => {
+        const bounds = calculateImageBounds(width, height);
+        setImageDimensions(prev => ({
+          ...prev,
+          [index]: bounds,
+        }));
+      },
+      (error) => {
+        console.error('Failed to get image size:', error);
+      }
+    );
+  };
+
   if (!visible) return null;
 
   return (
     <Modal
       visible={visible}
-      transparent={false}
+      transparent={true}
       animationType="fade"
       statusBarTranslucent
       onRequestClose={onClose}
@@ -65,18 +111,8 @@ const FullScreenPhotoViewer = ({
         <StatusBar hidden />
         
         <SafeAreaView style={styles.safeArea}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={onClose}
-              hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
-            >
-              <View style={styles.closeButtonBackground}>
-                <Ionicons name="close" size={24} color="#fff" />
-              </View>
-            </TouchableOpacity>
-
-            {photos.length > 1 && (
+          {photos.length > 1 && (
+            <View style={styles.header}>
               <View style={styles.counterContainer}>
                 <View style={styles.counterBackground}>
                   <Text style={styles.counterText}>
@@ -84,8 +120,8 @@ const FullScreenPhotoViewer = ({
                   </Text>
                 </View>
               </View>
-            )}
-          </View>
+            </View>
+          )}
 
           <ScrollView
             ref={scrollViewRef}
@@ -99,6 +135,7 @@ const FullScreenPhotoViewer = ({
             {photos.map((photo, index) => {
               const photoUri = typeof photo === 'string' ? photo : photo.uri;
               const isLoading = loadingStates[index];
+              const bounds = imageDimensions[index];
 
               return (
                 <View key={index} style={styles.imageContainer}>
@@ -108,13 +145,105 @@ const FullScreenPhotoViewer = ({
                     </View>
                   )}
                   
+                  {/* Letterbox touch zones for tap-to-close */}
+                  {bounds && index === currentIndex && (
+                    <>
+                      {/* Top letterbox */}
+                      {bounds.y > 0 && (
+                        <TouchableOpacity
+                          onPress={onClose}
+                          style={[
+                            styles.letterboxZone,
+                            {
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: bounds.y,
+                            }
+                          ]}
+                        />
+                      )}
+                      
+                      {/* Bottom letterbox */}
+                      {bounds.y + bounds.height < screenHeight && (
+                        <TouchableOpacity
+                          onPress={onClose}
+                          style={[
+                            styles.letterboxZone,
+                            {
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              height: screenHeight - (bounds.y + bounds.height),
+                            }
+                          ]}
+                        />
+                      )}
+                      
+                      {/* Left letterbox */}
+                      {bounds.x > 0 && (
+                        <TouchableOpacity
+                          onPress={onClose}
+                          style={[
+                            styles.letterboxZone,
+                            {
+                              top: bounds.y,
+                              left: 0,
+                              width: bounds.x,
+                              height: bounds.height,
+                            }
+                          ]}
+                        />
+                      )}
+                      
+                      {/* Right letterbox */}
+                      {bounds.x + bounds.width < screenWidth && (
+                        <TouchableOpacity
+                          onPress={onClose}
+                          style={[
+                            styles.letterboxZone,
+                            {
+                              top: bounds.y,
+                              right: 0,
+                              width: screenWidth - (bounds.x + bounds.width),
+                              height: bounds.height,
+                            }
+                          ]}
+                        />
+                      )}
+                    </>
+                  )}
+                  
                   <Image
                     source={{ uri: photoUri }}
                     style={styles.image}
                     resizeMode="contain"
                     onLoadStart={() => handleImageLoadStart(index)}
-                    onLoad={() => handleImageLoad(index)}
+                    onLoad={() => {
+                      handleImageLoad(index);
+                      handleImageDimensions(index, photoUri);
+                    }}
                   />
+                  
+                  {index === currentIndex && bounds && (
+                    <TouchableOpacity
+                      style={[
+                        styles.imageCloseButton,
+                        {
+                          position: 'absolute',
+                          top: bounds.y + 10,
+                          right: screenWidth - bounds.x - bounds.width + 10,
+                          zIndex: 10,
+                        }
+                      ]}
+                      onPress={onClose}
+                      hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                    >
+                      <View style={styles.closeButtonBackground}>
+                        <Ionicons name="close" size={24} color="#fff" />
+                      </View>
+                    </TouchableOpacity>
+                  )}
                 </View>
               );
             })}
@@ -142,24 +271,20 @@ const FullScreenPhotoViewer = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
   },
   safeArea: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   header: {
     position: 'absolute',
     top: 50,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+    left: 20,
     zIndex: 1,
   },
-  closeButton: {
-    zIndex: 2,
+  imageCloseButton: {
+    zIndex: 10,
   },
   closeButtonBackground: {
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -170,8 +295,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   counterContainer: {
-    position: 'absolute',
-    right: 20,
+    // No position needed as it's in the header now
   },
   counterBackground: {
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -186,12 +310,14 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   imageContainer: {
     width: screenWidth,
     height: screenHeight,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   image: {
     width: screenWidth,
@@ -200,6 +326,11 @@ const styles = StyleSheet.create({
   loadingContainer: {
     position: 'absolute',
     zIndex: 1,
+  },
+  letterboxZone: {
+    position: 'absolute',
+    backgroundColor: 'transparent',
+    zIndex: 5,
   },
   dotsContainer: {
     position: 'absolute',

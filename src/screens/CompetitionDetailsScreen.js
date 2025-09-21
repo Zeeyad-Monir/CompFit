@@ -1638,6 +1638,16 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
 
     return (
       <View style={styles.rankContainer}>
+        {/* Visibility banner for Rank tab */}
+        {visibility && visibility.isInHiddenPeriod && (
+          <View style={styles.visibilityBanner}>
+            <Ionicons name="eye-off" size={20} color="#007AFF" />
+            <Text style={styles.visibilityText}>
+              {getVisibilityMessage(visibility)} • {visibility.nextRevealDate ? 
+                visibility.nextRevealDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
+            </Text>
+          </View>
+        )}
         {/* Podium Container for Top 3 */}
         <View style={styles.podiumContainer}>
           {topThree.length > 0 && (
@@ -2188,7 +2198,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
             )}
             {isInLeaderboardDelayPeriod() && (
               <Text style={styles.delayPeriodText}>
-                📊 Scores hidden during delay period
+                Scores hidden during delay period
               </Text>
             )}
           </View>
@@ -2294,15 +2304,6 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
       />
       <StatusBar style="dark" />
       
-      {/* Visibility Status Banner */}
-      {visibility && visibility.isInHiddenPeriod && (
-        <View style={styles.visibilityBanner}>
-          <Ionicons name="eye-off" size={20} color="#FFF" />
-          <Text style={styles.visibilityText}>
-            {getVisibilityMessage(visibility)}
-          </Text>
-        </View>
-      )}
       
       {/* Back Button */}
       <View style={styles.backButtonContainer}>
@@ -2383,7 +2384,8 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         <View style={styles.visibilityInfoBanner}>
           <Ionicons name="information-circle" size={20} color="#007AFF" />
           <Text style={styles.visibilityInfoText}>
-            New submissions hidden until next reveal
+            New submissions hidden until next reveal • {visibility.nextRevealDate ? 
+              visibility.nextRevealDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
           </Text>
         </View>
       )}
@@ -2858,15 +2860,17 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   visibilityBanner: {
-    backgroundColor: '#FF9800',
-    paddingVertical: 10,
+    backgroundColor: '#E3F2FD',
+    paddingVertical: 8,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#BBDEFB',
   },
   visibilityText: {
-    color: '#FFFFFF',
+    color: '#1976D2',
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 8,
