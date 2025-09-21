@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   ScrollView,
@@ -27,7 +27,29 @@ const SwipeablePhotoGallery = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loadingStates, setLoadingStates] = useState({});
   const [errorStates, setErrorStates] = useState({});
+  const [imageDimensions, setImageDimensions] = useState({});
   const scrollViewRef = useRef(null);
+
+  // Fetch image dimensions when photos change
+  useEffect(() => {
+    photos.forEach((photo, index) => {
+      const photoUri = typeof photo === 'string' ? photo : photo.uri;
+      if (photoUri && !imageDimensions[index]) {
+        Image.getSize(
+          photoUri,
+          (width, height) => {
+            setImageDimensions(prev => ({
+              ...prev,
+              [index]: { width, height, aspectRatio: width / height }
+            }));
+          },
+          (error) => {
+            console.log('Error getting image size for index', index, ':', error);
+          }
+        );
+      }
+    });
+  }, [photos]);
 
   const handleScroll = (event) => {
     const contentOffset = event.nativeEvent.contentOffset.x;
@@ -103,14 +125,39 @@ const SwipeablePhotoGallery = ({
                     <Text style={styles.errorText}>Failed to load image</Text>
                   </View>
                 ) : (
-                  <Image
-                    source={{ uri: photoUri }}
-                    style={[styles.image, imageStyle, { height }]}
-                    resizeMode="contain"
-                    onLoadStart={() => handleImageLoadStart(index)}
-                    onLoad={() => handleImageLoad(index)}
-                    onError={() => handleImageError(index)}
-                  />
+                  (() => {
+                    // Calculate optimal resize mode based on aspect ratios
+                    const containerAspectRatio = screenWidth / height;
+                    const imageInfo = imageDimensions[index];
+                    const imageAspectRatio = imageInfo?.aspectRatio || containerAspectRatio;
+                    
+                    // Determine optimal resize mode
+                    let resizeMode = 'cover'; // Default to cover to eliminate bars
+                    
+                    // If the image is wider than the container (landscape in portrait container)
+                    // or taller than container (portrait in landscape container)
+                    // use 'cover' to fill and eliminate bars
+                    
+                    // Only use 'contain' if aspect ratios are very similar
+                    const aspectRatioDiff = Math.abs(imageAspectRatio - containerAspectRatio);
+                    const aspectRatioTolerance = 0.1; // 10% tolerance
+                    
+                    if (aspectRatioDiff < aspectRatioTolerance) {
+                      // Aspect ratios are close, use contain to show full image
+                      resizeMode = 'contain';
+                    }
+                    
+                    return (
+                      <Image
+                        source={{ uri: photoUri }}
+                        style={[styles.image, imageStyle, { height }]}
+                        resizeMode={resizeMode}
+                        onLoadStart={() => handleImageLoadStart(index)}
+                        onLoad={() => handleImageLoad(index)}
+                        onError={() => handleImageError(index)}
+                      />
+                    );
+                  })()
                 )}
               </TouchableOpacity>
 
@@ -141,15 +188,17 @@ const SwipeablePhotoGallery = ({
 
       {photos.length > 1 && (
         <View style={styles.dotsContainer}>
-          {photos.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.dot,
-                index === currentIndex && styles.activeDot,
-              ]}
-            />
-          ))}
+          <View style={styles.dotsBackground}>
+            {photos.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.dot,
+                  index === currentIndex && styles.activeDot,
+                ]}
+              />
+            ))}
+          </View>
         </View>
       )}
     </View>
@@ -163,6 +212,7 @@ const styles = StyleSheet.create({
   imageContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   imageTouchable: {
     width: '100%',
@@ -236,23 +286,35 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   dotsContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 10,
+    zIndex: 2,
+  },
+  dotsBackground: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 13,
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#ccc',
-    marginHorizontal: 4,
+    marginHorizontal: 3,
   },
   activeDot: {
     backgroundColor: '#007AFF',
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 });
 

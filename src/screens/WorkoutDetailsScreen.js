@@ -26,6 +26,7 @@ import { getScoreVisibility, getVisibilityMessage, getScoreCutoffDate } from '..
 import { db } from '../firebase';
 import SwipeablePhotoGallery from '../components/SwipeablePhotoGallery';
 import FullScreenPhotoViewer from '../components/FullScreenPhotoViewer';
+import { LinearGradient } from 'expo-linear-gradient';
 import { 
   doc, 
   getDoc, 
@@ -510,17 +511,22 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
         {/* User Info Section */}
         <View style={styles.userInfoSection}>
           <View style={styles.userInfoContainer}>
-            <View style={styles.userAvatar}>
-              {workoutUserProfile?.profilePicture ? (
-                <Image 
-                  source={{ uri: workoutUserProfile.profilePicture }}
-                  style={styles.userAvatarImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Ionicons name="person-circle" size={68} color="#A4D65E" />
-              )}
-            </View>
+            <LinearGradient
+              colors={['#A4D65E', '#B6DB78']}
+              style={styles.userAvatarGradient}
+            >
+              <View style={styles.userAvatar}>
+                {workoutUserProfile?.profilePicture ? (
+                  <Image 
+                    source={{ uri: workoutUserProfile.profilePicture }}
+                    style={styles.userAvatarImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Ionicons name="person-circle" size={75} color="#A4D65E" />
+                )}
+              </View>
+            </LinearGradient>
             <Text style={styles.userName}>{userName || 'Unknown User'}</Text>
           </View>
         </View>
@@ -570,7 +576,7 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
                 <Ionicons name={metric.icon} size={20} color="#A4D65E" />
                 <Text style={styles.metricLabel}>{metric.label}</Text>
               </View>
-              <View style={styles.metricValueRow}>
+              <View style={styles.metricValueColumn}>
                 <Text style={styles.metricValue}>{metric.value}</Text>
                 <Text style={styles.metricUnit}>{metric.displayUnit}</Text>
               </View>
@@ -587,9 +593,11 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
                   {shouldShowWorkoutScore() ? 'Points Earned' : 'Points'}
                 </Text>
               </View>
-              <Text style={styles.pointsValue}>
-                {shouldShowWorkoutScore() ? workout.points : '---'}
-              </Text>
+              <View style={styles.pointsValueContainer}>
+                <Text style={styles.pointsValue}>
+                  {shouldShowWorkoutScore() ? workout.points : '---'}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -773,24 +781,32 @@ const styles = StyleSheet.create({
   userInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 5,
   },
-  userAvatar: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    overflow: 'hidden',
-    backgroundColor: '#F5F5F5',
+  userAvatarGradient: {
+    width: 81,
+    height: 81,
+    borderRadius: 41,
+    padding: 3,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+  },
+  userAvatar: {
+    width: 75,
+    height: 75,
+    borderRadius: 38,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   userAvatarImage: {
     width: '100%',
     height: '100%',
   },
   userName: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '600',
     color: '#1A1E23',
   },
@@ -879,6 +895,7 @@ const styles = StyleSheet.create({
   mainMetricSection: {
     flex: 1,
     paddingRight: 16,
+    alignItems: 'center',
   },
   metricHeader: {
     flexDirection: 'row',
@@ -897,9 +914,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
   },
+  metricValueColumn: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
   metricValue: {
-    fontSize: 42,
-    fontWeight: '300',
+    fontSize: 38,
+    fontWeight: '600',
     color: '#1A1E23',
     letterSpacing: -1,
   },
@@ -907,7 +928,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '400',
     color: '#999',
-    marginLeft: 8,
+    marginTop: 4,
   },
   metricDivider: {
     width: 1,
@@ -918,6 +939,11 @@ const styles = StyleSheet.create({
   pointsSection: {
     flex: 1,
     paddingLeft: 16,
+    alignItems: 'center',
+  },
+  pointsValueContainer: {
+    alignItems: 'center',
+    marginTop: 8,
   },
   pointsLabel: {
     fontSize: 13,
@@ -928,10 +954,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   pointsValue: {
-    fontSize: 36,
+    fontSize: 38,
     fontWeight: '600',
     color: '#A4D65E',
-    marginTop: 8,
+    letterSpacing: -1,
   },
   
   // Notes Section
