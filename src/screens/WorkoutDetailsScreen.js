@@ -351,6 +351,26 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
     }
   };
 
+  // Get pace display information if available
+  const getPaceDisplay = () => {
+    if (!workout.pace || workout.pace === 0) return null;
+    
+    // Find the rule for this workout's activity type
+    const rule = competition?.rules?.find(r => r.type === workout.activityType);
+    if (!rule || !rule.minPace) return null;
+    
+    const paceUnit = rule.paceUnit || 'min/km';
+    const isSpeedUnit = ['km/h', 'mph', 'm/min'].includes(paceUnit);
+    
+    return {
+      label: isSpeedUnit ? 'Speed' : 'Pace',
+      value: workout.pace,
+      unit: paceUnit,
+      icon: isSpeedUnit ? 'speedometer' : 'timer',
+      isSpeed: isSpeedUnit
+    };
+  };
+
   // Handle workout deletion
   const handleDeleteWorkout = () => {
     Alert.alert(
@@ -442,6 +462,7 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
   };
 
   const metric = getMetricDisplay();
+  const paceInfo = getPaceDisplay();
 
   return (
     <View style={styles.container}>
@@ -571,30 +592,67 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
           
           <View style={styles.metricsCard}>
             {/* Main Metric */}
-            <View style={styles.mainMetricSection}>
+            <View style={[
+              styles.mainMetricSection, 
+              paceInfo && styles.mainMetricSectionWithPace
+            ]}>
               <View style={styles.metricHeader}>
-                <Ionicons name={metric.icon} size={20} color="#A4D65E" />
-                <Text style={styles.metricLabel}>{metric.label}</Text>
+                <Ionicons name={metric.icon} size={paceInfo ? 18 : 20} color="#A4D65E" />
+                <Text style={[styles.metricLabel, paceInfo && styles.metricLabelSmall]}>
+                  {metric.label}
+                </Text>
               </View>
               <View style={styles.metricValueColumn}>
-                <Text style={styles.metricValue}>{metric.value}</Text>
-                <Text style={styles.metricUnit}>{metric.displayUnit}</Text>
+                <Text style={[styles.metricValue, paceInfo && styles.metricValueWithPace]}>
+                  {metric.value}
+                </Text>
+                <Text style={[styles.metricUnit, paceInfo && styles.metricUnitWithPace]}>
+                  {metric.displayUnit}
+                </Text>
               </View>
             </View>
             
-            {/* Divider */}
+            {/* First Divider */}
             <View style={styles.metricDivider} />
             
+            {/* Pace Section - Only if pace exists */}
+            {paceInfo && (
+              <>
+                <View style={styles.paceSection}>
+                  <View style={styles.metricHeader}>
+                    <Ionicons name={paceInfo.icon} size={18} color="#4A90E2" />
+                    <Text style={styles.paceLabel}>{paceInfo.label}</Text>
+                  </View>
+                  <View style={styles.paceValueColumn}>
+                    <Text style={styles.paceValue}>{paceInfo.value}</Text>
+                    <Text style={styles.paceUnit}>{paceInfo.unit}</Text>
+                  </View>
+                </View>
+                
+                {/* Second Divider */}
+                <View style={styles.metricDivider} />
+              </>
+            )}
+            
             {/* Points Section */}
-            <View style={styles.pointsSection}>
+            <View style={[
+              styles.pointsSection,
+              paceInfo && styles.pointsSectionWithPace
+            ]}>
               <View style={styles.metricHeader}>
-                <Ionicons name="star" size={20} color="#FFD700" />
-                <Text style={styles.pointsLabel}>
-                  {shouldShowWorkoutScore() ? 'Points Earned' : 'Points'}
+                <Ionicons name="star" size={paceInfo ? 18 : 20} color="#FFD700" />
+                <Text style={[
+                  styles.pointsLabel,
+                  paceInfo && styles.metricLabelSmall
+                ]}>
+                  {shouldShowWorkoutScore() ? 'Points' : 'Points'}
                 </Text>
               </View>
               <View style={styles.pointsValueContainer}>
-                <Text style={styles.pointsValue}>
+                <Text style={[
+                  styles.pointsValue,
+                  paceInfo && styles.pointsValueWithPace
+                ]}>
                   {shouldShowWorkoutScore() ? workout.points : '---'}
                 </Text>
               </View>
@@ -921,7 +979,7 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 38,
     fontWeight: '600',
-    color: '#1A1E23',
+    color: '#A4D65E',  // Changed to signature green
     letterSpacing: -1,
   },
   metricUnit: {
@@ -956,7 +1014,7 @@ const styles = StyleSheet.create({
   pointsValue: {
     fontSize: 38,
     fontWeight: '600',
-    color: '#A4D65E',
+    color: '#FFD700',  // Changed to gold to match pointsValueWithPace
     letterSpacing: -1,
   },
   
@@ -1201,5 +1259,74 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+  },
+  
+  // Three-column layout styles for when pace is displayed
+  mainMetricSectionWithPace: {
+    flex: 1,
+    paddingRight: 12,
+    alignItems: 'center',
+  },
+  paceSection: {
+    flex: 1,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  pointsSectionWithPace: {
+    flex: 1,
+    paddingLeft: 12,
+    alignItems: 'center',
+  },
+  
+  // Consistent smaller sizes for all three columns when pace is shown
+  metricLabelSmall: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666666',
+    marginLeft: 6,
+  },
+  metricValueWithPace: {
+    fontSize: 28,  // Reduced from 38
+    fontWeight: '700',
+    color: '#A4D65E',  // Changed to signature green
+    letterSpacing: -0.5,
+  },
+  metricUnitWithPace: {
+    fontSize: 13,  // Reduced from 16
+    fontWeight: '500',
+    color: '#999999',
+    marginTop: 2,
+  },
+  
+  // Pace-specific styles
+  paceLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666666',
+    marginLeft: 6,
+  },
+  paceValueColumn: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  paceValue: {
+    fontSize: 28,  // Same as metricValueWithPace
+    fontWeight: '700',
+    color: '#4A90E2',  // Blue for pace
+    letterSpacing: -0.5,
+  },
+  paceUnit: {
+    fontSize: 13,  // Same as metricUnitWithPace
+    fontWeight: '500',
+    color: '#999999',
+    marginTop: 2,
+  },
+  
+  // Points with pace
+  pointsValueWithPace: {
+    fontSize: 28,  // Reduced from 38, matching others
+    fontWeight: '700',
+    color: '#FFD700',  // Keep gold color
+    letterSpacing: -0.5,
   },
 });
