@@ -252,9 +252,9 @@ export default function CompetitionCreationScreen({ navigation, route }) {
     presets: { scale: 1.2, x: calculateInitialTabX(0, 3) },
     manual: { scale: 1.2, x: calculateInitialTabX(1, 3) },
     drafts: { scale: 1.2, x: calculateInitialTabX(2, 3) },
-    schedule: { scale: 1.2, x: calculateInitialTabX(0, 3) },
-    friends: { scale: 1.2, x: calculateInitialTabX(1, 3) },
-    rules: { scale: 1.2, x: calculateInitialTabX(2, 3) }
+    rules: { scale: 1.2, x: calculateInitialTabX(0, 3) },
+    schedule: { scale: 1.2, x: calculateInitialTabX(1, 3) },
+    friends: { scale: 1.2, x: calculateInitialTabX(2, 3) }
   });
 
   // Animation refs for underline and press feedback
@@ -326,8 +326,18 @@ export default function CompetitionCreationScreen({ navigation, route }) {
     
     // Handle instant reset when coming from other tabs
     if (resetRequested) {
+      // Clear selected preset to show the correct tabs
+      if (selectedPreset) {
+        setSelectedPreset(null);
+        setPresetStartDate(null);
+        setPresetStartTime(null);
+        setPresetEndDate(null);
+        setPresetEndTime(null);
+        setInvitedFriends([]);
+      }
+      
       // Ensure we're on presets tab
-      if (activeTab !== 'presets') {
+      if (activeTab !== 'presets' || selectedPreset) {
         setActiveTab('presets');
         // Set underline position immediately
         underlinePosition.setValue(tabMeasurements.presets.x);
@@ -345,8 +355,18 @@ export default function CompetitionCreationScreen({ navigation, route }) {
     
     // Handle smooth scroll when already on create tab
     if (scrollToTopRequested) {
+      // Clear selected preset to show the correct tabs
+      if (selectedPreset) {
+        setSelectedPreset(null);
+        setPresetStartDate(null);
+        setPresetStartTime(null);
+        setPresetEndDate(null);
+        setPresetEndTime(null);
+        setInvitedFriends([]);
+      }
+      
       // Ensure we're on presets tab
-      if (activeTab !== 'presets') {
+      if (activeTab !== 'presets' || selectedPreset) {
         setActiveTab('presets');
         // Set underline position immediately
         underlinePosition.setValue(tabMeasurements.presets.x);
@@ -361,7 +381,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       // Clear the scrollToTop param after handling
       navigation.setParams({ scrollToTop: undefined });
     }
-  }, [route?.params?.reset, route?.params?.scrollToTop, activeTab, tabMeasurements, navigation]);
+  }, [route?.params?.reset, route?.params?.scrollToTop, activeTab, tabMeasurements, navigation, selectedPreset]);
 
   // Helper function to get initial form values
   const getInitialFormValues = () => {
@@ -878,7 +898,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
     setPresetEndDate(endDate);
     setPresetEndTime(endDate);
     
-    animateToTab('schedule'); // Switch to schedule tab after selection
+    animateToTab('rules'); // Switch to rules tab after selection
   };
 
   const goBackToPresets = () => {
@@ -1238,7 +1258,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
           style={styles.createButton} 
           onPress={() => animateToTab('friends')}
         >
-          <Text style={styles.createButtonText}>Continue to Invite Friends</Text>
+          <Text style={styles.createButtonText}>Go To Friends</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -1455,9 +1475,9 @@ export default function CompetitionCreationScreen({ navigation, route }) {
 
         <TouchableOpacity 
           style={styles.createButton} 
-          onPress={createPresetCompetition}
+          onPress={() => animateToTab('schedule')}
         >
-          <Text style={styles.createButtonText}>Create Competition</Text>
+          <Text style={styles.createButtonText}>Go To Schedule</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -2179,6 +2199,39 @@ export default function CompetitionCreationScreen({ navigation, route }) {
             </>
           ) : (
             <>
+              {/* Rules Tab */}
+              <Animated.View style={[styles.tabColumn, { transform: [{ scale: rulesScale }] }]}>
+                <TouchableOpacity
+                  style={styles.tabButton}
+                  onPressIn={() => handlePressIn(rulesScale)}
+                  onPressOut={() => handlePressOut('rules', rulesScale)}
+                  onLayout={(event) => {
+                    const { x, width } = event.nativeEvent.layout;
+                    const textWidth = width * 0.8;
+                    const indicatorWidth = textWidth + 12;
+                    const scale = indicatorWidth / baseUnderlineWidth;
+                    const columnCenter = (screenWidth - 48) / 3 * 0 + (screenWidth - 48) / 6;
+                    setTabMeasurements(prev => ({
+                      ...prev,
+                      rules: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
+                    }));
+                    setMeasurementsReady(true);
+                  }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: activeTab === 'rules' }}
+                >
+                  <Text style={[
+                    styles.tabLabel,
+                    { 
+                      color: activeTab === 'rules' ? colors.nav.activeGreen : colors.nav.inactiveGray,
+                      fontSize: activeTab === 'rules' ? 23 : 21
+                    }
+                  ]}>
+                    Rules
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+
               {/* Schedule Tab */}
               <Animated.View style={[styles.tabColumn, { transform: [{ scale: scheduleScale }] }]}>
                 <TouchableOpacity
@@ -2190,7 +2243,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
                     const textWidth = width * 0.8;
                     const indicatorWidth = textWidth + 12;
                     const scale = indicatorWidth / baseUnderlineWidth;
-                    const columnCenter = (screenWidth - 48) / 3 * 0 + (screenWidth - 48) / 6;
+                    const columnCenter = (screenWidth - 48) / 3 * 1 + (screenWidth - 48) / 6;
                     setTabMeasurements(prev => ({
                       ...prev,
                       schedule: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
@@ -2223,7 +2276,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
                     const textWidth = width * 0.8;
                     const indicatorWidth = textWidth + 12;
                     const scale = indicatorWidth / baseUnderlineWidth;
-                    const columnCenter = (screenWidth - 48) / 3 * 1 + (screenWidth - 48) / 6;
+                    const columnCenter = (screenWidth - 48) / 3 * 2 + (screenWidth - 48) / 6;
                     setTabMeasurements(prev => ({
                       ...prev,
                       friends: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
@@ -2241,39 +2294,6 @@ export default function CompetitionCreationScreen({ navigation, route }) {
                     }
                   ]}>
                     Friends
-                  </Text>
-                </TouchableOpacity>
-              </Animated.View>
-
-              {/* Rules Tab */}
-              <Animated.View style={[styles.tabColumn, { transform: [{ scale: rulesScale }] }]}>
-                <TouchableOpacity
-                  style={styles.tabButton}
-                  onPressIn={() => handlePressIn(rulesScale)}
-                  onPressOut={() => handlePressOut('rules', rulesScale)}
-                  onLayout={(event) => {
-                    const { x, width } = event.nativeEvent.layout;
-                    const textWidth = width * 0.8;
-                    const indicatorWidth = textWidth + 12;
-                    const scale = indicatorWidth / baseUnderlineWidth;
-                    const columnCenter = (screenWidth - 48) / 3 * 2 + (screenWidth - 48) / 6;
-                    setTabMeasurements(prev => ({
-                      ...prev,
-                      rules: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
-                    }));
-                    setMeasurementsReady(true);
-                  }}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: activeTab === 'rules' }}
-                >
-                  <Text style={[
-                    styles.tabLabel,
-                    { 
-                      color: activeTab === 'rules' ? colors.nav.activeGreen : colors.nav.inactiveGray,
-                      fontSize: activeTab === 'rules' ? 23 : 21
-                    }
-                  ]}>
-                    Rules
                   </Text>
                 </TouchableOpacity>
               </Animated.View>
