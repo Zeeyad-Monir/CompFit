@@ -60,17 +60,17 @@ const FullScreenPhotoViewer = ({
     let displayWidth, displayHeight, offsetX, offsetY;
     
     if (imageAspectRatio > screenAspectRatio) {
-      // Image is wider than screen ratio - fit to width
-      displayWidth = screenWidth;
-      displayHeight = screenWidth / imageAspectRatio;
-      offsetX = 0;
-      offsetY = (screenHeight - displayHeight) / 2;
-    } else {
-      // Image is taller than screen ratio - fit to height
+      // Image is wider than screen ratio - scale to fill height (will crop sides)
       displayHeight = screenHeight;
       displayWidth = screenHeight * imageAspectRatio;
       offsetX = (screenWidth - displayWidth) / 2;
       offsetY = 0;
+    } else {
+      // Image is taller than screen ratio - scale to fill width (will crop top/bottom)
+      displayWidth = screenWidth;
+      displayHeight = screenWidth / imageAspectRatio;
+      offsetX = 0;
+      offsetY = (screenHeight - displayHeight) / 2;
     }
     
     return {
@@ -145,97 +145,42 @@ const FullScreenPhotoViewer = ({
                     </View>
                   )}
                   
-                  {/* Letterbox touch zones for tap-to-close */}
-                  {bounds && index === currentIndex && (
-                    <>
-                      {/* Top letterbox */}
-                      {bounds.y > 0 && (
-                        <TouchableOpacity
-                          onPress={onClose}
-                          style={[
-                            styles.letterboxZone,
-                            {
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              height: bounds.y,
-                            }
-                          ]}
-                        />
-                      )}
-                      
-                      {/* Bottom letterbox */}
-                      {bounds.y + bounds.height < screenHeight && (
-                        <TouchableOpacity
-                          onPress={onClose}
-                          style={[
-                            styles.letterboxZone,
-                            {
-                              bottom: 0,
-                              left: 0,
-                              right: 0,
-                              height: screenHeight - (bounds.y + bounds.height),
-                            }
-                          ]}
-                        />
-                      )}
-                      
-                      {/* Left letterbox */}
-                      {bounds.x > 0 && (
-                        <TouchableOpacity
-                          onPress={onClose}
-                          style={[
-                            styles.letterboxZone,
-                            {
-                              top: bounds.y,
-                              left: 0,
-                              width: bounds.x,
-                              height: bounds.height,
-                            }
-                          ]}
-                        />
-                      )}
-                      
-                      {/* Right letterbox */}
-                      {bounds.x + bounds.width < screenWidth && (
-                        <TouchableOpacity
-                          onPress={onClose}
-                          style={[
-                            styles.letterboxZone,
-                            {
-                              top: bounds.y,
-                              right: 0,
-                              width: screenWidth - (bounds.x + bounds.width),
-                              height: bounds.height,
-                            }
-                          ]}
-                        />
-                      )}
-                    </>
-                  )}
-                  
-                  <Image
-                    source={{ uri: photoUri }}
-                    style={styles.image}
-                    resizeMode="contain"
-                    onLoadStart={() => handleImageLoadStart(index)}
-                    onLoad={() => {
-                      handleImageLoad(index);
-                      handleImageDimensions(index, photoUri);
-                    }}
-                  />
-                  
-                  {index === currentIndex && bounds && (
-                    <TouchableOpacity
+                  {/* Tap entire image to close */}
+                  <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={onClose}
+                    style={[
+                      styles.imageTouchable,
+                      bounds && {
+                        width: bounds.width,
+                        height: bounds.height,
+                        position: 'absolute',
+                        left: bounds.x,
+                        top: bounds.y,
+                      }
+                    ]}
+                  >
+                    <Image
+                      source={{ uri: photoUri }}
                       style={[
-                        styles.imageCloseButton,
-                        {
-                          position: 'absolute',
-                          top: bounds.y + 10,
-                          right: screenWidth - bounds.x - bounds.width + 10,
-                          zIndex: 10,
+                        styles.image,
+                        bounds && {
+                          width: bounds.width,
+                          height: bounds.height,
                         }
                       ]}
+                      resizeMode="cover"
+                      onLoadStart={() => handleImageLoadStart(index)}
+                      onLoad={() => {
+                        handleImageLoad(index);
+                        handleImageDimensions(index, photoUri);
+                      }}
+                    />
+                  </TouchableOpacity>
+                  
+                  {index === currentIndex && (
+                    <TouchableOpacity
+                      style={styles.imageCloseButton}
                       onPress={onClose}
                       hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                     >
@@ -284,6 +229,9 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   imageCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
     zIndex: 10,
   },
   closeButtonBackground: {
@@ -315,9 +263,12 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: screenWidth,
     height: screenHeight,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: 'transparent',
+    overflow: 'hidden',
+  },
+  imageTouchable: {
+    width: screenWidth,
+    height: screenHeight,
   },
   image: {
     width: screenWidth,
@@ -326,11 +277,6 @@ const styles = StyleSheet.create({
   loadingContainer: {
     position: 'absolute',
     zIndex: 1,
-  },
-  letterboxZone: {
-    position: 'absolute',
-    backgroundColor: 'transparent',
-    zIndex: 5,
   },
   dotsContainer: {
     position: 'absolute',
