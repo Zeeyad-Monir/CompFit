@@ -709,6 +709,33 @@ export default function ProfileScreen({ route, navigation }) {
         return;
       }
 
+      // Check if there's a pending request FROM the target user TO the current user
+      let hasPendingRequestFromTarget = false;
+      try {
+        const incomingRequestsQuery = query(
+          collection(db, 'users', user.uid, 'friendRequests'),
+          where('fromUserId', '==', targetUser.id)
+        );
+        const incomingRequestsSnapshot = await getDocs(incomingRequestsQuery);
+        
+        // Filter out any 'friend_removed' notifications or accepted requests
+        hasPendingRequestFromTarget = incomingRequestsSnapshot.docs.some(doc => {
+          const data = doc.data();
+          return data.type !== 'friend_removed' && !data.accepted;
+        });
+      } catch (error) {
+        console.log('Error checking incoming requests:', error);
+      }
+
+      if (hasPendingRequestFromTarget) {
+        Alert.alert(
+          'Request Pending', 
+          `${targetUser.username} has already sent you a friend request. Please check your pending requests to accept or decline.`
+        );
+        setFriendUsername(''); // Clear the input field
+        return;
+      }
+
       // Send friend request
       const friendRequestData = {
         fromUserId: user.uid,
@@ -810,13 +837,24 @@ export default function ProfileScreen({ route, navigation }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Remove from friends list
+              // Remove from MY friends list
               const myRef = doc(db, 'users', user.uid);
               await updateDoc(myRef, {
                 friends: arrayRemove(friend.id),
               });
 
-              // Notify friend of removal
+              // DIRECTLY remove from THEIR friends list too
+              try {
+                const friendRef = doc(db, 'users', friend.id);
+                await updateDoc(friendRef, {
+                  friends: arrayRemove(user.uid),
+                });
+              } catch (error) {
+                console.log('Could not update friend\'s list:', error);
+                // Continue even if this fails - at least our side is updated
+              }
+
+              // Still send notification for UI updates (optional, for awareness)
               try {
                 await addDoc(collection(db, 'users', friend.id, 'friendRequests'), {
                   fromUserId: user.uid,
@@ -825,7 +863,7 @@ export default function ProfileScreen({ route, navigation }) {
                   type: 'friend_removed',
                 });
               } catch (error) {
-                console.log('Could not notify friend of removal:', error);
+                console.log('Could not send removal notification:', error);
               }
 
               Alert.alert('Success', `${friend.username} has been removed from your friends.`);
