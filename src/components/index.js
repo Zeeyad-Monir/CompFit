@@ -8,6 +8,7 @@ export { default as Dropdown } from './Dropdown';
 export { default as DatePicker } from './DatePicker';
 export { default as LeaderboardUpdatePicker } from './LeaderboardUpdatePicker';
 export { default as ScoreDisplay, ScoreCard, InlineScore } from './ScoreDisplay';
+export { default as SearchBar } from './SearchBar';
 
 export const CompetitionCard = ({ competition, onPress }) => {
   return (

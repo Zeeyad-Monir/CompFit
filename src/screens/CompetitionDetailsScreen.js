@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, TextInput, Image, ActivityIndicator } from 'react-native';
-import { Header, Button, FormInput, DatePicker } from '../components';
+import { Header, Button, FormInput, DatePicker, SearchBar } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { db } from '../firebase';
@@ -2399,17 +2399,12 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
       ) : competition.status !== 'completed' && (activeTab === 'me' || activeTab === 'others') ? (
         <>
           {/* Search bar - Only show for active competitions */}
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={18} color="#999" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="search by competitor or activity"
-              placeholderTextColor="#999"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              returnKeyType="search"
-            />
-          </View>
+          <SearchBar
+            placeholder="search by competitor or activity"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            containerStyle={styles.searchContainer}
+          />
 
           <ScrollView 
             style={styles.workoutsContainer}
@@ -2543,24 +2538,14 @@ const styles = StyleSheet.create({
     color: '#A4D65E',
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EAEAEA',
-    borderRadius: 28,
+    // Consistent styling with ActiveCompetitionsScreen
+    backgroundColor: '#EAEAEA',  // Keep this screen's distinct background color
     marginHorizontal: 16,
     marginTop: 12,
     marginBottom: 20,
-    paddingHorizontal: 16,
-    height: 52,
+    // Note: height, borderRadius, and fontSize are now handled by SearchBar defaults
   },
-  searchIcon: { 
-    marginRight: 10 
-  },
-  searchInput: { 
-    flex: 1, 
-    fontSize: 16, 
-    color: '#333' 
-  },
+  // searchIcon and searchInput styles removed - now handled by SearchBar component
   workoutsContainer: {
     flex: 1,
     paddingHorizontal: 16,

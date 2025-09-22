@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Header, Button } from '../components';
+import { Header, Button, SearchBar } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -189,6 +189,9 @@ export default function ActiveCompetitionsScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshTimeout, setRefreshTimeout] = useState(null);
   const [processedCompetitions, setProcessedCompetitions] = useState(new Set());
+  
+  /* ---------------- search states -------------------- */
+  const [searchQuery, setSearchQuery] = useState('');
 
   /* ---------------- refresh handler -------------------- */
   const onRefresh = () => {
@@ -534,13 +537,13 @@ export default function ActiveCompetitionsScreen({ navigation, route }) {
   };
 
   /* ---------------- search filter ---------------------- */
-  const [queryText, setQueryText] = useState('');
+  // Remove queryText as we're using searchQuery now
 
   const filteredActive = useMemo(
     () =>
       activeCompetitions
         .filter(c =>
-          c.name?.toLowerCase().includes(queryText.toLowerCase().trim()) &&
+          c.name?.toLowerCase().includes(searchQuery.toLowerCase().trim()) &&
           !isCompetitionCompleted(c)
         )
         .sort((a, b) => {
@@ -555,24 +558,24 @@ export default function ActiveCompetitionsScreen({ navigation, route }) {
           // Secondary sort by name if end dates are the same
           return a.name.localeCompare(b.name);
         }),
-    [queryText, activeCompetitions]
+    [searchQuery, activeCompetitions]
   );
 
   const filteredCompleted = useMemo(
     () =>
       activeCompetitions.filter(c =>
-        c.name?.toLowerCase().includes(queryText.toLowerCase().trim()) &&
+        c.name?.toLowerCase().includes(searchQuery.toLowerCase().trim()) &&
         isCompetitionCompleted(c)
       ),
-    [queryText, activeCompetitions]
+    [searchQuery, activeCompetitions]
   );
 
   const filteredPending = useMemo(
     () =>
       pendingInvitations.filter(c =>
-        c.name?.toLowerCase().includes(queryText.toLowerCase().trim())
+        c.name?.toLowerCase().includes(searchQuery.toLowerCase().trim())
       ),
-    [queryText, pendingInvitations]
+    [searchQuery, pendingInvitations]
   );
 
   /* ---------------- invitation handlers ---------------- */
@@ -1004,23 +1007,14 @@ const handleCompetitionPress = async (competition) => {
           />
         </View>
 
+        {/* Search bar with wrapper for proper spacing */}
         <View style={styles.searchFieldWrapper}>
-          <View style={styles.searchField}>
-            <Ionicons 
-              name="search" 
-              size={22} 
-              color={colors.icon.gray} 
-              style={styles.searchIcon} 
-            />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Name of competition"
-              placeholderTextColor={colors.field.placeholder}
-              value={queryText}
-              onChangeText={setQueryText}
-              returnKeyType="search"
-            />
-          </View>
+          <SearchBar
+            placeholder="Name of competition"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            containerStyle={styles.searchField}
+          />
         </View>
 
         <ScrollView
@@ -1104,7 +1098,7 @@ const styles = StyleSheet.create({
     // Width is now controlled by baseUnderlineWidth constant and scale transform
   },
 
-  // Search field styles
+  // Search field wrapper for proper spacing
   searchFieldWrapper: {
     paddingHorizontal: 24,
     marginTop: 24,
@@ -1112,27 +1106,10 @@ const styles = StyleSheet.create({
   },
 
   searchField: {
-    height: 55,
-    backgroundColor: colors.field.bg,
-    borderRadius: 32,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 56,
-    paddingRight: 20,
-    position: 'relative',
-  },
-
-  searchIcon: {
-    position: 'absolute',
-    left: 20,
-    zIndex: 1,
-  },
-
-  searchInput: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '400',
-    color: colors.nav.textDefault,
+    // Override default SearchBar styles to match original design
+    marginHorizontal: 0,  // Remove default margins since wrapper handles it
+    marginTop: 0,
+    marginBottom: 0,
   },
 
   scroll: { 
