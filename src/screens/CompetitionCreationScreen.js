@@ -41,6 +41,7 @@ import {
   draftWithNameExists,
   formatDraftDate 
 } from '../utils/competitionDrafts';
+import { assignCompetitionBackground } from '../utils/competitionBackgrounds';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -993,7 +994,10 @@ export default function CompetitionCreationScreen({ navigation, route }) {
         perSubmissionCap: null
       }));
 
+      const backgroundImage = await assignCompetitionBackground(user.uid, db);
+
       await addDoc(collection(db,'competitions'), {
+        backgroundImage,
         name: selectedPreset.name, description: selectedPreset.description,
         startDate: startDateTime.toISOString(), endDate: endDateTime.toISOString(),
         ownerId: user.uid, participants: [user.uid],
@@ -1108,7 +1112,10 @@ export default function CompetitionCreationScreen({ navigation, route }) {
         paceUnit: r.paceUnit
       })));
 
+      const backgroundImage = await assignCompetitionBackground(user.uid, db);
+
       await addDoc(collection(db,'competitions'), {
+        backgroundImage,
         name: name.trim(), description: description.trim(),
         startDate: finalStartDateTime.toISOString(), endDate: finalEndDateTime.toISOString(),
         ownerId: user.uid, participants: [user.uid],

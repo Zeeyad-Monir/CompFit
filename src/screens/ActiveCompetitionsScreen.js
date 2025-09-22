@@ -12,12 +12,15 @@ import {
   Animated,
   Dimensions,
   Easing,
+  ImageBackground,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Header, Button, SearchBar } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getBackgroundImage } from '../utils/competitionBackgrounds';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { db } from '../firebase';
 import {
@@ -742,43 +745,103 @@ const handleCompetitionPress = async (competition) => {
           });
           const dateLabel = showStartDate ? 'Starts' : 'Ends';
           
+          const backgroundImage = getBackgroundImage(comp.backgroundImage);
+          
           return (
             <TouchableOpacity
               key={comp.id}
-              style={[styles.card, styles.activeCard]}
+              style={[backgroundImage ? styles.cardContainer : styles.card, styles.activeCard]}
               activeOpacity={0.85}
               onPress={() => handleCompetitionPress(comp)}
             >
-              <Text 
-                style={[styles.cardTitle, styles.cardTitleTwoLine]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {comp.name}
-              </Text>
-              
-              {/* Status Badge */}
-              {(() => {
-                const status = getCompetitionBadgeStatus(comp);
-                if (status) {
-                  return (
-                    <View style={[
-                      styles.statusBadge,
-                      status === 'Active' ? styles.statusBadgeActive : styles.statusBadgePending
-                    ]}>
-                      <Text style={styles.statusBadgeText}>{status}</Text>
+              {backgroundImage ? (
+                <ImageBackground
+                  source={backgroundImage}
+                  style={styles.cardImageBackground}
+                  imageStyle={styles.cardImage}
+                >
+                  {/* Full image subtle overlay for better contrast */}
+                  <View style={styles.imageOverlay} />
+                  
+                  {/* Status Badge - Positioned absolutely in top right */}
+                  {(() => {
+                    const status = getCompetitionBadgeStatus(comp);
+                    if (status) {
+                      return (
+                        <View style={[
+                          styles.statusBadge,
+                          status === 'Active' ? styles.statusBadgeActive : styles.statusBadgePending
+                        ]}>
+                          <Text style={styles.statusBadgeText}>{status}</Text>
+                        </View>
+                      );
+                    }
+                    return null;
+                  })()}
+                  
+                  {/* Gradient Overlay at bottom */}
+                  <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.9)']}
+                    locations={[0, 0.3, 0.6, 1]}
+                    style={styles.gradientOverlay}
+                  >
+                    <View style={styles.textContainer}>
+                      <Text 
+                        style={styles.cardTitle}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {comp.name}
+                      </Text>
+                      <Text style={styles.cardSubtitle}>
+                        {dateLabel}: {formattedDate}
+                      </Text>
                     </View>
-                  );
-                }
-                return null;
-              })()}
-
-              {/* Always show date directly under title with tight spacing */}
-              <Text style={[styles.metaText, styles.metaTextTight]}>{dateLabel}: {formattedDate}</Text>
-
-              {comp.status === 'cancelled' && (
-                <View style={styles.cancelledBadge}>
-                  <Text style={styles.cancelledText}>CANCELLED</Text>
+                  </LinearGradient>
+                  
+                  {/* Cancelled Badge if needed */}
+                  {comp.status === 'cancelled' && (
+                    <View style={styles.cancelledBadge}>
+                      <Text style={styles.cancelledText}>CANCELLED</Text>
+                    </View>
+                  )}
+                </ImageBackground>
+              ) : (
+                <View style={styles.fallbackCard}>
+                  {/* Status Badge */}
+                  {(() => {
+                    const status = getCompetitionBadgeStatus(comp);
+                    if (status) {
+                      return (
+                        <View style={[
+                          styles.statusBadge,
+                          status === 'Active' ? styles.statusBadgeActive : styles.statusBadgePending
+                        ]}>
+                          <Text style={styles.statusBadgeText}>{status}</Text>
+                        </View>
+                      );
+                    }
+                    return null;
+                  })()}
+                  
+                  <View style={styles.fallbackTextContainer}>
+                    <Text 
+                      style={styles.cardTitle}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {comp.name}
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      {dateLabel}: {formattedDate}
+                    </Text>
+                  </View>
+                  
+                  {comp.status === 'cancelled' && (
+                    <View style={styles.cancelledBadge}>
+                      <Text style={styles.cancelledText}>CANCELLED</Text>
+                    </View>
+                  )}
                 </View>
               )}
             </TouchableOpacity>
@@ -1145,13 +1208,73 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 22,
     paddingBottom: 22,
-    marginBottom: 24,
+    marginTop: 14,  // Reduced by 50% total from original 25px
+    marginBottom: 14,  // Reduced by 50% total from original 25px
     position: 'relative',  // For absolute positioning of badge
   },
 
   // Fixed height for Active tab cards to ensure consistency
   activeCard: {
-    height: 120,
+    height: 216,  // Increased by 80% from original 120px (additional 20% from 180px)
+  },
+
+  // New styles for background image cards
+  cardContainer: {
+    borderRadius: 24,
+    marginTop: 14,  // Reduced by 50% total from original 25px
+    marginBottom: 14,  // Reduced by 50% total from original 25px
+    overflow: 'hidden',
+    position: 'relative',
+  },
+
+  cardImageBackground: {
+    width: '100%',
+    height: '100%',
+  },
+
+  cardImage: {
+    borderRadius: 24,
+    resizeMode: 'cover',
+  },
+
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',  // 8% black overlay for subtle darkening
+    borderRadius: 24,  // Match card radius
+  },
+
+  gradientOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '45%',  // Cover bottom 45% of card - increased for better text protection
+    justifyContent: 'flex-end',
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+  },
+
+  textContainer: {
+    // Container for title and subtitle
+  },
+
+  fallbackCard: {
+    backgroundColor: '#262626',
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
+    position: 'relative',
+  },
+
+  fallbackTextContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 24,
+    right: 24,
   },
 
   completedCard: {
@@ -1170,11 +1293,19 @@ const styles = StyleSheet.create({
   },
 
   cardTitle: { 
-    fontSize: 22,     // Reverted to original size
-    lineHeight: 34,   // Reverted to original line height
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '700', 
     color: '#FFFFFF',
-    paddingRight: 74,  // Updated for smaller badge (52 + 14 + 8 margin)
+    // Remove paddingRight as badge is now absolutely positioned
+  },
+
+  cardSubtitle: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.85)',  // Slightly transparent white
+    marginTop: 4,
   },
 
   // Clamp title to 2 lines without forcing extra space
@@ -1190,10 +1321,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 
-  // Tighter spacing for Active card date under title
-  metaTextTight: {
-    marginTop: 4,
-  },
 
   endedDateText: {
     fontSize: 14,
@@ -1217,8 +1344,8 @@ const styles = StyleSheet.create({
   // Status Badge Styles
   statusBadge: {
     position: 'absolute',
-    top: 18,
-    right: 14,    // Moved 20% closer to edge (18 * 0.8 = 14.4)
+    top: 16,        // Slightly higher
+    right: 16,      // Consistent padding
     minWidth: 52,    // Further 10% reduction (58 * 0.9 = 52.2)
     minHeight: 26,   // Further 10% reduction (29 * 0.9 = 26.1)
     paddingVertical: 5,    // Further 10% reduction (6 * 0.9 = 5.4)
@@ -1241,7 +1368,7 @@ const styles = StyleSheet.create({
   },
 
   statusBadgeActive: {
-    backgroundColor: '#8DC63F', // Bright lime green
+    backgroundColor: '#B6DB78',  // Keep the bright lime green from nav.activeGreen
   },
 
   statusBadgePending: {
