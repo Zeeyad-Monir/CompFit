@@ -763,6 +763,13 @@ const handleCompetitionPress = async (competition) => {
                   {/* Full image subtle overlay for better contrast */}
                   <View style={styles.imageOverlay} />
                   
+                  {/* Glossy highlight overlay for premium feel */}
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.02)', 'transparent']}
+                    locations={[0, 0.3, 1]}
+                    style={styles.glossyOverlay}
+                  />
+                  
                   {/* Status Badge - Positioned absolutely in top right */}
                   {(() => {
                     const status = getCompetitionBadgeStatus(comp);
@@ -865,26 +872,90 @@ const handleCompetitionPress = async (competition) => {
             day: 'numeric' 
           });
           
+          const backgroundImage = getBackgroundImage(comp.backgroundImage);
+          
           return (
             <TouchableOpacity
               key={comp.id}
-              style={styles.completedCard}
+              style={styles.completedCardWrapper}
               activeOpacity={0.85}
               onPress={() => handleCompetitionPress(comp)}
             >
-              <Text 
-                style={[styles.cardTitle, styles.cardTitleTwoLine]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {comp.name}
-              </Text>
-              {comp.status === 'cancelled' && (
-                <View style={styles.cancelledBadge}>
-                  <Text style={styles.cancelledText}>CANCELLED</Text>
+              {backgroundImage ? (
+                <ImageBackground
+                  source={backgroundImage}
+                  style={styles.completedCardImageBackground}
+                  imageStyle={styles.completedCardImage}
+                >
+                  {/* Full image subtle overlay for better contrast */}
+                  <View style={styles.imageOverlayResults} />
+                  
+                  {/* Glossy highlight overlay for premium feel */}
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.02)', 'transparent']}
+                    locations={[0, 0.3, 1]}
+                    style={styles.glossyOverlay}
+                  />
+                  
+                  {/* Results Badge - Dark green */}
+                  <View style={[styles.statusBadge, styles.statusBadgeResults]}>
+                    <Text style={styles.statusBadgeText}>Results</Text>
+                  </View>
+                  
+                  {/* Gradient Overlay at bottom */}
+                  <LinearGradient
+                    colors={['transparent', 'rgba(182,219,120,0.2)', 'rgba(182,219,120,0.5)', 'rgba(182,219,120,0.9)']}
+                    locations={[0, 0.3, 0.6, 1]}
+                    style={styles.gradientOverlay}
+                  >
+                    <View style={styles.textContainer}>
+                      <Text 
+                        style={styles.cardTitle}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {comp.name}
+                      </Text>
+                      <Text style={styles.cardSubtitle}>
+                        Ended: {formattedDate}
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                  
+                  {/* Cancelled Badge if needed */}
+                  {comp.status === 'cancelled' && (
+                    <View style={styles.cancelledBadge}>
+                      <Text style={styles.cancelledText}>CANCELLED</Text>
+                    </View>
+                  )}
+                </ImageBackground>
+              ) : (
+                <View style={styles.completedFallbackCard}>
+                  {/* Results Badge */}
+                  <View style={[styles.statusBadge, styles.statusBadgeResults]}>
+                    <Text style={styles.statusBadgeText}>Results</Text>
+                  </View>
+                  
+                  <View style={styles.fallbackTextContainer}>
+                    <Text 
+                      style={styles.cardTitle}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {comp.name}
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      Ended: {formattedDate}
+                    </Text>
+                  </View>
+                  
+                  {comp.status === 'cancelled' && (
+                    <View style={styles.cancelledBadge}>
+                      <Text style={styles.cancelledText}>CANCELLED</Text>
+                    </View>
+                  )}
                 </View>
               )}
-              <Text style={styles.endedDateText}>Ended: {formattedDate}</Text>
             </TouchableOpacity>
           );
         })
@@ -1225,6 +1296,15 @@ const styles = StyleSheet.create({
     marginBottom: 14,  // Reduced by 50% total from original 25px
     overflow: 'hidden',
     position: 'relative',
+    // Premium shadow for depth
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,  // Android shadow
   },
 
   cardImageBackground: {
@@ -1235,6 +1315,7 @@ const styles = StyleSheet.create({
   cardImage: {
     borderRadius: 24,
     resizeMode: 'cover',
+    backgroundColor: 'transparent',  // For sharper images on high-res screens
   },
 
   imageOverlay: {
@@ -1245,6 +1326,25 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.08)',  // 8% black overlay for subtle darkening
     borderRadius: 24,  // Match card radius
+  },
+  
+  imageOverlayResults: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.12)',  // 12% black overlay for better contrast on results cards
+    borderRadius: 21,  // Slightly less than wrapper to account for border
+  },
+
+  glossyOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '30%',  // Cover top portion for glossy effect
+    borderRadius: 24,
   },
 
   gradientOverlay: {
@@ -1277,19 +1377,47 @@ const styles = StyleSheet.create({
     right: 24,
   },
 
-  completedCard: {
-    backgroundColor: '#262626',
+  // Wrapper for completed cards with green border
+  completedCardWrapper: {
     borderRadius: 24,
-    paddingHorizontal: 22,  // Reduced by 2px to compensate for border
-    paddingTop: 20,         // Reduced by 2px to compensate for border
-    paddingBottom: 20,      // Reduced by 2px to compensate for border
-    marginBottom: 24,
+    marginTop: 14,  // Match active card spacing
+    marginBottom: 14,
+    overflow: 'hidden',
     position: 'relative',
-    height: 120,            // Match Active cards height
+    height: 216,  // Match active card height
     
-    // Add green border matching tab bar
-    borderWidth: 3, // +10% from 2
+    // Green border
+    borderWidth: 3,
     borderColor: '#B6DB78',  // Tab bar active green
+    
+    // Premium shadow for depth
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,  // Android shadow
+  },
+  
+  completedCardImageBackground: {
+    width: '100%',
+    height: '100%',
+  },
+  
+  completedCardImage: {
+    borderRadius: 21,  // Slightly less than wrapper to account for border
+    resizeMode: 'cover',
+    backgroundColor: 'transparent',
+  },
+  
+  completedFallbackCard: {
+    backgroundColor: '#262626',
+    width: '100%',
+    height: '100%',
+    borderRadius: 21,  // Slightly less than wrapper to account for border
+    position: 'relative',
   },
 
   cardTitle: { 
@@ -1318,15 +1446,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '500',
     color: '#B8C0C7',
-    marginTop: 6,
-  },
-
-
-  endedDateText: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
-    color: colors.nav.activeGreen, // Match top tab bar active green
     marginTop: 6,
   },
 
@@ -1373,6 +1492,10 @@ const styles = StyleSheet.create({
 
   statusBadgePending: {
     backgroundColor: '#E6952B', // Warm orange
+  },
+  
+  statusBadgeResults: {
+    backgroundColor: '#5A8A2E', // Darker green for results
   },
 
   statusBadgeText: {
