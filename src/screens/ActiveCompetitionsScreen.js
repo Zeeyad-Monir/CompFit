@@ -12,12 +12,15 @@ import {
   Animated,
   Dimensions,
   Easing,
+  ImageBackground,
+  Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Header, Button, SearchBar } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { db } from '../firebase';
 import {
@@ -34,6 +37,9 @@ import {
   getDoc,
 } from 'firebase/firestore';
 import { AuthContext } from '../contexts/AuthContext';
+
+// Import cover photo
+const coverPhotoOne = require('../../assets/coverPhotos/coverPhotoOne.png');
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -749,15 +755,36 @@ const handleCompetitionPress = async (competition) => {
               activeOpacity={0.85}
               onPress={() => handleCompetitionPress(comp)}
             >
-              <Text 
-                style={[styles.cardTitle, styles.cardTitleTwoLine]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {comp.name}
-              </Text>
-              
-              {/* Status Badge */}
+              {/* Absolute positioned image background */}
+              <View style={styles.imageContainer}>
+                {/* Inner container to position image */}
+                <View style={styles.imagePositioner}>
+                  <Image
+                    source={coverPhotoOne}
+                    style={styles.cardImageAbsolute}
+                  />
+                </View>
+                {/* Bottom gradient overlay */}
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
+                  style={styles.gradientOverlay}
+                >
+                  <View style={styles.cardTextContainer}>
+                    <Text 
+                      style={[styles.cardTitle, styles.cardTitleOverlay]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {comp.name}
+                    </Text>
+                    <Text style={[styles.metaText, styles.metaTextOverlay]}>
+                      {dateLabel}: {formattedDate}
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </View>
+
+              {/* Status Badge - on top of everything */}
               {(() => {
                 const status = getCompetitionBadgeStatus(comp);
                 if (status) {
@@ -773,9 +800,7 @@ const handleCompetitionPress = async (competition) => {
                 return null;
               })()}
 
-              {/* Always show date directly under title with tight spacing */}
-              <Text style={[styles.metaText, styles.metaTextTight]}>{dateLabel}: {formattedDate}</Text>
-
+              {/* Cancelled badge if needed */}
               {comp.status === 'cancelled' && (
                 <View style={styles.cancelledBadge}>
                   <Text style={styles.cancelledText}>CANCELLED</Text>
@@ -1151,7 +1176,10 @@ const styles = StyleSheet.create({
 
   // Fixed height for Active tab cards to ensure consistency
   activeCard: {
-    height: 120,
+    height: 215,  // Increased another 10% to 215px for optimal spacing
+    overflow: 'hidden',  // Ensure image doesn't bleed out
+    backgroundColor: 'transparent',  // Remove background color since we have image
+    position: 'relative',  // For absolute positioning of image container
   },
 
   completedCard: {
@@ -1162,7 +1190,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,      // Reduced by 2px to compensate for border
     marginBottom: 24,
     position: 'relative',
-    height: 120,            // Match Active cards height
+    height: 215,            // Match new Active cards height
     
     // Add green border matching tab bar
     borderWidth: 3, // +10% from 2
@@ -1170,8 +1198,8 @@ const styles = StyleSheet.create({
   },
 
   cardTitle: { 
-    fontSize: 22,     // Reverted to original size
-    lineHeight: 34,   // Reverted to original line height
+    fontSize: 24,     // Slightly larger for better proportion with taller cards
+    lineHeight: 36,   // Adjusted line height
     fontWeight: '700', 
     color: '#FFFFFF',
     paddingRight: 74,  // Updated for smaller badge (52 + 14 + 8 margin)
@@ -1304,5 +1332,71 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
+  },
+
+  // Container for absolute positioning - clips to card bounds
+  imageContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+
+  // Inner container that positions the image up
+  imagePositioner: {
+    position: 'absolute',
+    top: -100,  // Much more aggressive shift up to counteract cover centering
+    left: 0,
+    right: 0,
+    height: 415,  // 200px taller than card (215px) for full coverage with shift
+  },
+
+  // Image fills the positioned container
+  cardImageAbsolute: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+
+  // Note: cardImageBackground and cardImage styles removed as we now use cardImageAbsolute
+
+  // Gradient overlay styles
+  gradientOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 105,  // Increased to accommodate taller card and prevent text cutoff
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    justifyContent: 'flex-end',
+  },
+
+  // Text container in overlay
+  cardTextContainer: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,  // Reduced slightly as we have more gradient height
+    paddingTop: 8,  // Add top padding to push text down by ~10%
+  },
+
+  // Title style when over image
+  cardTitleOverlay: {
+    paddingRight: 0,  // Remove right padding since text is at bottom
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+
+  // Meta text style when over image
+  metaTextOverlay: {
+    marginTop: 4,
+    color: '#FFFFFF',  // Full white for better contrast on gradient
+    opacity: 0.9,  // Slight transparency for hierarchy
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });
