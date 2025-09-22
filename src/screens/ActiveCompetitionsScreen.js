@@ -970,37 +970,86 @@ const handleCompetitionPress = async (competition) => {
   const renderInvitesTab = () => (
     <>
       {filteredPending.length > 0 ? (
-        filteredPending.map(comp => (
-          <TouchableOpacity
-            key={comp.id}
-            style={styles.card}
-            activeOpacity={0.85}
-            onPress={() => handlePendingInvitePress(comp)}
-          >
-            <Text style={styles.cardTitle}>{comp.name}</Text>
-            <Text style={styles.metaText}>You've been invited to join!</Text>
-            <View style={styles.inviteActions}>
-              <TouchableOpacity
-                style={[styles.inviteButton, styles.acceptButton]}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleAcceptInvite(comp.id);
-                }}
-              >
-                <Text style={styles.acceptButtonText}>Accept</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.inviteButton, styles.declineButton]}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleDeclineInvite(comp.id);
-                }}
-              >
-                <Text style={styles.declineButtonText}>Decline</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        ))
+        filteredPending.map(comp => {
+          const backgroundImage = getBackgroundImage(comp.backgroundImage);
+          
+          return (
+            <TouchableOpacity
+              key={comp.id}
+              style={styles.inviteCardWrapper}
+              activeOpacity={0.85}
+              onPress={() => handlePendingInvitePress(comp)}
+            >
+              {backgroundImage ? (
+                <ImageBackground
+                  source={backgroundImage}
+                  style={styles.inviteCardImageBackground}
+                  imageStyle={styles.inviteCardImage}
+                >
+                  {/* Dark overlay for subdued background */}
+                  <View style={styles.inviteImageOverlay} />
+                  
+                  {/* Content container */}
+                  <View style={styles.inviteContentContainer}>
+                    <View style={styles.inviteTopContent}>
+                      <Text style={styles.inviteCardTitle}>{comp.name}</Text>
+                      <Text style={styles.inviteMetaText}>You've been invited to join!</Text>
+                    </View>
+                    <View style={styles.inviteActions}>
+                      <TouchableOpacity
+                        style={[styles.inviteButton, styles.acceptButton]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleAcceptInvite(comp.id);
+                        }}
+                      >
+                        <Text style={styles.acceptButtonText}>Accept</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.inviteButton, styles.declineButton]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleDeclineInvite(comp.id);
+                        }}
+                      >
+                        <Text style={styles.declineButtonText}>Decline</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </ImageBackground>
+              ) : (
+                <View style={styles.inviteFallbackCard}>
+                  <View style={styles.inviteContentContainer}>
+                    <View style={styles.inviteTopContent}>
+                      <Text style={styles.inviteCardTitle}>{comp.name}</Text>
+                      <Text style={styles.inviteMetaText}>You've been invited to join!</Text>
+                    </View>
+                    <View style={styles.inviteActions}>
+                      <TouchableOpacity
+                        style={[styles.inviteButton, styles.acceptButton]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleAcceptInvite(comp.id);
+                        }}
+                      >
+                        <Text style={styles.acceptButtonText}>Accept</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.inviteButton, styles.declineButton]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleDeclineInvite(comp.id);
+                        }}
+                      >
+                        <Text style={styles.declineButtonText}>Decline</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })
       ) : (
         <Text style={styles.emptyText}>
           No pending invitations.
@@ -1506,6 +1555,82 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  // Invite card styles
+  inviteCardWrapper: {
+    borderRadius: 24,
+    marginTop: 14,
+    marginBottom: 14,
+    overflow: 'hidden',
+    position: 'relative',
+    height: 216,  // Match other card heights
+    
+    // Premium shadow for depth
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,  // Android shadow
+  },
+  
+  inviteCardImageBackground: {
+    width: '100%',
+    height: '100%',
+  },
+  
+  inviteCardImage: {
+    borderRadius: 24,
+    resizeMode: 'cover',
+    backgroundColor: 'transparent',
+    opacity: 1.0,  // 100% image opacity - full visibility
+  },
+  
+  inviteImageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.70)',  // 70% black overlay for strong darkening
+    borderRadius: 24,
+  },
+  
+  inviteContentContainer: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 22,
+    justifyContent: 'space-between',  // Push title to top, buttons to bottom
+  },
+  
+  inviteTopContent: {
+    // Container for title and subtitle at top
+  },
+  
+  inviteCardTitle: { 
+    fontSize: 24,  // Increased 10% from 22px
+    lineHeight: 30,
+    fontWeight: '700', 
+    color: '#FFFFFF',
+  },
+  
+  inviteMetaText: {
+    fontSize: 15,  // Increased 10% from 14px
+    lineHeight: 22,
+    fontWeight: '500',
+    color: '#E0E0E0',  // Lighter grey for better contrast
+    marginTop: 6,
+  },
+  
+  inviteFallbackCard: {
+    backgroundColor: '#262626',
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
+  },
+
   inviteActions: {
     flexDirection: 'row',
     gap: 12,
@@ -1532,13 +1657,13 @@ const styles = StyleSheet.create({
   acceptButtonText: {
     color: '#262626',
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: 18,  // Increased 10% from 16px
   },
 
   declineButtonText: {
     color: '#93D13C',
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: 18,  // Increased 10% from 16px
   },
   
   // Cancelled indicator styles
