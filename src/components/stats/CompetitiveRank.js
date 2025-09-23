@@ -30,8 +30,10 @@ export default function CompetitiveRank({
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const standingsHeight = useRef(new Animated.Value(0)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const fadeAnims = useRef(friendsRankingList.map(() => new Animated.Value(1))).current;
   
   const [showStandings, setShowStandings] = useState(false);
+  const [showAllFriends, setShowAllFriends] = useState(false);
   const [showInfoOverlay, setShowInfoOverlay] = useState(false);
 
   // Calculate gradient colors based on percentile among friends
@@ -134,12 +136,22 @@ export default function CompetitiveRank({
   // Toggle standings dropdown
   const toggleStandings = () => {
     const isClosing = showStandings;
-    const toValue = isClosing ? 0 : 207; // Increased by 10% from 188
+    
+    // Calculate dynamic height based on number of friends to show
+    let targetHeight = 0;
+    if (!isClosing) {
+      // Always show first 3 initially
+      if (friendsRankingList.length <= 3) {
+        targetHeight = friendsRankingList.length * 65 + 10; // Just friends, no extra buttons
+      } else {
+        targetHeight = 3 * 65 + 55; // 3 friends + expand button
+      }
+    }
     
     // Use timing instead of spring for smoother animation
     Animated.timing(standingsHeight, {
-      toValue,
-      duration: isClosing ? 250 : 300,  // Slightly faster when closing
+      toValue: isClosing ? 0 : targetHeight,
+      duration: isClosing ? 250 : 400,  // Slightly longer for opening
       easing: isClosing 
         ? Easing.bezier(0.4, 0.0, 0.6, 1)  // Ease-in for closing
         : Easing.bezier(0.0, 0.0, 0.2, 1),  // Ease-out for opening
@@ -148,6 +160,7 @@ export default function CompetitiveRank({
       // Update state AFTER animation completes to prevent flicker
       if (finished && isClosing) {
         setShowStandings(false);
+        setShowAllFriends(false); // Reset to show only 3 when closing
       }
     });
     
@@ -155,6 +168,29 @@ export default function CompetitiveRank({
     if (!isClosing) {
       setShowStandings(true);
     }
+  };
+  
+  // Toggle showing all friends
+  const toggleShowAllFriends = () => {
+    const isExpanding = !showAllFriends;
+    
+    // Calculate target height
+    let targetHeight;
+    if (isExpanding) {
+      targetHeight = friendsRankingList.length * 65 + 50; // All friends + collapse button
+    } else {
+      targetHeight = 3 * 65 + 55; // 3 friends + expand button
+    }
+    
+    // Animate height change
+    Animated.timing(standingsHeight, {
+      toValue: targetHeight,
+      duration: 300,
+      easing: Easing.bezier(0.0, 0.0, 0.2, 1),
+      useNativeDriver: false,
+    }).start();
+    
+    setShowAllFriends(isExpanding);
   };
   
   // Toggle info overlay
@@ -282,68 +318,98 @@ export default function CompetitiveRank({
               activeOpacity={0.7}
             >
               <Text style={styles.standingsToggleText}>
-                {showStandings ? '\u2191 Hide standings' : '\u2193 See standings'}
+                {showStandings 
+                  ? '\u2191 Hide standings' 
+                  : friendsRankingList.length > 3 
+                    ? `\u2193 View all ${friendsRankingList.length} friends`
+                    : '\u2193 See standings'}
               </Text>
             </TouchableOpacity>
           )}
           
           {/* Expandable Standings Container */}
-          <Animated.View style={[styles.standingsContainer, { height: standingsHeight }]}>
-            <ScrollView 
-              style={styles.standingsList}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-              contentContainerStyle={styles.standingsContent}
-            >
-              {friendsRankingList.map((friend) => (
-                <View 
-                  key={friend.rank}
-                  style={[
-                    styles.standingRow,
-                    friend.isCurrentUser && styles.standingRowHighlighted
-                  ]}
-                >
-                  <Text style={[
-                    styles.standingRank,
-                    friend.isCurrentUser && styles.standingTextHighlighted
-                  ]}>
-                    {friend.rank}{getRankSuffix(friend.rank)}
-                  </Text>
-                  
-                  <View style={styles.standingProfilePic}>
-                    {friend.profilePicture ? (
-                      <Image 
-                        source={{ uri: friend.profilePicture }}
-                        style={styles.standingProfileImage}
-                      />
-                    ) : (
-                      <View style={styles.standingProfilePlaceholder}>
-                        <Ionicons 
-                          name="person-circle" 
-                          size={35} 
-                          color={friend.isCurrentUser ? '#22C55E' : '#9CA3AF'} 
+          {showStandings && (
+            <Animated.View style={[styles.standingsContainer, { height: standingsHeight }]}>
+              <View style={styles.standingsContent}>
+                {/* Show first 3 friends initially, or all if expanded */}
+                {(showAllFriends ? friendsRankingList : friendsRankingList.slice(0, 3)).map((friend, index) => (
+                  <Animated.View 
+                    key={friend.rank}
+                    style={[
+                      styles.standingRow,
+                      friend.isCurrentUser && styles.standingRowHighlighted,
+                      index === 0 && styles.standingRowFirst,
+                      index === (showAllFriends ? friendsRankingList.length - 1 : Math.min(3, friendsRankingList.length) - 1) && (friendsRankingList.length <= 3 || index === friendsRankingList.length - 1) && styles.standingRowLast
+                    ]}
+                  >
+                    <Text style={[
+                      styles.standingRank,
+                      friend.isCurrentUser && styles.standingTextHighlighted
+                    ]}>
+                      {friend.rank}{getRankSuffix(friend.rank)}
+                    </Text>
+                    
+                    <View style={styles.standingProfilePic}>
+                      {friend.profilePicture ? (
+                        <Image 
+                          source={{ uri: friend.profilePicture }}
+                          style={styles.standingProfileImage}
                         />
-                      </View>
-                    )}
-                  </View>
-                  
-                  <Text style={[
-                    styles.standingName,
-                    friend.isCurrentUser && styles.standingTextHighlighted
-                  ]}>
-                    {friend.name}
-                  </Text>
-                  
-                  <Text style={[
-                    styles.standingScore,
-                    friend.isCurrentUser && styles.standingTextHighlighted
-                  ]}>
-                    {friend.bpr.toFixed(2)}
-                  </Text>
-                </View>
-              ))}
-            </ScrollView>
-          </Animated.View>
+                      ) : (
+                        <View style={styles.standingProfilePlaceholder}>
+                          <Ionicons 
+                            name="person-circle" 
+                            size={35} 
+                            color={friend.isCurrentUser ? '#22C55E' : '#9CA3AF'} 
+                          />
+                        </View>
+                      )}
+                    </View>
+                    
+                    <Text style={[
+                      styles.standingName,
+                      friend.isCurrentUser && styles.standingTextHighlighted
+                    ]}>
+                      {friend.name}
+                    </Text>
+                    
+                    <Text style={[
+                      styles.standingScore,
+                      friend.isCurrentUser && styles.standingTextHighlighted
+                    ]}>
+                      {friend.bpr.toFixed(2)}
+                    </Text>
+                  </Animated.View>
+                ))}
+                
+                {/* Show expand button when there are more than 3 friends and not expanded */}
+                {!showAllFriends && friendsRankingList.length > 3 && (
+                  <TouchableOpacity 
+                    style={styles.expandButton}
+                    onPress={toggleShowAllFriends}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.expandButtonText}>
+                      View all {friendsRankingList.length} friends
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color="#6B7280" />
+                  </TouchableOpacity>
+                )}
+                
+                {/* Show collapse button when expanded */}
+                {showAllFriends && friendsRankingList.length > 3 && (
+                  <TouchableOpacity 
+                    style={styles.collapseButton}
+                    onPress={toggleShowAllFriends}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.collapseButtonText}>Show less</Text>
+                    <Ionicons name="chevron-up" size={18} color="#6B7280" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </Animated.View>
+          )}
           
           {/* Info Overlay */}
           {showInfoOverlay && (
@@ -602,12 +668,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     borderRadius: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-  },
-  standingsList: {
-    maxHeight: 193, // Increased by 10% from 175
+    borderWidth: 1,
+    borderColor: 'rgba(229, 231, 235, 0.5)',
   },
   standingsContent: {
-    paddingVertical: 4,
+    paddingVertical: 0,
   },
   standingRow: {
     flexDirection: 'row',
@@ -737,5 +802,50 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
+  },
+  standingRowFirst: {
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  standingRowLast: {
+    borderBottomWidth: 0,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F9FAFB',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    gap: 6,
+  },
+  expandButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  collapseButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#F9FAFB',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    gap: 4,
+  },
+  collapseButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
   },
 });
