@@ -258,7 +258,7 @@ export default function ProfileScreen({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [showAllFriends, setShowAllFriends] = useState(false);
-  const friendsListHeight = useRef(new Animated.Value(0)).current;
+  const friendsListAnimation = useRef(new Animated.Value(0)).current;
   
   // New state for competition stats
   const [currentStreak, setCurrentStreak] = useState(0);
@@ -878,12 +878,12 @@ export default function ProfileScreen({ route, navigation }) {
   };
 
   const toggleFriendsList = () => {
-    const toValue = showAllFriends ? 0 : Math.min((friendsList.length - 3) * 70, 210); // Max 3 more friends visible
+    const toValue = showAllFriends ? 0 : 1;
     
-    Animated.timing(friendsListHeight, {
+    Animated.spring(friendsListAnimation, {
       toValue,
-      duration: 250,
-      easing: Easing.bezier(0.0, 0.0, 0.2, 1),
+      friction: 8,
+      tension: 40,
       useNativeDriver: false,
     }).start();
     
@@ -1656,101 +1656,180 @@ export default function ProfileScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* Friends List */}
+      {/* Friends List - Redesigned */}
       <View style={styles.section}>
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Friends ({friendsList.length})</Text>
-          {friendsList.length > 3 && (
-            <TouchableOpacity 
-              onPress={toggleFriendsList}
-              style={styles.viewMoreButton}
-            >
-              <Text style={styles.viewMoreButtonText}>
-                {showAllFriends ? 'Show less' : `View all (${friendsList.length - 3} more)`}
-              </Text>
-            </TouchableOpacity>
-          )}
+          <Text style={styles.sectionTitle}>Friends</Text>
+          <View style={styles.friendsHeaderRight}>
+            <Text style={styles.friendsCount}>{friendsList.length} {friendsList.length === 1 ? 'friend' : 'friends'}</Text>
+            {friendsList.length > 4 && (
+              <TouchableOpacity 
+                onPress={toggleFriendsList}
+                style={styles.viewAllButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.viewAllButtonText}>
+                  {showAllFriends ? 'Show less' : 'Show all'}
+                </Text>
+                <Animated.View
+                  style={{
+                    transform: [
+                      {
+                        rotate: friendsListAnimation.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0deg', '180deg'],
+                        }),
+                      },
+                    ],
+                  }}
+                >
+                  <Ionicons name="chevron-down" size={18} color="#007AFF" />
+                </Animated.View>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
+        
         {loadingFriends ? (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading friends...</Text>
+          <View style={styles.friendsLoadingContainer}>
+            <ActivityIndicator size="large" color="#A4D65E" />
+            <Text style={styles.friendsLoadingText}>Loading friends...</Text>
           </View>
         ) : friendsList.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="people" size={48} color="#6B7280" />
-            <Text style={styles.emptyText}>No friends yet</Text>
-            <Text style={styles.emptySubtext}>Add friends to see them here</Text>
+          <View style={styles.friendsEmptyContainer}>
+            <View style={styles.friendsEmptyIcon}>
+              <Ionicons name="people-outline" size={56} color="#D1D5DB" />
+            </View>
+            <Text style={styles.friendsEmptyTitle}>No friends yet</Text>
+            <Text style={styles.friendsEmptySubtext}>Connect with others to see them here</Text>
+            <TouchableOpacity 
+              style={styles.friendsEmptyButton}
+              onPress={() => {
+                // Scroll to Add Friend section
+                friendsScrollRef.current?.scrollTo({ y: 0, animated: true });
+              }}
+            >
+              <Text style={styles.friendsEmptyButtonText}>Add your first friend</Text>
+            </TouchableOpacity>
           </View>
         ) : (
-          <>
-            {/* First 3 friends always visible */}
-            <View style={styles.friendsContainer}>
-              {friendsList.slice(0, 3).map((friend) => (
-                <View key={friend.id} style={styles.friendItem}>
-                  <View style={styles.friendUserInfo}>
-                    <View style={styles.friendProfilePic}>
-                      {friend.profilePicture ? (
-                        <Image 
-                          source={{ uri: friend.profilePicture }} 
-                          style={styles.friendProfileImage} 
-                        />
-                      ) : (
-                        <Ionicons name="person" size={24} color="#A4D65E" />
-                      )}
-                    </View>
-                    <View style={styles.friendUserText}>
-                      <Text style={styles.friendUsername}>{friend.username}</Text>
-                      <Text style={styles.friendSubtext}>@{friend.handle}</Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.removeFriendButton}
-                    onPress={() => removeFriend(friend)}
-                  >
-                    <Ionicons name="person-remove" size={18} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-            
-            {/* Expandable section for remaining friends */}
-            {friendsList.length > 3 && (
-              <Animated.View style={[styles.expandableFriendsContainer, { height: friendsListHeight }]}>
-                <ScrollView 
-                  style={styles.expandableFriendsList}
-                  nestedScrollEnabled={true}
-                  showsVerticalScrollIndicator={true}
+          <View style={styles.friendsListWrapper}>
+            {/* Display friends based on expansion state */}
+            {friendsList.slice(0, showAllFriends ? friendsList.length : Math.min(4, friendsList.length)).map((friend, index) => (
+              <Animated.View
+                key={friend.id}
+                style={[
+                  styles.friendCard,
+                  index === 0 && styles.friendCardFirst,
+                  index === (showAllFriends ? friendsList.length - 1 : Math.min(3, friendsList.length - 1)) && styles.friendCardLast,
+                  {
+                    opacity: friendsListAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: index < 4 ? [1, 1] : [0, 1],
+                    }),
+                    transform: [
+                      {
+                        translateY: friendsListAnimation.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: index < 4 ? [0, 0] : [20, 0],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                <TouchableOpacity
+                  style={styles.friendCardTouchable}
+                  activeOpacity={0.95}
+                  onPress={() => {
+                    // Future: Navigate to friend's profile
+                    console.log('View friend profile:', friend.username);
+                  }}
                 >
-                  {friendsList.slice(3).map((friend) => (
-                    <View key={friend.id} style={styles.friendItem}>
-                      <View style={styles.friendUserInfo}>
-                        <View style={styles.friendProfilePic}>
-                          {friend.profilePicture ? (
-                            <Image 
-                              source={{ uri: friend.profilePicture }} 
-                              style={styles.friendProfileImage} 
-                            />
-                          ) : (
-                            <Ionicons name="person" size={24} color="#A4D65E" />
-                          )}
-                        </View>
-                        <View style={styles.friendUserText}>
-                          <Text style={styles.friendUsername}>{friend.username}</Text>
-                          <Text style={styles.friendSubtext}>@{friend.handle}</Text>
-                        </View>
+                  <View style={styles.friendCardContent}>
+                    <View style={styles.friendCardLeft}>
+                      <View style={styles.friendAvatar}>
+                        {friend.profilePicture ? (
+                          <Image 
+                            source={{ uri: friend.profilePicture }} 
+                            style={styles.friendAvatarImage} 
+                          />
+                        ) : (
+                          <View style={styles.friendAvatarPlaceholder}>
+                            <Text style={styles.friendAvatarInitial}>
+                              {friend.username ? friend.username[0].toUpperCase() : 'F'}
+                            </Text>
+                          </View>
+                        )}
                       </View>
+                      
+                      <View style={styles.friendInfo}>
+                        <Text style={styles.friendName} numberOfLines={1}>{friend.username}</Text>
+                        <Text style={styles.friendHandle} numberOfLines={1}>@{friend.handle || friend.username}</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={styles.friendCardActions}>
                       <TouchableOpacity
-                        style={styles.removeFriendButton}
+                        style={styles.friendActionButton}
                         onPress={() => removeFriend(friend)}
+                        activeOpacity={0.7}
                       >
-                        <Ionicons name="person-remove" size={18} color="#EF4444" />
+                        <Ionicons name="person-remove-outline" size={20} color="#EF4444" />
                       </TouchableOpacity>
                     </View>
-                  ))}
-                </ScrollView>
+                  </View>
+                </TouchableOpacity>
               </Animated.View>
+            ))}
+            
+            {/* Show remaining count if not expanded */}
+            {!showAllFriends && friendsList.length > 4 && (
+              <TouchableOpacity 
+                style={styles.friendsRemainingCard}
+                onPress={toggleFriendsList}
+                activeOpacity={0.7}
+              >
+                <View style={styles.friendsRemainingContent}>
+                  <View style={styles.friendsRemainingAvatars}>
+                    {friendsList.slice(4, 7).map((friend, index) => (
+                      <View 
+                        key={friend.id} 
+                        style={[
+                          styles.friendsRemainingAvatar,
+                          { marginLeft: index > 0 ? -12 : 0, zIndex: 3 - index }
+                        ]}
+                      >
+                        {friend.profilePicture ? (
+                          <Image 
+                            source={{ uri: friend.profilePicture }} 
+                            style={styles.friendsRemainingAvatarImage} 
+                          />
+                        ) : (
+                          <View style={styles.friendsRemainingAvatarPlaceholder}>
+                            <Text style={styles.friendsRemainingAvatarInitial}>
+                              {friend.username ? friend.username[0].toUpperCase() : 'F'}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                    {friendsList.length > 7 && (
+                      <View style={[styles.friendsRemainingAvatar, { marginLeft: -12, zIndex: 0 }]}>
+                        <View style={styles.friendsRemainingMore}>
+                          <Text style={styles.friendsRemainingMoreText}>+{friendsList.length - 7}</Text>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.friendsRemainingText}>
+                    View {friendsList.length - 4} more {friendsList.length - 4 === 1 ? 'friend' : 'friends'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#6B7280" />
+                </View>
+              </TouchableOpacity>
             )}
-          </>
+          </View>
         )}
       </View>
     </ScrollView>
@@ -2333,5 +2412,232 @@ const styles = StyleSheet.create({
   },
   expandableFriendsList: {
     maxHeight: 210, // Shows exactly 3 friends * 70px height
+  },
+  
+  // New styles for redesigned friends list
+  friendsHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  friendsCount: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#F0F4F8',
+  },
+  friendsListWrapper: {
+    backgroundColor: 'transparent',
+  },
+  friendCard: {
+    backgroundColor: '#FFFFFF',
+    marginBottom: 2,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  friendCardFirst: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  friendCardLast: {
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    marginBottom: 0,
+  },
+  friendCardTouchable: {
+    flex: 1,
+  },
+  friendCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  friendCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  friendAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 14,
+    position: 'relative',
+  },
+  friendAvatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  friendAvatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E8F4E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  friendAvatarInitial: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#A4D65E',
+  },
+  friendInfo: {
+    flex: 1,
+  },
+  friendName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1E23',
+    marginBottom: 2,
+  },
+  friendHandle: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  friendCardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  friendActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  friendsRemainingCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  friendsRemainingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  friendsRemainingAvatars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  friendsRemainingAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  friendsRemainingAvatarImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  friendsRemainingAvatarPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E8F4E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  friendsRemainingAvatarInitial: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#A4D65E',
+  },
+  friendsRemainingMore: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#6B7280',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  friendsRemainingMoreText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  friendsRemainingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  friendsEmptyContainer: {
+    backgroundColor: '#FAFBFC',
+    borderRadius: 16,
+    padding: 48,
+    alignItems: 'center',
+  },
+  friendsEmptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  friendsEmptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1A1E23',
+    marginBottom: 8,
+  },
+  friendsEmptySubtext: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  friendsEmptyButton: {
+    backgroundColor: '#A4D65E',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  friendsEmptyButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  friendsLoadingContainer: {
+    backgroundColor: '#FAFBFC',
+    borderRadius: 16,
+    padding: 48,
+    alignItems: 'center',
+  },
+  friendsLoadingText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 16,
   },
 });

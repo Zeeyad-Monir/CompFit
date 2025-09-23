@@ -30,7 +30,7 @@ import {
 } from '../utils/scoreVisibility';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadToCloudinary, uploadMultipleToCloudinary } from '../utils/uploadImage';
-import SwipeablePhotoGallery from '../components/SwipeablePhotoGallery';
+import CompactPhotoGallery from '../components/CompactPhotoGallery';
 import FullScreenPhotoViewer from '../components/FullScreenPhotoViewer';
 
 const CompetitionDetailsScreen = ({ route, navigation }) => {
@@ -2218,12 +2218,11 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         {selectedImageUris.length > 0 ? (
           // Show photo gallery when images are selected
           <View style={styles.photoGalleryContainer}>
-            <SwipeablePhotoGallery
+            <CompactPhotoGallery
               photos={selectedImageUris}
               onPhotoPress={handlePhotoPress}
               onRemovePhoto={removeImage}
               showRemoveButton={true}
-              height={250}
               showIndicator={true}
             />
             {selectedImageUris.length < MAX_PHOTOS && (

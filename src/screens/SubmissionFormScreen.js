@@ -30,7 +30,7 @@ import { AuthContext } from '../contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';  // KEEP ONLY THIS ONE
 import { uploadToCloudinary, uploadMultipleToCloudinary } from '../utils/uploadImage';
 import { getScoreVisibility, filterVisibleSubmissionsWithSelf } from '../utils/scoreVisibility';
-import SwipeablePhotoGallery from '../components/SwipeablePhotoGallery';
+import CompactPhotoGallery from '../components/CompactPhotoGallery';
 import FullScreenPhotoViewer from '../components/FullScreenPhotoViewer';
 
 // Remove any duplicate ImagePicker import that might be elsewhere in the file
@@ -829,6 +829,14 @@ export default function SubmissionFormScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
+      <View style={{position: 'absolute', top: 100, left: 10, right: 10, zIndex: 9999, backgroundColor: 'yellow', padding: 10, borderWidth: 3, borderColor: 'red'}}>
+        <Text style={{color: 'red', fontSize: 16, fontWeight: 'bold', textAlign: 'center'}}>
+          🔴 SUBMISSION FORM DEBUG 🔴
+        </Text>
+        <Text style={{color: 'blue', fontSize: 14, textAlign: 'center'}}>
+          Photos: {selectedImageUris.length} | CompactGallery: {CompactPhotoGallery ? 'LOADED' : 'NOT LOADED'}
+        </Text>
+      </View>
       <Header title="" backgroundColor="#F8F8F8" />
       <StatusBar style="dark" />
       <ScrollView 
@@ -1178,15 +1186,24 @@ export default function SubmissionFormScreen({ route, navigation }) {
           </Text>
         )}
         
+        <Text style={{color: 'red', fontSize: 18, fontWeight: 'bold', backgroundColor: 'cyan', padding: 10}}>
+          selectedImageUris.length = {selectedImageUris.length}
+        </Text>
         {selectedImageUris.length > 0 ? (
           // Show photo gallery when images are selected
-          <View style={styles.photoGalleryContainer}>
-            <SwipeablePhotoGallery
+          <View style={[styles.photoGalleryContainer, {backgroundColor: 'pink', borderWidth: 3, borderColor: 'blue'}]}>
+            {console.log('=== GALLERY RENDERING DEBUG ===')}
+            {console.log('selectedImageUris:', selectedImageUris)}
+            {console.log('CompactPhotoGallery exists?', !!CompactPhotoGallery)}
+            {console.log('Type of CompactPhotoGallery:', typeof CompactPhotoGallery)}
+            <Text style={{color: 'purple', fontSize: 20, fontWeight: 'bold', textAlign: 'center', backgroundColor: 'yellow'}}>
+              🟣 PHOTO GALLERY SHOULD BE HERE 🟣
+            </Text>
+            <CompactPhotoGallery
               photos={selectedImageUris}
               onPhotoPress={handlePhotoPress}
               onRemovePhoto={removeImage}
               showRemoveButton={true}
-              height={250}
               showIndicator={true}
             />
             {selectedImageUris.length < MAX_PHOTOS && (
