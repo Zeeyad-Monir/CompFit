@@ -17,8 +17,8 @@ import {
   ActiveCompetitionsScreen,    // Shows list of active competitions
   CompetitionCreationScreen,   // Form to create new competitions
   CompetitionDetailsScreen,    // Shows details of a specific competition
-  LeaderboardScreen,           // Shows competition leaderboard
-  SubmissionFormScreen,        // Form to submit workout results
+  // LeaderboardScreen,           // Shows competition leaderboard - DEPRECATED: functionality moved to CompetitionDetailsScreen rank tab
+  // SubmissionFormScreen,        // Form to submit workout results - DEPRECATED: functionality moved to CompetitionDetailsScreen add tab
   ProfileScreen,               // User profile and settings
   WorkoutDetailsScreen,        // Shows detailed view of a workout submission
   CompetitionLobbyScreen,      // Competition lobby for upcoming competitions
@@ -32,7 +32,8 @@ const Stack = createStackNavigator();    // Stack navigator for nested screens
 /**
  * Home Stack Navigator
  * Contains all screens related to viewing and participating in competitions
- * Includes navigation flow: ActiveCompetitions → CompetitionDetails → Leaderboard/SubmissionForm/WorkoutDetails
+ * Includes navigation flow: ActiveCompetitions → CompetitionDetails → WorkoutDetails
+ * Note: Leaderboard and SubmissionForm functionality has been moved to CompetitionDetailsScreen tabs
  */
 // In src/navigation/AppNavigator.js, the HomeStack should look like this:
 
@@ -44,10 +45,10 @@ const HomeStack = () => (
     <Stack.Screen name="CompetitionLobby" component={CompetitionLobbyScreen} />
     {/* Individual competition details view */}
     <Stack.Screen name="CompetitionDetails" component={CompetitionDetailsScreen} />
-    {/* Competition leaderboard view */}
-    <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
-    {/* Form to submit workout results */}
-    <Stack.Screen name="SubmissionForm" component={SubmissionFormScreen} />
+    {/* Competition leaderboard view - DEPRECATED: functionality moved to CompetitionDetailsScreen rank tab */}
+    {/* <Stack.Screen name="Leaderboard" component={LeaderboardScreen} /> */}
+    {/* Form to submit workout results - DEPRECATED: functionality moved to CompetitionDetailsScreen add tab */}
+    {/* <Stack.Screen name="SubmissionForm" component={SubmissionFormScreen} /> */}
     {/* Detailed view of a workout submission */}
     <Stack.Screen name="WorkoutDetails" component={WorkoutDetailsScreen} />
   </Stack.Navigator>
