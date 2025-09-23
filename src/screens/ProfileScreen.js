@@ -1257,12 +1257,16 @@ export default function ProfileScreen({ route, navigation }) {
       const rankings = calculateFriendsRankings(user.uid, currentUserData, friendsData);
       
       // Prepare rankings list for display
-      const rankingsList = rankings.rankings.map(userRank => ({
-        rank: userRank.rank,
-        name: userRank.id === user.uid ? 'You' : friendsList.find(f => f.id === userRank.id)?.username || 'Unknown',
-        bpr: userRank.bpr,
-        isCurrentUser: userRank.id === user.uid
-      }));
+      const rankingsList = rankings.rankings.map(userRank => {
+        const friend = friendsList.find(f => f.id === userRank.id);
+        return {
+          rank: userRank.rank,
+          name: userRank.id === user.uid ? 'You' : friend?.username || 'Unknown',
+          bpr: userRank.bpr,
+          isCurrentUser: userRank.id === user.uid,
+          profilePicture: userRank.id === user.uid ? profile.profilePicture : friend?.profilePicture || null
+        };
+      });
       
       // Update state with ranking data
       setFriendsRankingData({

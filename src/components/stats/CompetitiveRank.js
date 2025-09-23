@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Easing,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -133,7 +134,7 @@ export default function CompetitiveRank({
   // Toggle standings dropdown
   const toggleStandings = () => {
     const isClosing = showStandings;
-    const toValue = isClosing ? 0 : 150; // Full viewport for 3 friends
+    const toValue = isClosing ? 0 : 207; // Increased by 10% from 188
     
     // Use timing instead of spring for smoother animation
     Animated.timing(standingsHeight, {
@@ -309,6 +310,23 @@ export default function CompetitiveRank({
                     {friend.rank}{getRankSuffix(friend.rank)}
                   </Text>
                   
+                  <View style={styles.standingProfilePic}>
+                    {friend.profilePicture ? (
+                      <Image 
+                        source={{ uri: friend.profilePicture }}
+                        style={styles.standingProfileImage}
+                      />
+                    ) : (
+                      <View style={styles.standingProfilePlaceholder}>
+                        <Ionicons 
+                          name="person-circle" 
+                          size={35} 
+                          color={friend.isCurrentUser ? '#22C55E' : '#9CA3AF'} 
+                        />
+                      </View>
+                    )}
+                  </View>
+                  
                   <Text style={[
                     styles.standingName,
                     friend.isCurrentUser && styles.standingTextHighlighted
@@ -436,7 +454,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: '#1F2937',
     letterSpacing: -0.3,
@@ -478,13 +496,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   rankScore: {
-    fontSize: 32,
+    fontSize: 35,
     fontWeight: '800',
     color: '#1F2937',
     letterSpacing: -1,
   },
   rankLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6B7280',
     marginTop: 2,
   },
@@ -511,7 +529,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#374151',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 22,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -575,7 +593,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   standingsToggleText: {
-    fontSize: 15,  // Increased from 13 (15% increase)
+    fontSize: 17,  // Decreased by 10% from 19
     color: '#6B7280',
     fontWeight: '600',
   },
@@ -586,7 +604,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
   },
   standingsList: {
-    maxHeight: 140, // Full viewport for 3 friends
+    maxHeight: 193, // Increased by 10% from 175
   },
   standingsContent: {
     paddingVertical: 4,
@@ -594,7 +612,7 @@ const styles = StyleSheet.create({
   standingRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 12,  // Increased from 10
+    paddingVertical: 15,  // Increased to accommodate larger content
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
     alignItems: 'center',
@@ -603,20 +621,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0FDF4', // Light green background
   },
   standingRank: {
-    fontSize: 16,  // Increased from 14
+    fontSize: 17,  // Decreased by 5%
     fontWeight: '700',
     color: '#6B7280',
-    width: 45,  // Slight increase to accommodate larger text
+    width: 50,  // Increased to accommodate larger text
+    marginRight: 12,  // Space between rank and profile picture
   },
   standingName: {
     flex: 1,
-    fontSize: 16,  // Increased from 14
+    fontSize: 17,  // Decreased by 5%
     fontWeight: '500',
     color: '#1F2937',
-    marginLeft: 10,  // Slight increase from 8
+    marginLeft: 10,  // Space after profile picture
   },
   standingScore: {
-    fontSize: 16,  // Increased from 14
+    fontSize: 17,  // Decreased by 5%
     fontWeight: '600',
     color: '#6B7280',
   },
@@ -696,5 +715,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
     fontStyle: 'italic',
+  },
+  standingProfilePic: {
+    width: 35,
+    height: 35,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  standingProfileImage: {
+    width: 35,
+    height: 35,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  standingProfilePlaceholder: {
+    width: 35,
+    height: 35,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
   },
 });
