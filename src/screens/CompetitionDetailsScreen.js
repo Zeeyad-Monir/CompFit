@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, TextInput, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, TextInput, Image, ActivityIndicator, TouchableWithoutFeedback, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
 import { Header, Button, FormInput, DatePicker, SearchBar } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -98,6 +98,16 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
   const [activityDailySubmissions, setActivityDailySubmissions] = useState(0);
   const [activityWeeklyPoints, setActivityWeeklyPoints] = useState(0);
   const [activityLimits, setActivityLimits] = useState(null);
+  
+  // ScrollView ref for rules section
+  const rulesScrollViewRef = React.useRef(null);
+
+  // Reset scroll position when switching to rules tab
+  const resetRulesScroll = () => {
+    if (rulesScrollViewRef.current) {
+      rulesScrollViewRef.current.scrollTo({ y: 0, animated: true });
+    }
+  };
   
   // Constants for activity display management
   const ACTIVITIES_PER_ROW = 3;
@@ -1372,8 +1382,13 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
   // Render Rules Tab Content
   const renderRulesTab = () => (
     <ScrollView 
+      ref={rulesScrollViewRef}
       style={styles.rulesContainer}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      scrollEventThrottle={16}
+      removeClippedSubviews={false}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -1534,34 +1549,43 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         </Text>
         <View style={styles.rulesSectionContent}>
           {participants.length > 0 ? (
-            participants.map((participant) => (
-              <View key={participant.id} style={styles.participantItem}>
-                <View style={styles.participantAvatar}>
-                  {participant.profilePicture ? (
-                    <Image 
-                      source={{ uri: participant.profilePicture }}
-                      style={styles.participantAvatarImage}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <Ionicons name="person-circle" size={40} color="#A4D65E" />
+            <>
+              {participants.slice(0, 20).map((participant) => (
+                <View key={participant.id} style={styles.participantItem}>
+                  <View style={styles.participantAvatar}>
+                    {participant.profilePicture ? (
+                      <Image 
+                        source={{ uri: participant.profilePicture }}
+                        style={styles.participantAvatarImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Ionicons name="person-circle" size={40} color="#A4D65E" />
+                    )}
+                  </View>
+                  <View style={styles.participantInfo}>
+                    <Text style={styles.participantName}>
+                      {participant.username || 'Unknown User'}
+                    </Text>
+                    <Text style={styles.participantHandle}>
+                      @{participant.handle || participant.username || 'unknown'}
+                    </Text>
+                  </View>
+                  {participant.id === competition.ownerId && (
+                    <View style={styles.ownerBadge}>
+                      <Text style={styles.ownerText}>Owner</Text>
+                    </View>
                   )}
                 </View>
-                <View style={styles.participantInfo}>
-                  <Text style={styles.participantName}>
-                    {participant.username || 'Unknown User'}
+              ))}
+              {participants.length > 20 && (
+                <TouchableOpacity style={styles.showMoreButton}>
+                  <Text style={styles.showMoreText}>
+                    Show All {participants.length} Participants
                   </Text>
-                  <Text style={styles.participantHandle}>
-                    @{participant.handle || participant.username || 'unknown'}
-                  </Text>
-                </View>
-                {participant.id === competition.ownerId && (
-                  <View style={styles.ownerBadge}>
-                    <Text style={styles.ownerText}>Owner</Text>
-                  </View>
-                )}
-              </View>
-            ))
+                </TouchableOpacity>
+              )}
+            </>
           ) : (
             <Text style={styles.noDataText}>No participants found.</Text>
           )}
@@ -1844,6 +1868,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         style={styles.addContainer}
         contentContainerStyle={styles.addScrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1881,11 +1906,6 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
               onPress={() => setActivityType(type)}
               disabled={isSubmitting}
             >
-              <Ionicons
-                name="fitness"
-                size={24}
-                color={activityType === type ? '#FFF' : '#1A1E23'}
-              />
               <Text style={[
                 styles.activityTypeText,
                 activityType === type && styles.selectedActivityTypeText
@@ -2296,7 +2316,8 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <View style={styles.container}>
       <Header 
         title="" 
         backgroundColor="#FFFFFF"
@@ -2409,6 +2430,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
             style={styles.workoutsContainer}
             contentContainerStyle={styles.workoutsScrollContent}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -2493,7 +2515,8 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
           </ScrollView>
         </>
       ) : null}
-    </View>
+      </View>
+    </TouchableWithoutFeedback>
   );
 };
 
@@ -3213,8 +3236,8 @@ const styles = StyleSheet.create({
     paddingBottom: 120, 
   },
   dateSection: { 
-    marginBottom: 10, 
-    marginTop: 10,
+    marginBottom: 11, 
+    marginTop: 11,
   },
   dateRangeText: { 
     fontSize: 12, 
@@ -3223,16 +3246,17 @@ const styles = StyleSheet.create({
     textAlign: 'center' 
   },
   label: { 
-    fontSize: 16, 
+    fontSize: 17, 
+    fontWeight: '400',
     color: '#1A1E23', 
     marginBottom: 8, 
-    marginTop: 16 
+    marginTop: 19 
   },
   activityTypesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginHorizontal: -5,
-    marginBottom: 10, 
+    marginBottom: 13, 
   },
   activityTypeButton: {
     flexDirection: 'row',
@@ -3251,11 +3275,13 @@ const styles = StyleSheet.create({
     borderColor: '#A4D65E'
   },
   activityTypeText: {
-    fontSize: 14,
-    color: '#1A1E23',
-    marginLeft: 5
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1A1E23'
   },
   selectedActivityTypeText: {
+    fontSize: 15,
+    fontWeight: '500',
     color: '#FFF'
   },
   viewMoreButton: {
@@ -3300,7 +3326,7 @@ const styles = StyleSheet.create({
     marginLeft: 0,
   },
   inputFieldsContainer: {
-    marginTop: 8
+    marginTop: 9
   },
   textArea: {
     backgroundColor: '#FFF',
@@ -3319,7 +3345,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#A4D65E',
     borderRadius: 8,
     padding: 16,
-    marginTop: 20
+    marginTop: 21
   },
   pointsLabel: {
     fontSize: 18,
@@ -3562,6 +3588,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#A4D65E',
     marginLeft: 4,
+  },
+  showMoreButton: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  showMoreText: {
+    color: '#A4D65E',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

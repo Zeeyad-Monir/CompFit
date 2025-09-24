@@ -1,7 +1,7 @@
 // CompetitionCreationScreen.js - IMPROVED VERSION
 // Features dynamic tabs: Presets/Manual initially, then Friends/Rules after preset selection
 
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,11 @@ import {
   Dimensions,
   Easing,
   Image,
+  Platform,
+  InputAccessoryView,
+  Keyboard,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, FormInput, Dropdown, DatePicker, LeaderboardUpdatePicker } from '../components';
@@ -272,8 +277,16 @@ export default function CompetitionCreationScreen({ navigation, route }) {
   // ScrollView ref for resetting position
   const scrollViewRef = React.useRef(null);
 
+  // Reset scroll position when tab changes
+  const resetScrollPosition = () => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: 0, animated: false });
+    }
+  };
+
   // Animate to new tab
   const animateToTab = (newTab) => {
+    resetScrollPosition();
     // Get measurements for the target tab
     const targetMeasurement = tabMeasurements[newTab];
     
@@ -446,6 +459,15 @@ export default function CompetitionCreationScreen({ navigation, route }) {
   const [drafts, setDrafts] = useState([]);
   const [currentDraftId, setCurrentDraftId] = useState(null);
   const [loadingDrafts, setLoadingDrafts] = useState(false);
+  
+  // Refs and handlers for numeric inputs
+  const paceInputRef = useRef(null);
+  const paceAccessoryViewID = "pace-input-done";
+
+  const handlePaceDone = () => {
+    paceInputRef.current?.blur();
+    Keyboard.dismiss();
+  };
   
   // Handler for competition name with 18-character limit
   const handleNameChange = (text) => {
@@ -1150,6 +1172,10 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       style={styles.scrollView} 
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      scrollEventThrottle={16}
+      removeClippedSubviews={false}
     >
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quick Start Templates</Text>
@@ -1186,6 +1212,10 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       style={styles.scrollView} 
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      scrollEventThrottle={16}
+      removeClippedSubviews={false}
     >
       <View style={styles.section}>
         <View style={styles.presetHeader}>
@@ -1276,6 +1306,10 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       style={styles.scrollView} 
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      scrollEventThrottle={16}
+      removeClippedSubviews={false}
     >
       <View style={styles.section}>
         <View style={styles.presetHeader}>
@@ -1316,6 +1350,10 @@ export default function CompetitionCreationScreen({ navigation, route }) {
                     style={styles.friendsScrollView}
                     showsVerticalScrollIndicator={false}
                     nestedScrollEnabled={true}
+                    keyboardShouldPersistTaps="handled"
+                    scrollEventThrottle={16}
+                    bounces={true}
+                    alwaysBounceVertical={false}
                   >
                     {userFriends.map((friend) => {
                       const isAlreadyInvited = !!invitedFriends.find(f => f.uid === friend.uid);
@@ -1403,6 +1441,10 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       style={styles.scrollView} 
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      scrollEventThrottle={16}
+      removeClippedSubviews={false}
     >
       <View style={styles.section}>
         <View style={styles.presetHeader}>
@@ -1495,6 +1537,10 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       style={styles.scrollView} 
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      scrollEventThrottle={16}
+      removeClippedSubviews={false}
     >
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Saved Drafts</Text>
@@ -1582,6 +1628,10 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       contentContainerStyle={styles.scrollContent}
       nestedScrollEnabled
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      scrollEventThrottle={16}
+      removeClippedSubviews={false}
     >
       <View style={styles.competitionDetailsHeader}>
         <Text style={styles.sectionTitle}>Competition Details</Text>
@@ -1846,6 +1896,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
                     <Text style={styles.limitLabel}>Minimum Pace Requirement</Text>
                     <View style={styles.paceInputRow}>
                       <TextInput
+                        ref={paceInputRef}
                         style={styles.paceValueInput}
                         keyboardType="numeric"
                         value={act.minPace?.toString() || ''}
@@ -1879,7 +1930,19 @@ export default function CompetitionCreationScreen({ navigation, route }) {
                         }}
                         placeholder="No minimum"
                         placeholderTextColor="#999"
+                        returnKeyType="done"
+                        onSubmitEditing={handlePaceDone}
+                        inputAccessoryViewID={Platform.OS === 'ios' ? paceAccessoryViewID : null}
                       />
+                      {Platform.OS === 'ios' && (
+                        <InputAccessoryView nativeID={paceAccessoryViewID}>
+                          <View style={styles.accessoryView}>
+                            <TouchableOpacity onPress={handlePaceDone} style={styles.doneButton}>
+                              <Text style={styles.doneButtonText}>Done</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </InputAccessoryView>
+                      )}
                       <View style={styles.paceUnitSelector}>
                         <Dropdown
                           label=""
@@ -2009,6 +2072,10 @@ export default function CompetitionCreationScreen({ navigation, route }) {
                 style={styles.friendsScrollView}
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled={true}
+                keyboardShouldPersistTaps="handled"
+                scrollEventThrottle={16}
+                bounces={true}
+                alwaysBounceVertical={false}
               >
                 {userFriends.map((friend) => {
                   const isAlreadyInvited = !!invitedFriends.find(f => f.uid === friend.uid);
@@ -2094,7 +2161,13 @@ export default function CompetitionCreationScreen({ navigation, route }) {
         <StatusBar style="dark" translucent={false} />
       </SafeAreaView>
 
-      <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.container}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerCapsule} />
         </View>
@@ -2332,7 +2405,9 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       {activeTab === 'friends' && renderFriendsTab()}
       {activeTab === 'rules' && renderRulesTab()}
 
-      </SafeAreaView>
+          </SafeAreaView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </>
   );
 }
@@ -2419,7 +2494,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 17.6,
     borderWidth: 1,
     borderColor: '#A4D65E',
     height: 132,
@@ -2981,6 +3056,34 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     color: '#6B7280',
+  },
+  
+  // InputAccessoryView styles
+  accessoryView: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    backgroundColor: '#F7F7F7',
+    borderTopWidth: 1,
+    borderTopColor: '#C7C7CC',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    height: 44,
+  },
+  doneButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    minHeight: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  doneButtonText: {
+    color: '#007AFF',
+    fontSize: 17,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginTop: -2,
   },
   
 });

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Modal, TouchableWithoutFeedback } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -70,9 +70,13 @@ const DatePicker = ({ label, date, onDateChange, mode = 'date', minimumDate, max
           animationType="slide"
           visible={showPicker}
           onRequestClose={hideDatePicker}
+          supportedOrientations={['portrait']}
+          statusBarTranslucent={false}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+          <TouchableWithoutFeedback onPress={hideDatePicker}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <TouchableOpacity onPress={hideDatePicker}>
                   <Text style={styles.cancelText}>Cancel</Text>
@@ -93,8 +97,10 @@ const DatePicker = ({ label, date, onDateChange, mode = 'date', minimumDate, max
                   />
                 </View>
               </View>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
         </Modal>
       )}
       
@@ -114,10 +120,11 @@ const DatePicker = ({ label, date, onDateChange, mode = 'date', minimumDate, max
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 17,
   },
   label: {
-    fontSize: 16,
+    fontSize: 17,
+    fontWeight: '400',
     color: '#1A1E23',
     marginBottom: 8,
   },
