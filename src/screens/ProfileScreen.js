@@ -26,6 +26,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { AuthContext } from '../contexts/AuthContext';
 import { auth, db } from '../firebase';
 import { uploadProfilePicture } from '../utils/uploadProfilePicture';
+import useDoneButton from '../hooks/useDoneButton';
 import { 
   doc, 
   onSnapshot, 
@@ -259,6 +260,10 @@ export default function ProfileScreen({ route, navigation }) {
   const [loadingFriends, setLoadingFriends] = useState(false);
   const [showAllFriends, setShowAllFriends] = useState(false);
   const friendsListAnimation = useRef(new Animated.Value(0)).current;
+  
+  // Done button hooks for TextInputs
+  const favouriteWorkoutDoneButton = useDoneButton();
+  const friendUsernameDoneButton = useDoneButton();
   
   // New state for competition stats
   const [currentStreak, setCurrentStreak] = useState(0);
@@ -1462,6 +1467,7 @@ export default function ProfileScreen({ route, navigation }) {
                   onChangeText={t => setDraft({ ...draft, favouriteWorkout: t })}
                   placeholder="Enter your favourite workout"
                   placeholderTextColor="#999"
+                  inputAccessoryViewID={favouriteWorkoutDoneButton.inputAccessoryViewID}
                 />
               ) : (
                 <Text style={styles.statValue}>
@@ -1574,6 +1580,7 @@ export default function ProfileScreen({ route, navigation }) {
               onChangeText={setFriendUsername}
               autoCapitalize="none"
               autoCorrect={false}
+              inputAccessoryViewID={friendUsernameDoneButton.inputAccessoryViewID}
             />
             <TouchableOpacity onPress={sendFriendRequest} style={styles.addFriendButton}>
               <Ionicons name="person-add" size={24} color="#FFFFFF" />
@@ -1940,6 +1947,10 @@ export default function ProfileScreen({ route, navigation }) {
         {/* Tab Content */}
         {activeTab === 'profile' ? renderProfileTab() : renderFriendsTab()}
       </SafeAreaView>
+      
+      {/* Done button accessories for TextInputs */}
+      {favouriteWorkoutDoneButton.accessoryView}
+      {friendUsernameDoneButton.accessoryView}
     </>
   );
 }

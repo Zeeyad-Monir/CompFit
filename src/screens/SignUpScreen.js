@@ -11,6 +11,7 @@ import {
 import { auth, db, createUserWithEmailAndPassword, updateProfile } from '../firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
+import useDoneButton from '../hooks/useDoneButton';
 
 export default function SignUpScreen({ navigation }) {
   const [username,      setUsername]      = useState('');
@@ -21,6 +22,12 @@ export default function SignUpScreen({ navigation }) {
   const [loading,       setLoading]       = useState(false);
   const [showPassword1, setShowPassword1] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
+
+  // Done button hooks for all four inputs
+  const usernameDoneButton = useDoneButton();
+  const emailDoneButton = useDoneButton();
+  const password1DoneButton = useDoneButton();
+  const password2DoneButton = useDoneButton();
 
   // Check if username is already taken using the usernames collection
   const isUsernameAvailable = async (username) => {
@@ -147,6 +154,7 @@ export default function SignUpScreen({ navigation }) {
           value={username}
           onChangeText={setUsername}
           editable={!loading}
+          inputAccessoryViewID={usernameDoneButton.inputAccessoryViewID}
         />
 
         <TextInput
@@ -158,6 +166,7 @@ export default function SignUpScreen({ navigation }) {
           value={email}
           onChangeText={setEmail}
           editable={!loading}
+          inputAccessoryViewID={emailDoneButton.inputAccessoryViewID}
         />
 
         {/* Password Input with Eye Toggle */}
@@ -172,6 +181,7 @@ export default function SignUpScreen({ navigation }) {
             value={pass1}
             onChangeText={setPass1}
             editable={!loading}
+            inputAccessoryViewID={password1DoneButton.inputAccessoryViewID}
           />
           <TouchableOpacity
             style={styles.eyeIcon}
@@ -198,6 +208,7 @@ export default function SignUpScreen({ navigation }) {
             value={pass2}
             onChangeText={setPass2}
             editable={!loading}
+            inputAccessoryViewID={password2DoneButton.inputAccessoryViewID}
           />
           <TouchableOpacity
             style={styles.eyeIcon}
@@ -234,6 +245,12 @@ export default function SignUpScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
       </View>
+      
+      {/* Done button accessories for inputs */}
+      {usernameDoneButton.accessoryView}
+      {emailDoneButton.accessoryView}
+      {password1DoneButton.accessoryView}
+      {password2DoneButton.accessoryView}
     </KeyboardAvoidingView>
   );
 }

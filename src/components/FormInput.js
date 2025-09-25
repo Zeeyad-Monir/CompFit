@@ -1,7 +1,10 @@
 import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
+import useDoneButton from '../hooks/useDoneButton';
 
 const FormInput = ({ label, value, onChangeText, placeholder, keyboardType, secureTextEntry }) => {
+  const { inputAccessoryViewID, accessoryView } = useDoneButton();
+
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
@@ -13,7 +16,10 @@ const FormInput = ({ label, value, onChangeText, placeholder, keyboardType, secu
         placeholderTextColor="#999"
         keyboardType={keyboardType || 'default'}
         secureTextEntry={secureTextEntry}
+        inputAccessoryViewID={inputAccessoryViewID}
       />
+      
+      {accessoryView}
     </View>
   );
 };

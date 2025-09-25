@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { auth, signInWithEmailAndPassword } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
+import useDoneButton from '../hooks/useDoneButton';
 
 export default function LoginScreen({ navigation }) {
   const [email,        setEmail]        = useState('');
@@ -17,6 +18,10 @@ export default function LoginScreen({ navigation }) {
   const [error,        setError]        = useState('');
   const [loading,      setLoading]      = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  
+  // Done button hooks for both inputs
+  const emailDoneButton = useDoneButton();
+  const passwordDoneButton = useDoneButton();
 
   const handleLogin = async () => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -77,6 +82,7 @@ export default function LoginScreen({ navigation }) {
           editable={!loading}
           autoComplete="email"
           textContentType="emailAddress"
+          inputAccessoryViewID={emailDoneButton.inputAccessoryViewID}
         />
 
         {/* Password Input with Eye Toggle */}
@@ -91,6 +97,7 @@ export default function LoginScreen({ navigation }) {
             editable={!loading}
             autoComplete="password"
             textContentType="password"
+            inputAccessoryViewID={passwordDoneButton.inputAccessoryViewID}
           />
           <TouchableOpacity
             style={styles.eyeIcon}
@@ -145,6 +152,10 @@ export default function LoginScreen({ navigation }) {
           <Ionicons name="finger-print"  size={32} color="#A4D65E" style={styles.socialIcon} />
         </View>
       </View>
+      
+      {/* Done button accessories for inputs */}
+      {emailDoneButton.accessoryView}
+      {passwordDoneButton.accessoryView}
     </KeyboardAvoidingView>
   );
 }

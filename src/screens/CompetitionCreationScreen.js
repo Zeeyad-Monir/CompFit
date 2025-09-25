@@ -21,6 +21,7 @@ import { Button, FormInput, Dropdown, DatePicker, LeaderboardUpdatePicker } from
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { db } from '../firebase';
+import useDoneButton from '../hooks/useDoneButton';
 import {
   collection,
   addDoc,
@@ -441,6 +442,12 @@ export default function CompetitionCreationScreen({ navigation, route }) {
   const [invitedFriends, setInvitedFriends] = useState([]);
   const [userFriends, setUserFriends] = useState([]);
   const [loadingFriends, setLoadingFriends] = useState(false);
+  
+  // Done button hooks for TextInputs
+  const competitionNameDoneButton = useDoneButton();
+  const descriptionDoneButton = useDoneButton();
+  const inviteUsernameDoneButton = useDoneButton();
+  const paceValueDoneButton = useDoneButton();
   
   // Draft state
   const [drafts, setDrafts] = useState([]);
@@ -1297,6 +1304,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
               onChangeText={setInviteUsername}
               autoCapitalize="none"
               autoCorrect={false}
+              inputAccessoryViewID={inviteUsernameDoneButton.inputAccessoryViewID}
             />
             <TouchableOpacity onPress={addInvite} style={{marginLeft:8}}>
               <Ionicons name="add-circle" size={32} color="#A4D65E"/>
@@ -1604,6 +1612,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
             placeholder="Enter competition name"
             placeholderTextColor="#999"
             maxLength={14}
+            inputAccessoryViewID={competitionNameDoneButton.inputAccessoryViewID}
           />
           <View style={styles.nameInputFeedback}>
             {nameWarning && (
@@ -1672,7 +1681,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       </View>
       
       <Text style={styles.label}>Description</Text>
-      <TextInput style={styles.textArea} multiline value={description} onChangeText={setDesc} placeholder="Describe your competition..."/>
+      <TextInput style={styles.textArea} multiline value={description} onChangeText={setDesc} placeholder="Describe your competition..." inputAccessoryViewID={descriptionDoneButton.inputAccessoryViewID}/>
 
       <Text style={styles.sectionTitle}>Activity Rules</Text>
       <Text style={styles.sectionSubtext}>Set up custom point & unit thresholds</Text>
@@ -1879,6 +1888,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
                         }}
                         placeholder="No minimum"
                         placeholderTextColor="#999"
+                        inputAccessoryViewID={paceValueDoneButton.inputAccessoryViewID}
                       />
                       <View style={styles.paceUnitSelector}>
                         <Dropdown
@@ -1990,6 +2000,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
           onChangeText={setInviteUsername}
           autoCapitalize="none"
           autoCorrect={false}
+          inputAccessoryViewID={inviteUsernameDoneButton.inputAccessoryViewID}
         />
         <TouchableOpacity onPress={addInvite} style={{marginLeft:8}}>
           <Ionicons name="add-circle" size={32} color="#A4D65E"/>
@@ -2331,6 +2342,12 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       {activeTab === 'schedule' && renderScheduleTab()}
       {activeTab === 'friends' && renderFriendsTab()}
       {activeTab === 'rules' && renderRulesTab()}
+      
+      {/* Done button accessories for TextInputs */}
+      {competitionNameDoneButton.accessoryView}
+      {descriptionDoneButton.accessoryView}
+      {inviteUsernameDoneButton.accessoryView}
+      {paceValueDoneButton.accessoryView}
 
       </SafeAreaView>
     </>

@@ -4,6 +4,7 @@ import { Header, Button, FormInput, DatePicker, SearchBar } from '../components'
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { db } from '../firebase';
+import useDoneButton from '../hooks/useDoneButton';
 import {
   collection,
   query,
@@ -96,6 +97,9 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
   const MAX_PHOTOS = 3;
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [activityDailySubmissions, setActivityDailySubmissions] = useState(0);
+  
+  // Done button hook for notes input
+  const notesDoneButton = useDoneButton();
   const [activityWeeklyPoints, setActivityWeeklyPoints] = useState(0);
   const [activityLimits, setActivityLimits] = useState(null);
   
@@ -2045,6 +2049,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
           placeholder="Add any additional details..."
           placeholderTextColor="#999"
           editable={!isSubmitting}
+          inputAccessoryViewID={notesDoneButton.inputAccessoryViewID}
         />
 
         {/* Points Preview with correct unit display */}
@@ -2493,6 +2498,9 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
           </ScrollView>
         </>
       ) : null}
+      
+      {/* Done button accessory for notes input */}
+      {notesDoneButton.accessoryView}
     </View>
   );
 };

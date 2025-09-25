@@ -7,6 +7,7 @@ import {
   Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import useDoneButton from '../hooks/useDoneButton';
 
 /**
  * SearchBar component with clear button functionality
@@ -31,6 +32,9 @@ const SearchBar = ({
   clearIconSize = 18,
   ...props 
 }) => {
+  // Done button hook for search input
+  const searchDoneButton = useDoneButton();
+  
   // Animation for clear button opacity
   const clearButtonOpacity = React.useRef(new Animated.Value(value ? 1 : 0)).current;
 
@@ -68,6 +72,7 @@ const SearchBar = ({
         autoCorrect={false}
         autoCapitalize="none"
         clearButtonMode="never" // We're implementing our own clear button
+        inputAccessoryViewID={searchDoneButton.inputAccessoryViewID}
         {...props}
       />
       
@@ -92,6 +97,9 @@ const SearchBar = ({
           />
         </TouchableOpacity>
       </Animated.View>
+      
+      {/* Done button accessory for search input */}
+      {searchDoneButton.accessoryView}
     </View>
   );
 };

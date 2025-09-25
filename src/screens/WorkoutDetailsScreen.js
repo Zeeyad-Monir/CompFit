@@ -24,6 +24,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '../contexts/AuthContext';
 import { getScoreVisibility, getVisibilityMessage, getScoreCutoffDate } from '../utils/scoreVisibility';
 import { db } from '../firebase';
+import useDoneButton from '../hooks/useDoneButton';
 import SwipeablePhotoGallery from '../components/SwipeablePhotoGallery';
 import FullScreenPhotoViewer from '../components/FullScreenPhotoViewer';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -83,6 +84,9 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
   const [userProfiles, setUserProfiles] = useState({});
   const [deletingCommentId, setDeletingCommentId] = useState(null);
   const [workoutUserProfile, setWorkoutUserProfile] = useState(null);
+  
+  // Done button hook for comment input
+  const commentDoneButton = useDoneButton();
 
   // Calculate visibility status
   useEffect(() => {
@@ -751,6 +755,7 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
                 multiline
                 maxLength={500}
                 editable={!isPostingComment}
+                inputAccessoryViewID={commentDoneButton.inputAccessoryViewID}
               />
               <TouchableOpacity
                 style={[
@@ -773,6 +778,9 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
         {/* Bottom Spacer */}
         <View style={{ height: 120 }} />
         </ScrollView>
+        
+        {/* Done button accessory for comment input */}
+        {commentDoneButton.accessoryView}
       </KeyboardAvoidingView>
     </View>
   );
