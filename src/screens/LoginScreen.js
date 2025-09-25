@@ -220,8 +220,8 @@ export default function LoginScreen({ navigation }) {
             >
               <LinearGradient
                 colors={[
-                  'rgba(0,0,0,0.5)',
-                  'rgba(0,0,0,0.5)',
+                  'rgba(0,0,0,0.6)',
+                  'rgba(0,0,0,0.6)',
                 ]}
                 start={{ x: 0.5, y: 0 }}
                 end={{ x: 0.5, y: 1 }}
