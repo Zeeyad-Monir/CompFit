@@ -7,11 +7,20 @@ import {
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
+  ImageBackground,
+  Platform,
+  Dimensions,
+  ScrollView,
 } from 'react-native';
-import { auth, db, createUserWithEmailAndPassword, updateProfile } from '../firebase';
+import { LinearGradient } from 'expo-linear-gradient';
+import { db, createUserWithEmailAndPassword, updateProfile } from '../firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
 import useDoneButton from '../hooks/useDoneButton';
+
+const HERO_IMAGE = require('../../assets/coverPhotos/coverPhotoSeven.png');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const HERO_HEIGHT = Math.max(SCREEN_HEIGHT * 0.35, 280);
 
 export default function SignUpScreen({ navigation }) {
   const [username,      setUsername]      = useState('');
@@ -22,6 +31,10 @@ export default function SignUpScreen({ navigation }) {
   const [loading,       setLoading]       = useState(false);
   const [showPassword1, setShowPassword1] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
+  const [usernameFocused, setUsernameFocused] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [pass1Focused, setPass1Focused] = useState(false);
+  const [pass2Focused, setPass2Focused] = useState(false);
 
   // Done button hooks for all four inputs
   const usernameDoneButton = useDoneButton();
@@ -141,112 +154,149 @@ export default function SignUpScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.root} behavior="padding">
-      <Text style={styles.logo}>CompFit</Text>
-      <Text style={styles.tagline}>Compete with your friends</Text>
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={styles.fullWhiteContainer}>
+        <ScrollView
+          contentContainerStyle={styles.topContentContainer}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={styles.whiteScreenTitle}>CompFit</Text>
+          <Text style={styles.whiteScreenSubtitle}>Compete With Your Friends</Text>
 
-      <View style={styles.form}>
-        <TextInput
-          placeholder="Username"
-          placeholderTextColor="#6B7280"
-          style={styles.input}
-          autoCapitalize="none"
-          value={username}
-          onChangeText={setUsername}
-          editable={!loading}
-          inputAccessoryViewID={usernameDoneButton.inputAccessoryViewID}
-        />
+          <View style={styles.formStack}>
+            <TextInput
+              placeholder="Username"
+              placeholderTextColor="#878988"
+              style={[
+                styles.input,
+                usernameFocused && styles.inputFocused,
+              ]}
+              autoCapitalize="none"
+              value={username}
+              onChangeText={setUsername}
+              editable={!loading}
+              onFocus={() => setUsernameFocused(true)}
+              onBlur={() => setUsernameFocused(false)}
+              inputAccessoryViewID={usernameDoneButton.inputAccessoryViewID}
+            />
 
-        <TextInput
-          placeholder="Email"
-          placeholderTextColor="#6B7280"
-          style={styles.input}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-          editable={!loading}
-          inputAccessoryViewID={emailDoneButton.inputAccessoryViewID}
-        />
+            <TextInput
+              placeholder="Email"
+              placeholderTextColor="#878988"
+              style={[
+                styles.input,
+                emailFocused && styles.inputFocused,
+              ]}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+              editable={!loading}
+              autoComplete="email"
+              textContentType="emailAddress"
+              onFocus={() => setEmailFocused(true)}
+              onBlur={() => setEmailFocused(false)}
+              inputAccessoryViewID={emailDoneButton.inputAccessoryViewID}
+            />
 
-        {/* Password Input with Eye Toggle */}
-        <View style={styles.passwordContainer}>
-          <TextInput
-            placeholder="Password"
-            placeholderTextColor="#6B7280"
-            style={styles.passwordInput}
-            secureTextEntry={!showPassword1}
-            textContentType="none"
-            autoComplete="off"
-            value={pass1}
-            onChangeText={setPass1}
-            editable={!loading}
-            inputAccessoryViewID={password1DoneButton.inputAccessoryViewID}
-          />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                placeholder="Password"
+                placeholderTextColor="#878988"
+                style={[
+                  styles.input,
+                  styles.passwordInput,
+                  pass1Focused && styles.inputFocused,
+                ]}
+                secureTextEntry={!showPassword1}
+                textContentType="none"
+                autoComplete="off"
+                value={pass1}
+                onChangeText={setPass1}
+                editable={!loading}
+                onFocus={() => setPass1Focused(true)}
+                onBlur={() => setPass1Focused(false)}
+                inputAccessoryViewID={password1DoneButton.inputAccessoryViewID}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword1(!showPassword1)}
+                disabled={loading}
+              >
+                <Ionicons
+                  name={showPassword1 ? 'eye-off' : 'eye'}
+                  size={22}
+                  color="#6C6658"
+                />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.passwordContainer}>
+              <TextInput
+                placeholder="Repeat Password"
+                placeholderTextColor="#878988"
+                style={[
+                  styles.input,
+                  styles.passwordInput,
+                  pass2Focused && styles.inputFocused,
+                ]}
+                secureTextEntry={!showPassword2}
+                textContentType="none"
+                autoComplete="off"
+                value={pass2}
+                onChangeText={setPass2}
+                editable={!loading}
+                onFocus={() => setPass2Focused(true)}
+                onBlur={() => setPass2Focused(false)}
+                inputAccessoryViewID={password2DoneButton.inputAccessoryViewID}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword2(!showPassword2)}
+                disabled={loading}
+              >
+                <Ionicons
+                  name={showPassword2 ? 'eye-off' : 'eye'}
+                  size={22}
+                  color="#6C6658"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+
           <TouchableOpacity
-            style={styles.eyeIcon}
-            onPress={() => setShowPassword1(!showPassword1)}
+            style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
+            onPress={handleSignUp}
             disabled={loading}
           >
-            <Ionicons
-              name={showPassword1 ? 'eye-off' : 'eye'}
-              size={24}
-              color="#6B7280"
-            />
+            <Text style={styles.primaryButtonText}>
+              {loading ? 'Creating Account...' : 'Sign Up'}
+            </Text>
           </TouchableOpacity>
-        </View>
 
-        {/* Repeat Password Input with Eye Toggle */}
-        <View style={styles.passwordContainer}>
-          <TextInput
-            placeholder="Repeat Password"
-            placeholderTextColor="#6B7280"
-            style={styles.passwordInput}
-            secureTextEntry={!showPassword2}
-            textContentType="none"
-            autoComplete="off"
-            value={pass2}
-            onChangeText={setPass2}
-            editable={!loading}
-            inputAccessoryViewID={password2DoneButton.inputAccessoryViewID}
-          />
           <TouchableOpacity
-            style={styles.eyeIcon}
-            onPress={() => setShowPassword2(!showPassword2)}
+            onPress={() => navigation.goBack()}
+            style={styles.switchContainer}
             disabled={loading}
           >
-            <Ionicons
-              name={showPassword2 ? 'eye-off' : 'eye'}
-              size={24}
-              color="#6B7280"
-            />
+            <Text style={[styles.switchText, loading && styles.disabledText]}>
+              Have an Account? <Text style={styles.switchLink}>Login</Text>
+            </Text>
           </TouchableOpacity>
-        </View>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <TouchableOpacity 
-          style={[styles.btn, loading && styles.disabledBtn]} 
-          onPress={handleSignUp}
-          disabled={loading}
-        >
-          <Text style={styles.btnText}>
-            {loading ? 'Creating Account...' : 'Sign Up'}
+          <Text style={styles.legalText}>
+            By Continuing you agree to CompFit's{' '}
+            <Text style={styles.legalLink}>Terms of Use</Text>
           </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          onPress={() => navigation.goBack()} 
-          style={{ marginTop: 18 }}
-          disabled={loading}
-        >
-          <Text style={[styles.switchText, loading && styles.disabledText]}>
-            Have an Account? <Text style={styles.switchLink}>Login</Text>
-          </Text>
-        </TouchableOpacity>
+        </ScrollView>
       </View>
-      
-      {/* Done button accessories for inputs */}
+
       {usernameDoneButton.accessoryView}
       {emailDoneButton.accessoryView}
       {password1DoneButton.accessoryView}
@@ -256,82 +306,175 @@ export default function SignUpScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  root: { 
-    flex: 1, 
-    backgroundColor: '#2E3439', 
-    alignItems: 'center' 
+  root: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
   },
-  logo: { 
-    fontSize: 52, 
-    fontWeight: '900', 
-    color: '#A4D65E', 
-    marginTop: 80 
+  heroSection: {
+    width: '100%',
   },
-  tagline: { 
-    fontSize: 20, 
-    color: '#FFF', 
-    marginTop: 12, 
-    marginBottom: 60 
+  heroImage: {
+    height: HERO_HEIGHT,
+    width: '100%',
+    justifyContent: 'flex-start',
   },
-  form: { 
-    width: '80%' 
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroContent: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 24,
+  },
+  logo: {
+    fontSize: 52,
+    color: '#93C31D',
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  tagline: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  sheetContainer: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: -28,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 24,
+  },
+  sheetContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-start',
+    paddingBottom: 16,
+  },
+  sheetTitle: {
+    fontSize: 28,
+    color: '#93C31D',
+    fontWeight: '700',
+    textAlign: 'left',
+  },
+  sheetDescription: {
+    fontSize: 15,
+    color: '#6C6658',
+    lineHeight: 20,
+    marginTop: 10,
+  },
+  formStack: {
+    marginTop: 32,
   },
   input: {
-    backgroundColor: '#FFF', 
-    borderRadius: 8, 
-    padding: 12,
-    fontSize: 16, 
-    marginBottom: 20,
+    height: 54,
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    fontSize: 16,
+    color: '#1F2937',
+    backgroundColor: '#EEEEEE',
+    borderWidth: 1,
+    borderColor: 'transparent',
+    marginBottom: 12,
+  },
+  inputFocused: {
+    borderColor: '#B7D564',
+    backgroundColor: '#FFFFFF',
   },
   passwordContainer: {
     position: 'relative',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   passwordInput: {
-    backgroundColor: '#FFF', 
-    borderRadius: 8, 
-    padding: 12,
-    paddingRight: 50, // Make room for the eye icon
-    fontSize: 16,
+    paddingRight: 48,
+    marginBottom: 0,
   },
   eyeIcon: {
     position: 'absolute',
-    right: 16,
-    top: 6,
+    right: 18,
+    top: 15,
     padding: 4,
   },
-  btn: {
-    backgroundColor: '#A4D65E', 
-    borderRadius: 12, 
-    paddingVertical: 16,
-    alignItems: 'center', 
-    marginTop: 10,
+  primaryButton: {
+    backgroundColor: '#93C31D',
+    height: 56,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#93C31D',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 3,
+    marginTop: 20,
   },
-  disabledBtn: {
-    backgroundColor: '#7A9B47',
+  primaryButtonDisabled: {
     opacity: 0.7,
   },
-  btnText: { 
-    color: '#FFF', 
-    fontWeight: 'bold', 
-    fontSize: 18 
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
   },
-  switchText: { 
-    color: '#FFF', 
-    textAlign: 'center', 
-    fontSize: 14 
+  switchContainer: {
+    marginTop: 32,
   },
-  switchLink: { 
-    color: '#A4D65E', 
-    fontWeight: '600' 
+  switchText: {
+    color: '#6C6658',
+    textAlign: 'center',
+    fontSize: 14,
+  },
+  switchLink: {
+    color: '#93C31D',
+    fontWeight: '700',
   },
   disabledText: {
     opacity: 0.6,
   },
-  error: { 
-    color: '#F87171', 
-    textAlign: 'center', 
-    marginBottom: 10,
+  legalText: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#A7ABA0',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  legalLink: {
+    color: '#6C6658',
+    fontWeight: '600',
+  },
+  error: {
+    color: '#F87171',
+    textAlign: 'center',
     fontSize: 14,
+    marginTop: 12,
+  },
+  fullWhiteContainer: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+  },
+  topContentContainer: {
+    paddingTop: 66,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    minHeight: '50%',
+  },
+  whiteScreenTitle: {
+    fontSize: 63,
+    color: '#93C31D',
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  whiteScreenSubtitle: {
+    fontSize: 18,
+    color: '#6C6658',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 32,
   },
 });

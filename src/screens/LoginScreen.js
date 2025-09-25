@@ -1,5 +1,5 @@
 // src/screens/LoginScreen.js
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,19 @@ import {
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
+  ImageBackground,
+  Platform,
+  Dimensions,
+  ScrollView,
 } from 'react-native';
-import { auth, signInWithEmailAndPassword } from '../firebase';
+import { LinearGradient } from 'expo-linear-gradient';
+import { signInWithEmailAndPassword } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
 import useDoneButton from '../hooks/useDoneButton';
+
+const HERO_IMAGE = require('../../assets/Onboarding/OnboardingImgOne.jpg');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const HERO_HEIGHT = Math.max(SCREEN_HEIGHT * 0.55, 420);
 
 export default function LoginScreen({ navigation }) {
   const [email,        setEmail]        = useState('');
@@ -18,10 +27,21 @@ export default function LoginScreen({ navigation }) {
   const [error,        setError]        = useState('');
   const [loading,      setLoading]      = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+
+  const emailRef = useRef(null);
+
   // Done button hooks for both inputs
   const emailDoneButton = useDoneButton();
   const passwordDoneButton = useDoneButton();
+
+  useEffect(() => {
+    if (showEmailForm && emailRef.current) {
+      emailRef.current.focus();
+    }
+  }, [showEmailForm]);
 
   const handleLogin = async () => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -66,94 +86,208 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.root} behavior="padding">
-      <Text style={styles.logo}>CompFit</Text>
-      <Text style={styles.tagline}>Compete with your friends</Text>
-
-      <View style={styles.form}>
-        <TextInput
-          placeholder="Email"
-          placeholderTextColor="#6B7280"
-          style={styles.input}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-          editable={!loading}
-          autoComplete="email"
-          textContentType="emailAddress"
-          inputAccessoryViewID={emailDoneButton.inputAccessoryViewID}
-        />
-
-        {/* Password Input with Eye Toggle */}
-        <View style={styles.passwordContainer}>
-          <TextInput
-            placeholder="Password"
-            placeholderTextColor="#6B7280"
-            style={styles.passwordInput}
-            secureTextEntry={!showPassword}
-            value={password}
-            onChangeText={setPassword}
-            editable={!loading}
-            autoComplete="password"
-            textContentType="password"
-            inputAccessoryViewID={passwordDoneButton.inputAccessoryViewID}
-          />
-          <TouchableOpacity
-            style={styles.eyeIcon}
-            onPress={() => setShowPassword(!showPassword)}
-            disabled={loading}
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {showEmailForm ? (
+        <View style={styles.fullWhiteContainer}>
+          <ScrollView
+            contentContainerStyle={styles.topContentContainer}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            <Ionicons
-              name={showPassword ? 'eye-off' : 'eye'}
-              size={24}
-              color="#6B7280"
-            />
-          </TouchableOpacity>
+            <Text style={styles.whiteScreenTitle}>CompFit</Text>
+            <Text style={styles.whiteScreenSubtitle}>Compete With Your Friends</Text>
+            
+            <View style={styles.titleRow}>
+              <TouchableOpacity 
+                onPress={() => setShowEmailForm(false)}
+                style={styles.backButton}
+              >
+                <View style={styles.backButtonContent}>
+                  <Ionicons name="arrow-back" size={18} color="#93C31D" style={styles.backArrow} />
+                  <Text style={styles.backButtonText}>Back</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.fieldStack}>
+              <TextInput
+                ref={emailRef}
+                placeholder="Email"
+                placeholderTextColor="#878988"
+                style={[
+                  styles.input,
+                  styles.emailInput,
+                  emailFocused && styles.inputFocused,
+                ]}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+                editable={!loading}
+                autoComplete="email"
+                textContentType="emailAddress"
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => setEmailFocused(false)}
+                inputAccessoryViewID={emailDoneButton.inputAccessoryViewID}
+              />
+
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  placeholder="Password"
+                  placeholderTextColor="#878988"
+                  style={[
+                    styles.input,
+                    styles.passwordInput,
+                    passwordFocused && styles.inputFocused,
+                  ]}
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
+                  editable={!loading}
+                  autoComplete="password"
+                  textContentType="password"
+                  onFocus={() => setPasswordFocused(true)}
+                  onBlur={() => setPasswordFocused(false)}
+                  inputAccessoryViewID={passwordDoneButton.inputAccessoryViewID}
+                />
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
+                  disabled={loading}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off' : 'eye'}
+                    size={22}
+                    color="#6C6658"
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ForgotPassword')}
+              style={styles.forgotPasswordContainer}
+              disabled={loading}
+            >
+              <Text
+                style={[
+                  styles.forgotPasswordText,
+                  loading && styles.disabledText,
+                ]}
+              >
+                Forgot Password?
+              </Text>
+            </TouchableOpacity>
+
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            <TouchableOpacity
+              style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              <Text style={styles.primaryButtonText}>
+                {loading ? 'Signing In...' : 'Login'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => navigation.navigate('SignUp')}
+              style={styles.switchContainer}
+              disabled={loading}
+            >
+              <Text style={[styles.switchText, loading && styles.disabledText]}>
+                Don't have an Account? <Text style={styles.switchLink}>Sign up</Text>
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={styles.legalText}>
+              By Continuing you agree to CompFit's{' '}
+              <Text style={styles.legalLink}>Terms of Use</Text>
+            </Text>
+          </ScrollView>
         </View>
+      ) : (
+        <>
+          <View style={styles.heroSection}>
+            <ImageBackground
+              source={HERO_IMAGE}
+              style={styles.heroImage}
+              resizeMode="cover"
+            >
+              <LinearGradient
+                colors={[
+                  'rgba(0,0,0,0.5)',
+                  'rgba(0,0,0,0.5)',
+                ]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={styles.heroOverlay}
+              />
+              <View style={styles.heroContent}>
+                <Text style={styles.logo}>CompFit</Text>
+                <Text style={styles.tagline}>Compete with your friends</Text>
+              </View>
+            </ImageBackground>
+          </View>
 
-        <TouchableOpacity 
-          onPress={() => navigation.navigate('ForgotPassword')}
-          style={styles.forgotPasswordContainer}
-          disabled={loading}
-        >
-          <Text style={[styles.forgotPasswordText, loading && styles.disabledText]}>
-            Forgot Password?
-          </Text>
-        </TouchableOpacity>
+          <View style={styles.sheetContainer}>
+            <ScrollView
+              contentContainerStyle={styles.sheetContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.sheetTitle}>Get Started</Text>
+              <Text style={styles.sheetDescription}>
+                CompFit helps you and your friends connect with one another through
+                healthy competition.
+              </Text>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={() => {
+                  setShowEmailForm(true);
+                  setError('');
+                }}
+                disabled={loading}
+              >
+                <Text style={styles.primaryButtonText}>Continue with Email</Text>
+              </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={[styles.btn, loading && styles.disabledBtn]} 
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          <Text style={styles.btnText}>
-            {loading ? 'Signing In...' : 'Login'}
-          </Text>
-        </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                activeOpacity={0.85}
+              >
+                <View style={styles.secondaryButtonContent}>
+                  <View style={styles.googleBadge}>
+                    <Text style={styles.googleLetter}>G</Text>
+                  </View>
+                  <Text style={styles.secondaryButtonText}>Continue With Google</Text>
+                </View>
+              </TouchableOpacity>
 
-        <TouchableOpacity 
-          onPress={() => navigation.navigate('SignUp')} 
-          style={{ marginTop: 18 }}
-          disabled={loading}
-        >
-          <Text style={[styles.switchText, loading && styles.disabledText]}>
-            Don't have an Account? <Text style={styles.switchLink}>Sign up</Text>
-          </Text>
-        </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('SignUp')}
+                style={styles.switchContainer}
+                disabled={loading}
+              >
+                <Text style={[styles.switchText, loading && styles.disabledText]}>
+                  Don't have an Account? <Text style={styles.switchLink}>Sign up</Text>
+                </Text>
+              </TouchableOpacity>
 
-        <Text style={styles.socialHeading}>or sign up with</Text>
+              <Text style={styles.legalText}>
+                By Continuing you agree to CompFit's{' '}
+                <Text style={styles.legalLink}>Terms of Use</Text>
+              </Text>
+            </ScrollView>
+          </View>
+        </>
+      )}
 
-        <View style={styles.socialRow}>
-          <Ionicons name="logo-google"   size={32} color="#A4D65E" style={styles.socialIcon} />
-          <Ionicons name="logo-facebook" size={32} color="#A4D65E" style={styles.socialIcon} />
-          <Ionicons name="finger-print"  size={32} color="#A4D65E" style={styles.socialIcon} />
-        </View>
-      </View>
-      
-      {/* Done button accessories for inputs */}
       {emailDoneButton.accessoryView}
       {passwordDoneButton.accessoryView}
     </KeyboardAvoidingView>
@@ -161,103 +295,240 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  root: { 
-    flex: 1, 
-    backgroundColor: '#2E3439', 
-    alignItems: 'center' 
+  root: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
   },
-  logo: { 
-    fontSize: 52, 
-    fontWeight: '900', 
-    color: '#A4D65E', 
-    marginTop: 80 
+  heroSection: {
+    width: '100%',
   },
-  tagline: { 
-    fontSize: 20, 
-    color: '#FFF', 
-    marginTop: 12, 
-    marginBottom: 60 
+  heroImage: {
+    height: HERO_HEIGHT,
+    width: '100%',
+    justifyContent: 'flex-start',
   },
-  form: { 
-    width: '80%' 
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroContent: {
+    alignItems: 'center',
+    paddingTop: 66,
+    paddingHorizontal: 24,
+  },
+  logo: {
+    fontSize: 63,
+    color: '#93C31D',
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  tagline: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  sheetContainer: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: -28,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 24,
+  },
+  sheetContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-start',
+    paddingBottom: 16,
+  },
+  sheetTitle: {
+    fontSize: 32,
+    color: '#93C31D',
+    fontWeight: '700',
+    textAlign: 'left',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    width: '100%',
+  },
+  backButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  backButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backArrow: {
+    marginRight: 6,
+  },
+  backButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#93C31D',
+  },
+  sheetDescription: {
+    fontSize: 15,
+    color: '#6C6658',
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  fieldStack: {
+    marginTop: 26,
   },
   input: {
-    backgroundColor: '#FFF', 
-    borderRadius: 12, 
-    padding: 16,
-    fontSize: 16, 
-    marginBottom: 20,
+    height: 54,
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    fontSize: 16,
+    color: '#1F2937',
+    backgroundColor: '#EEEEEE',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  inputFocused: {
+    borderColor: '#B7D564',
+    backgroundColor: '#FFFFFF',
+  },
+  emailInput: {
+    marginBottom: 12,
   },
   passwordContainer: {
     position: 'relative',
-    marginBottom: 20,
   },
   passwordInput: {
-    backgroundColor: '#FFF', 
-    borderRadius: 12, 
-    padding: 16,
-    paddingRight: 50, // Make room for the eye icon
-    fontSize: 16,
+    paddingRight: 48,
   },
   eyeIcon: {
     position: 'absolute',
-    right: 16,
-    top: 10,
+    right: 18,
+    top: 15,
     padding: 4,
   },
   forgotPasswordContainer: {
     alignSelf: 'flex-end',
-    marginBottom: 15,
+    marginTop: 12,
   },
   forgotPasswordText: {
-    color: '#A4D65E',
+    color: '#93C31D',
     fontSize: 14,
     fontWeight: '600',
   },
-  btn: {
-    backgroundColor: '#A4D65E', 
-    borderRadius: 12, 
-    paddingVertical: 16,
-    alignItems: 'center', 
-    marginTop: 10,
+  primaryButton: {
+    backgroundColor: '#93C31D',
+    height: 56,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#93C31D',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 3,
+    marginTop: 32,
   },
-  disabledBtn: {
-    backgroundColor: '#7A9B47',
+  primaryButtonDisabled: {
     opacity: 0.7,
   },
-  btnText: { 
-    color: '#FFF', 
-    fontWeight: 'bold', 
-    fontSize: 18 
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
   },
-  switchText: { 
-    color: '#FFF', 
-    textAlign: 'center', 
-    fontSize: 14 
+  secondaryButton: {
+    height: 54,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E6E6E6',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
   },
-  switchLink: { 
-    color: '#A4D65E', 
-    fontWeight: '600' 
+  secondaryButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  googleBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E6E6E6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  googleLetter: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#4285F4',
+  },
+  secondaryButtonText: {
+    fontSize: 16,
+    color: '#1A1F2C',
+    fontWeight: '600',
+  },
+  switchContainer: {
+    marginTop: 28,
+  },
+  switchText: {
+    color: '#6C6658',
+    textAlign: 'center',
+    fontSize: 14,
+  },
+  switchLink: {
+    color: '#93C31D',
+    fontWeight: '700',
   },
   disabledText: {
     opacity: 0.6,
   },
-  socialHeading: { 
-    color: '#FFF', 
-    textAlign: 'center', 
-    marginVertical: 20 
+  legalText: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#A7ABA0',
+    marginTop: 12,
+    marginBottom: 4,
   },
-  socialRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'center' 
+  legalLink: {
+    color: '#6C6658',
+    fontWeight: '600',
   },
-  socialIcon: { 
-    marginHorizontal: 14 
-  },
-  error: { 
-    color: '#F87171', 
-    textAlign: 'center', 
-    marginBottom: 10,
+  error: {
+    color: '#F87171',
+    textAlign: 'center',
     fontSize: 14,
+    marginTop: 12,
+  },
+  fullWhiteContainer: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+  },
+  topContentContainer: {
+    paddingTop: 66,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    minHeight: '50%',
+  },
+  whiteScreenTitle: {
+    fontSize: 63,
+    color: '#93C31D',
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  whiteScreenSubtitle: {
+    fontSize: 18,
+    color: '#6C6658',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 32,
   },
 });
