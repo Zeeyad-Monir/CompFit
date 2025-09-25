@@ -11,6 +11,7 @@ import {
   Platform,
   Dimensions,
   ScrollView,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { signInWithEmailAndPassword } from '../firebase';
@@ -18,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import useDoneButton from '../hooks/useDoneButton';
 
 const HERO_IMAGE = require('../../assets/Onboarding/OnboardingImgOne.jpg');
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const HERO_HEIGHT = Math.max(SCREEN_HEIGHT * 0.55, 420);
 
 export default function LoginScreen({ navigation }) {
@@ -32,6 +33,7 @@ export default function LoginScreen({ navigation }) {
   const [passwordFocused, setPasswordFocused] = useState(false);
 
   const emailRef = useRef(null);
+  const slideAnim = useRef(new Animated.Value(0)).current; // 0 = hero view, 1 = email form
 
   // Done button hooks for both inputs
   const emailDoneButton = useDoneButton();
@@ -85,12 +87,127 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
+  const slideToEmailForm = () => {
+    setShowEmailForm(true);
+    Animated.timing(slideAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const slideBackToHero = () => {
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => setShowEmailForm(false));
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {showEmailForm ? (
+      {/* Hero View - always rendered, positioned via animation */}
+      <Animated.View style={[
+        styles.screenContainer,
+        {
+          transform: [{ 
+            translateX: slideAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, -SCREEN_WIDTH]
+            })
+          }]
+        }
+      ]}>
+        <View style={styles.heroSection}>
+          <ImageBackground
+            source={HERO_IMAGE}
+            style={styles.heroImage}
+            resizeMode="cover"
+          >
+            <LinearGradient
+              colors={[
+                'rgba(0,0,0,0.6)',
+                'rgba(0,0,0,0.3)',
+              ]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={styles.heroOverlay}
+            />
+            <View style={styles.heroContent}>
+              <Text style={styles.logo}>CompFit</Text>
+              <Text style={styles.tagline}>Compete with your friends</Text>
+            </View>
+          </ImageBackground>
+        </View>
+
+        <View style={styles.sheetContainer}>
+          <ScrollView
+            contentContainerStyle={styles.sheetContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text style={styles.sheetTitle}>Get Started</Text>
+            <Text style={styles.sheetDescription}>
+              CompFit helps you and your friends connect with one another through
+              healthy competition.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => {
+                slideToEmailForm();
+                setError('');
+              }}
+              disabled={loading}
+            >
+              <Text style={styles.primaryButtonText}>Login with Email</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              activeOpacity={0.85}
+            >
+              <View style={styles.secondaryButtonContent}>
+                <View style={styles.googleBadge}>
+                  <Text style={styles.googleLetter}>G</Text>
+                </View>
+                <Text style={styles.secondaryButtonText}>Continue With Google</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => navigation.navigate('SignUp')}
+              style={styles.switchContainer}
+              disabled={loading}
+            >
+              <Text style={[styles.switchText, loading && styles.disabledText]}>
+                Don't have an Account? <Text style={styles.switchLink}>Sign up</Text>
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={styles.legalText}>
+              By Continuing you agree to CompFit's{' '}
+              <Text style={styles.legalLink}>Terms of Use</Text>
+            </Text>
+          </ScrollView>
+        </View>
+      </Animated.View>
+
+      {/* Email Form - always rendered, positioned via animation */}
+      <Animated.View style={[
+        styles.screenContainer,
+        {
+          transform: [{
+            translateX: slideAnim.interpolate({
+              inputRange: [0, 1], 
+              outputRange: [SCREEN_WIDTH, 0]
+            })
+          }]
+        }
+      ]}>
         <View style={styles.fullWhiteContainer}>
           <ScrollView
             contentContainerStyle={styles.topContentContainer}
@@ -102,7 +219,7 @@ export default function LoginScreen({ navigation }) {
             
             <View style={styles.titleRow}>
               <TouchableOpacity 
-                onPress={() => setShowEmailForm(false)}
+                onPress={slideBackToHero}
                 style={styles.backButton}
               >
                 <View style={styles.backButtonContent}>
@@ -210,83 +327,7 @@ export default function LoginScreen({ navigation }) {
             </Text>
           </ScrollView>
         </View>
-      ) : (
-        <>
-          <View style={styles.heroSection}>
-            <ImageBackground
-              source={HERO_IMAGE}
-              style={styles.heroImage}
-              resizeMode="cover"
-            >
-              <LinearGradient
-                colors={[
-                  'rgba(0,0,0,0.6)',
-                  'rgba(0,0,0,0.6)',
-                ]}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 1 }}
-                style={styles.heroOverlay}
-              />
-              <View style={styles.heroContent}>
-                <Text style={styles.logo}>CompFit</Text>
-                <Text style={styles.tagline}>Compete with your friends</Text>
-              </View>
-            </ImageBackground>
-          </View>
-
-          <View style={styles.sheetContainer}>
-            <ScrollView
-              contentContainerStyle={styles.sheetContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              <Text style={styles.sheetTitle}>Get Started</Text>
-              <Text style={styles.sheetDescription}>
-                CompFit helps you and your friends connect with one another through
-                healthy competition.
-              </Text>
-
-              <TouchableOpacity
-                style={styles.primaryButton}
-                onPress={() => {
-                  setShowEmailForm(true);
-                  setError('');
-                }}
-                disabled={loading}
-              >
-                <Text style={styles.primaryButtonText}>Continue with Email</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.secondaryButton}
-                activeOpacity={0.85}
-              >
-                <View style={styles.secondaryButtonContent}>
-                  <View style={styles.googleBadge}>
-                    <Text style={styles.googleLetter}>G</Text>
-                  </View>
-                  <Text style={styles.secondaryButtonText}>Continue With Google</Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => navigation.navigate('SignUp')}
-                style={styles.switchContainer}
-                disabled={loading}
-              >
-                <Text style={[styles.switchText, loading && styles.disabledText]}>
-                  Don't have an Account? <Text style={styles.switchLink}>Sign up</Text>
-                </Text>
-              </TouchableOpacity>
-
-              <Text style={styles.legalText}>
-                By Continuing you agree to CompFit's{' '}
-                <Text style={styles.legalLink}>Terms of Use</Text>
-              </Text>
-            </ScrollView>
-          </View>
-        </>
-      )}
+      </Animated.View>
 
       {emailDoneButton.accessoryView}
       {passwordDoneButton.accessoryView}
@@ -298,6 +339,9 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#FAFAFA',
+  },
+  screenContainer: {
+    ...StyleSheet.absoluteFillObject,
   },
   heroSection: {
     width: '100%',

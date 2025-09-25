@@ -10,15 +10,15 @@ export const NavigationTheme = {
     badgeText: '#FFFFFF',
   },
   dimensions: {
-    barHeight: 50,
-    topPadding: 16,
+    barHeight: 45,
+    topPadding: 14,
     bottomPadding: 0,
-    iconSizeRegular: 32,
-    centerButtonSize: 46,
+    iconSizeRegular: 29,
+    centerButtonSize: 41,
     centerButtonStroke: 2.0,
     iconStroke: 2,
     plusLineStroke: 2,
-    minTouchTarget: 48,
+    minTouchTarget: 43,
     hairlineWidth: StyleSheet.hairlineWidth,
   },
   shadow: {
@@ -40,9 +40,9 @@ export const NavigationTheme = {
     returnDurationMs: 80,
   },
   spacing: {
-    horizontalPadding: 24,
+    horizontalPadding: 22,
     iconLabelGap: 4,
-    safeAreaMinGap: 8,
+    safeAreaMinGap: 7,
   },
   typography: {
     labelSize: 11,
