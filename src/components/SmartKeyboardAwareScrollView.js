@@ -69,8 +69,8 @@ const SmartKeyboardAwareScrollView = ({
       ref={scrollRef}
       // Core behavior with iOS physical device optimizations
       enableAutomaticScroll={Platform.OS === 'ios' ? true : enableAutomaticScroll}
-      extraScrollHeight={Platform.OS === 'ios' ? 120 : extraScrollHeight}
-      extraHeight={Platform.OS === 'ios' ? 150 : extraHeight}
+      extraScrollHeight={Platform.OS === 'ios' ? 65 : extraScrollHeight}
+      extraHeight={Platform.OS === 'ios' ? 81 : extraHeight}
       enableOnAndroid={enableOnAndroid}
       
       // Interaction - optimized for physical devices

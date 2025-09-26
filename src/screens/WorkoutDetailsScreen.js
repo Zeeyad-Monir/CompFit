@@ -295,13 +295,13 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
 
   // Handle comment input focus for physical devices
   const handleCommentFocus = React.useCallback(() => {
-    // Small delay ensures keyboard is fully presented on device
+    // Reduced delay for snappier response
     setTimeout(() => {
       if (scrollViewRef.current && Platform.OS === 'ios') {
         // Scroll to comment section when focused
         scrollViewRef.current.scrollToEnd({ animated: true });
       }
-    }, 300);
+    }, 203);
   }, []);
 
   // Handle posting a comment
@@ -771,7 +771,7 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
           )}
           
           {/* Comment Input Box - Now part of the comments section */}
-          <SafeAreaView edges={['bottom']}>
+          <SafeAreaView edges={Platform.OS === 'ios' ? ['bottom'] : []}>
             <View style={styles.commentInputSection}>
               <View style={styles.commentInputWrapper}>
                 <TextInput
@@ -816,7 +816,7 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
         </View>
 
         {/* Bottom Spacer */}
-        <View style={{ height: 120 }} />
+        <View style={{ height: Platform.OS === 'ios' ? 49 : 73 }} />
         </SmartKeyboardAwareScrollView>
         
         {/* Done button accessory for comment input */}
