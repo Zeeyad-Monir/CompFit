@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, TextInput, Image, ActivityIndicator } from 'react-native';
-import { Header, Button, FormInput, DatePicker, SearchBar } from '../components';
+import { Header, Button, FormInput, DatePicker, SearchBar, SmartKeyboardAwareScrollView } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { db } from '../firebase';
@@ -1844,10 +1844,11 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
     const competitionEndDate = new Date(competition.endDate);
     
     return (
-      <ScrollView 
+      <SmartKeyboardAwareScrollView 
         style={styles.addContainer}
         contentContainerStyle={styles.addScrollContent}
-        showsVerticalScrollIndicator={false}
+        extraScrollHeight={130}
+        enableAutomaticScroll={true}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -2039,6 +2040,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         <TextInput
           style={styles.textArea}
           multiline
+          numberOfLines={3}
           value={notes}
           onChangeText={setNotes}
           placeholder="Add any additional details..."
@@ -2291,7 +2293,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
             <Text style={styles.uploadingText}>Uploading photo to cloud...</Text>
           </View>
         )}
-      </ScrollView>
+      </SmartKeyboardAwareScrollView>
     );
   };
 

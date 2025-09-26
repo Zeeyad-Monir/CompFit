@@ -12,13 +12,12 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
   Keyboard,
   RefreshControl,
   Modal,
 } from 'react-native';
-import { Header } from '../components';
+import { Header, SmartKeyboardAwareScrollView } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '../contexts/AuthContext';
@@ -477,15 +476,12 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
       />
       <StatusBar style="dark" />
       
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-      >
-        <ScrollView 
+      <View style={{ flex: 1 }}>
+        <SmartKeyboardAwareScrollView 
           ref={scrollViewRef}
           style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
+          extraScrollHeight={130}
+          enableAutomaticScroll={true}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -777,11 +773,11 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
 
         {/* Bottom Spacer */}
         <View style={{ height: 120 }} />
-        </ScrollView>
+        </SmartKeyboardAwareScrollView>
         
         {/* Done button accessory for comment input */}
         {commentDoneButton.accessoryView}
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }

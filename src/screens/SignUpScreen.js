@@ -6,17 +6,16 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  KeyboardAvoidingView,
   ImageBackground,
   Platform,
   Dimensions,
-  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { db, createUserWithEmailAndPassword, updateProfile } from '../firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
 import useDoneButton from '../hooks/useDoneButton';
+import { SmartKeyboardAwareScrollView } from '../components';
 
 const HERO_IMAGE = require('../../assets/coverPhotos/coverPhotoSeven.png');
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -154,15 +153,12 @@ export default function SignUpScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View style={styles.root}>
       <View style={styles.fullWhiteContainer}>
-        <ScrollView
+        <SmartKeyboardAwareScrollView
           contentContainerStyle={styles.topContentContainer}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+          extraScrollHeight={100}
+          enableAutomaticScroll={true}
         >
           <Text style={styles.whiteScreenTitle}>CompFit</Text>
           <Text style={styles.whiteScreenSubtitle}>Compete With Your Friends</Text>
@@ -294,14 +290,14 @@ export default function SignUpScreen({ navigation }) {
             By Continuing you agree to CompFit's{' '}
             <Text style={styles.legalLink}>Terms of Use</Text>
           </Text>
-        </ScrollView>
+        </SmartKeyboardAwareScrollView>
       </View>
 
       {usernameDoneButton.accessoryView}
       {emailDoneButton.accessoryView}
       {password1DoneButton.accessoryView}
       {password2DoneButton.accessoryView}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

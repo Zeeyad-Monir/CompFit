@@ -6,12 +6,12 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  KeyboardAvoidingView,
   Alert,
 } from 'react-native';
 import { auth, sendPasswordResetEmail } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
 import useDoneButton from '../hooks/useDoneButton';
+import { SmartKeyboardAwareScrollView } from '../components';
 
 export default function ForgotPasswordScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -57,15 +57,20 @@ export default function ForgotPasswordScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.root} behavior="padding">
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <Ionicons name="chevron-back" size={28} color="#A4D65E" />
-      </TouchableOpacity>
-      
-      <Text style={styles.logo}>Reset Password</Text>
-      <Text style={styles.tagline}>Enter your email to receive a reset link</Text>
+    <View style={styles.root}>
+      <SmartKeyboardAwareScrollView 
+        contentContainerStyle={styles.scrollContent}
+        extraScrollHeight={100}
+        enableAutomaticScroll={true}
+      >
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={28} color="#A4D65E" />
+        </TouchableOpacity>
+        
+        <Text style={styles.logo}>Reset Password</Text>
+        <Text style={styles.tagline}>Enter your email to receive a reset link</Text>
 
-      <View style={styles.form}>
+        <View style={styles.form}>
         <TextInput
           placeholder="Email"
           placeholderTextColor="#6B7280"
@@ -92,19 +97,24 @@ export default function ForgotPasswordScreen({ navigation }) {
             {loading ? 'Sending...' : 'Send Reset Link'}
           </Text>
         </TouchableOpacity>
-      </View>
-      
-      {/* Done button accessory for email input */}
-      {emailDoneButton.accessoryView}
-    </KeyboardAvoidingView>
+        </View>
+        
+        {/* Done button accessory for email input */}
+        {emailDoneButton.accessoryView}
+      </SmartKeyboardAwareScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { 
     flex: 1, 
-    backgroundColor: '#2E3439', 
-    alignItems: 'center' 
+    backgroundColor: '#2E3439',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
+    paddingBottom: 40,
   },
   backButton: {
     position: 'absolute',

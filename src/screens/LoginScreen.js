@@ -6,17 +6,16 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  KeyboardAvoidingView,
   ImageBackground,
   Platform,
   Dimensions,
-  ScrollView,
   Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { signInWithEmailAndPassword } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
 import useDoneButton from '../hooks/useDoneButton';
+import { SmartKeyboardAwareScrollView } from '../components';
 
 const HERO_IMAGE = require('../../assets/Onboarding/OnboardingImgOne.jpg');
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -105,10 +104,7 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View style={styles.root}>
       {/* Hero View - always rendered, positioned via animation */}
       <Animated.View style={[
         styles.screenContainer,
@@ -144,10 +140,10 @@ export default function LoginScreen({ navigation }) {
         </View>
 
         <View style={styles.sheetContainer}>
-          <ScrollView
+          <SmartKeyboardAwareScrollView
             contentContainerStyle={styles.sheetContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+            extraScrollHeight={100}
+            enableAutomaticScroll={true}
           >
             <Text style={styles.sheetTitle}>Get Started</Text>
             <Text style={styles.sheetDescription}>
@@ -192,7 +188,7 @@ export default function LoginScreen({ navigation }) {
               By Continuing you agree to CompFit's{' '}
               <Text style={styles.legalLink}>Terms of Use</Text>
             </Text>
-          </ScrollView>
+          </SmartKeyboardAwareScrollView>
         </View>
       </Animated.View>
 
@@ -209,10 +205,10 @@ export default function LoginScreen({ navigation }) {
         }
       ]}>
         <View style={styles.fullWhiteContainer}>
-          <ScrollView
+          <SmartKeyboardAwareScrollView
             contentContainerStyle={styles.topContentContainer}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+            extraScrollHeight={100}
+            enableAutomaticScroll={true}
           >
             <Text style={styles.whiteScreenTitle}>CompFit</Text>
             <Text style={styles.whiteScreenSubtitle}>Compete With Your Friends</Text>
@@ -325,13 +321,13 @@ export default function LoginScreen({ navigation }) {
               By Continuing you agree to CompFit's{' '}
               <Text style={styles.legalLink}>Terms of Use</Text>
             </Text>
-          </ScrollView>
+          </SmartKeyboardAwareScrollView>
         </View>
       </Animated.View>
 
       {emailDoneButton.accessoryView}
       {passwordDoneButton.accessoryView}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

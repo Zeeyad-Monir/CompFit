@@ -5,8 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  KeyboardAvoidingView,
-  ScrollView,
   Alert,
   AppState,
 } from 'react-native';
@@ -27,6 +25,7 @@ import {
 } from '../firebase';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import useDoneButton from '../hooks/useDoneButton';
+import { SmartKeyboardAwareScrollView } from '../components';
 
 export default function ChangeCredentialsScreen({ navigation }) {
   const { user } = useContext(AuthContext);
@@ -323,7 +322,7 @@ export default function ChangeCredentialsScreen({ navigation }) {
   }, []);
 
   const renderPasswordTab = () => (
-    <View style={styles.tabContent}>
+    <SmartKeyboardAwareScrollView style={styles.tabContent} extraScrollHeight={100} enableAutomaticScroll={true}>
       <View style={styles.infoCard}>
         <Ionicons name="information-circle" size={24} color="#A4D65E" />
         <Text style={styles.infoText}>
@@ -351,11 +350,11 @@ export default function ChangeCredentialsScreen({ navigation }) {
       <Text style={styles.helpText}>
         After receiving the email, follow the link to create a new password.
       </Text>
-    </View>
+    </SmartKeyboardAwareScrollView>
   );
 
   const renderEmailTab = () => (
-    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+    <SmartKeyboardAwareScrollView style={styles.tabContent} extraScrollHeight={100} enableAutomaticScroll={true}>
       {emailChangeStatus === 'pending' ? (
         // Pending verification UI
         <View>
@@ -469,7 +468,7 @@ export default function ChangeCredentialsScreen({ navigation }) {
           </Text>
         </View>
       )}
-    </ScrollView>
+    </SmartKeyboardAwareScrollView>
   );
 
   return (
@@ -512,9 +511,9 @@ export default function ChangeCredentialsScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView style={styles.content} behavior="padding">
+      <View style={styles.content}>
         {activeTab === 'password' ? renderPasswordTab() : renderEmailTab()}
-      </KeyboardAvoidingView>
+      </View>
       
       {/* Done button accessories for inputs */}
       {currentPasswordDoneButton.accessoryView}

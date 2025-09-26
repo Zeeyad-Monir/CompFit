@@ -17,7 +17,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, FormInput, Dropdown, DatePicker, LeaderboardUpdatePicker } from '../components';
+import { Button, FormInput, Dropdown, DatePicker, LeaderboardUpdatePicker, SmartKeyboardAwareScrollView } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { db } from '../firebase';
@@ -1152,11 +1152,12 @@ export default function CompetitionCreationScreen({ navigation, route }) {
   /* ---------- RENDER FUNCTIONS ---------- */
   
   const renderPresetsTab = () => (
-    <ScrollView 
+    <SmartKeyboardAwareScrollView 
       ref={scrollViewRef}
       style={styles.scrollView} 
       contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
+      extraScrollHeight={100}
+      enableAutomaticScroll={true}
     >
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quick Start Templates</Text>
@@ -1185,14 +1186,15 @@ export default function CompetitionCreationScreen({ navigation, route }) {
           </TouchableOpacity>
         ))}
       </View>
-    </ScrollView>
+    </SmartKeyboardAwareScrollView>
   );
 
   const renderScheduleTab = () => (
-    <ScrollView 
+    <SmartKeyboardAwareScrollView 
       style={styles.scrollView} 
       contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
+      extraScrollHeight={100}
+      enableAutomaticScroll={true}
     >
       <View style={styles.section}>
         <View style={styles.presetHeader}>
@@ -1275,14 +1277,15 @@ export default function CompetitionCreationScreen({ navigation, route }) {
           <Text style={styles.createButtonText}>Go To Friends</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </SmartKeyboardAwareScrollView>
   );
 
   const renderFriendsTab = () => (
-    <ScrollView 
+    <SmartKeyboardAwareScrollView 
       style={styles.scrollView} 
       contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
+      extraScrollHeight={100}
+      enableAutomaticScroll={true}
     >
       <View style={styles.section}>
         <View style={styles.presetHeader}>
@@ -1297,14 +1300,14 @@ export default function CompetitionCreationScreen({ navigation, route }) {
         
         <View style={styles.inviteContainer}>
           <View style={styles.inviteRow}>
-            <TextInput
-              style={[styles.inputInvite,{flex:1}]}
+            <FormInput
+              style={{ flex: 1, marginBottom: 0 }}
+              inputStyle={styles.inputInvite}
               placeholder="Friend's username"
               value={inviteUsername}
               onChangeText={setInviteUsername}
               autoCapitalize="none"
               autoCorrect={false}
-              inputAccessoryViewID={inviteUsernameDoneButton.inputAccessoryViewID}
             />
             <TouchableOpacity onPress={addInvite} style={{marginLeft:8}}>
               <Ionicons name="add-circle" size={32} color="#A4D65E"/>
@@ -1403,14 +1406,15 @@ export default function CompetitionCreationScreen({ navigation, route }) {
           <Text style={styles.createButtonText}>Create Competition</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </SmartKeyboardAwareScrollView>
   );
 
   const renderRulesTab = () => (
-    <ScrollView 
+    <SmartKeyboardAwareScrollView 
       style={styles.scrollView} 
       contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
+      extraScrollHeight={100}
+      enableAutomaticScroll={true}
     >
       <View style={styles.section}>
         <View style={styles.presetHeader}>
@@ -1495,14 +1499,15 @@ export default function CompetitionCreationScreen({ navigation, route }) {
           <Text style={styles.createButtonText}>Go To Schedule</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </SmartKeyboardAwareScrollView>
   );
 
   const renderDraftsTab = () => (
-    <ScrollView 
+    <SmartKeyboardAwareScrollView 
       style={styles.scrollView} 
       contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
+      extraScrollHeight={100}
+      enableAutomaticScroll={true}
     >
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Saved Drafts</Text>
@@ -1581,15 +1586,15 @@ export default function CompetitionCreationScreen({ navigation, route }) {
           ))
         )}
       </View>
-    </ScrollView>
+    </SmartKeyboardAwareScrollView>
   );
 
   const renderManualTab = () => (
-    <ScrollView 
+    <SmartKeyboardAwareScrollView 
       style={styles.scrollView} 
       contentContainerStyle={styles.scrollContent}
-      nestedScrollEnabled
-      showsVerticalScrollIndicator={false}
+      extraScrollHeight={130}
+      enableAutomaticScroll={true}
     >
       <View style={styles.competitionDetailsHeader}>
         <Text style={styles.sectionTitle}>Competition Details</Text>
@@ -1681,7 +1686,16 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       </View>
       
       <Text style={styles.label}>Description</Text>
-      <TextInput style={styles.textArea} multiline value={description} onChangeText={setDesc} placeholder="Describe your competition..." inputAccessoryViewID={descriptionDoneButton.inputAccessoryViewID}/>
+      <TextInput 
+        style={styles.textArea} 
+        multiline
+        numberOfLines={4}
+        value={description} 
+        onChangeText={setDesc} 
+        placeholder="Describe your competition..." 
+        placeholderTextColor="#999"
+        inputAccessoryViewID={descriptionDoneButton.inputAccessoryViewID}
+      />
 
       <Text style={styles.sectionTitle}>Activity Rules</Text>
       <Text style={styles.sectionSubtext}>Set up custom point & unit thresholds</Text>
@@ -1854,11 +1868,13 @@ export default function CompetitionCreationScreen({ navigation, route }) {
                   <View style={styles.limitControl}>
                     <Text style={styles.limitLabel}>Minimum Pace Requirement</Text>
                     <View style={styles.paceInputRow}>
-                      <TextInput
-                        style={styles.paceValueInput}
-                        keyboardType="numeric"
-                        value={act.minPace?.toString() || ''}
-                        onChangeText={(value) => {
+                      <View style={{ width: '45%' }}>
+                        <FormInput
+                          style={{ marginBottom: 0 }}
+                          inputStyle={styles.paceValueInput}
+                          keyboardType="numeric"
+                          value={act.minPace?.toString() || ''}
+                          onChangeText={(value) => {
                           console.log(`=== PACE INPUT CHANGED ===`);
                           console.log(`Raw input value: "${value}"`);
                           console.log(`Input length: ${value.length}`);
@@ -1887,9 +1903,8 @@ export default function CompetitionCreationScreen({ navigation, route }) {
                           setActs(updated);
                         }}
                         placeholder="No minimum"
-                        placeholderTextColor="#999"
-                        inputAccessoryViewID={paceValueDoneButton.inputAccessoryViewID}
-                      />
+                        />
+                      </View>
                       <View style={styles.paceUnitSelector}>
                         <Dropdown
                           label=""
@@ -1993,14 +2008,14 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       <Text style={styles.sectionTitle}>Invite Participants</Text>
       <Text style={styles.sectionSubtext}>Invite friends by their registered username</Text>
       <View style={styles.inviteRow}>
-        <TextInput
-          style={[styles.inputInvite,{flex:1}]}
+        <FormInput
+          style={{ flex: 1, marginBottom: 0 }}
+          inputStyle={styles.inputInvite}
           placeholder="Friend's username"
           value={inviteUsername}
           onChangeText={setInviteUsername}
           autoCapitalize="none"
           autoCorrect={false}
-          inputAccessoryViewID={inviteUsernameDoneButton.inputAccessoryViewID}
         />
         <TouchableOpacity onPress={addInvite} style={{marginLeft:8}}>
           <Ionicons name="add-circle" size={32} color="#A4D65E"/>
@@ -2092,7 +2107,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       )}
 
       <Button title="Create Competition" onPress={handleCreate} style={styles.createCompetitionButton}/>
-    </ScrollView>
+    </SmartKeyboardAwareScrollView>
   );
 
   // Determine which tabs to show
@@ -2755,7 +2770,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',  // Align items to top
   },
   paceValueInput: {
-    width: '45%',  // Fixed width instead of flex
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
     padding: 12,

@@ -9,6 +9,7 @@ export { default as DatePicker } from './DatePicker';
 export { default as LeaderboardUpdatePicker } from './LeaderboardUpdatePicker';
 export { default as ScoreDisplay, ScoreCard, InlineScore } from './ScoreDisplay';
 export { default as SearchBar } from './SearchBar';
+export { default as SmartKeyboardAwareScrollView } from './SmartKeyboardAwareScrollView';
 
 export const CompetitionCard = ({ competition, onPress }) => {
   return (
