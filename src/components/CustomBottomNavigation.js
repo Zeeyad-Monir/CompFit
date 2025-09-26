@@ -28,11 +28,11 @@ const CustomBottomNavigation = ({
   const getIconName = (routeName) => {
     switch (routeName) {
       case 'HomeStack':
-        return 'home-outline';
+        return 'bubbly-home';
       case 'CreateStack':
-        return 'add';
+        return 'bubbly-plus';
       case 'ProfileStack':
-        return 'person-outline';
+        return 'bubbly-profile';
       default:
         return 'help-outline';
     }

@@ -10,6 +10,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { NavigationTheme } from '../../constants/navigationTheme';
+import { BubblyHomeIcon, BubblyPlusIcon, BubblyProfileIcon } from '../icons';
 
 const TabBarItem = ({ 
   route, 
@@ -73,6 +74,77 @@ const TabBarItem = ({
   });
 
   const renderIcon = () => {
+    // Handle custom bubbly icons
+    if (icon.startsWith('bubbly-')) {
+      const iconSize = isCenter 
+        ? NavigationTheme.dimensions.centerButtonSize - 13  // Increase to 28px (20% larger)
+        : Math.round(NavigationTheme.dimensions.iconSizeRegular * 1.345);  // Increase to 39px (10% larger)
+      
+      if (isCenter) {
+        // Create an animated value for background color that transitions between transparent and green
+        const animatedBackgroundColor = colorAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: ['transparent', NavigationTheme.colors.iconActive],
+        });
+        
+        // Icon color should be white when active (filled), animated color when inactive
+        const centerIconColor = colorAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [NavigationTheme.colors.iconInactive, '#FFFFFF'],
+        });
+        
+        return (
+          <Animated.View style={[
+            styles.centerButton,
+            { 
+              borderColor: animatedColor,
+              backgroundColor: animatedBackgroundColor
+            }
+          ]}>
+            <BubblyPlusIcon 
+              size={iconSize}
+              color={isFocused ? '#FFFFFF' : NavigationTheme.colors.iconInactive}
+              isFocused={isFocused}
+              showBackground={false}
+            />
+          </Animated.View>
+        );
+      }
+      
+      // Regular bubbly icons - use static colors based on focus state
+      const staticColor = isFocused 
+        ? NavigationTheme.colors.iconActive 
+        : NavigationTheme.colors.iconInactive;
+      
+      switch (icon) {
+        case 'bubbly-home':
+          return (
+            <BubblyHomeIcon 
+              size={iconSize}
+              color={staticColor}
+              isFocused={isFocused}
+            />
+          );
+        case 'bubbly-profile':
+          return (
+            <BubblyProfileIcon 
+              size={iconSize}
+              color={staticColor}
+              isFocused={isFocused}
+            />
+          );
+        default:
+          return (
+            <BubblyPlusIcon 
+              size={iconSize}
+              color={staticColor}
+              isFocused={isFocused}
+            />
+          );
+      }
+    }
+
+    // Fallback to original Ionicons for non-bubbly icons
     if (isCenter) {
       // Create an animated value for background color that transitions between transparent and green
       const animatedBackgroundColor = colorAnim.interpolate({
