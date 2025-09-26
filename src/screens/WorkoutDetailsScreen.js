@@ -511,8 +511,11 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
         <SmartKeyboardAwareScrollView 
           ref={scrollViewRef}
           style={styles.scrollView}
-          extraScrollHeight={130}
+          extraScrollHeight={Platform.OS === 'ios' ? 140 : 130}
+          extraHeight={Platform.OS === 'ios' ? 160 : 130}
           enableAutomaticScroll={true}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+          viewIsInsideTabBar={true}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

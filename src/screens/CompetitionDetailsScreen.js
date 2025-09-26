@@ -124,10 +124,13 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
   
   // Handle notes input focus for physical devices
   const handleNotesFocus = React.useCallback(() => {
-    setTimeout(() => {
-      // The SmartKeyboardAwareScrollView will handle the scrolling automatically
-      // This is just for any additional logic needed
-    }, 203);
+    // Add a delay to ensure keyboard animation completes on physical devices
+    if (Platform.OS === 'ios') {
+      setTimeout(() => {
+        // The SmartKeyboardAwareScrollView will handle the scrolling automatically
+        // Additional scroll adjustment can be added here if needed
+      }, 100);
+    }
   }, []);
   
   // Constants for activity display management
@@ -1874,8 +1877,11 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
       <SmartKeyboardAwareScrollView 
         style={styles.addContainer}
         contentContainerStyle={styles.addScrollContent}
-        extraScrollHeight={Platform.OS === 'ios' ? 80 : 100}
+        extraScrollHeight={Platform.OS === 'ios' ? 140 : 100}
+        extraHeight={Platform.OS === 'ios' ? 160 : 130}
         enableAutomaticScroll={true}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+        viewIsInsideTabBar={true}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -2077,14 +2083,14 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
           editable={!isSubmitting}
           inputAccessoryViewID={notesDoneButton.inputAccessoryViewID}
           // iOS physical device optimizations
-          blurOnSubmit={false}
+          blurOnSubmit={Platform.OS === 'android'}
           returnKeyType="default"
           enablesReturnKeyAutomatically={true}
           textAlignVertical="top"
           autoCorrect={false}
+          scrollEnabled={Platform.OS === 'ios'}
           spellCheck={true}
           keyboardType="default"
-          scrollEnabled={false}
         />
 
         {/* Points Preview with correct unit display */}
@@ -2653,7 +2659,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 10,
     right: 10,
-    backgroundColor: '#FFD700',
+    backgroundColor: '#FF8C00',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 15,

@@ -10,20 +10,21 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
  */
 const SmartKeyboardAwareScrollView = ({ 
   children,
-  extraScrollHeight = 100,  // Extra space above the focused input
-  extraHeight = 130, // Unified for consistency across platforms
+  extraScrollHeight = Platform.OS === 'ios' ? 120 : 100,  // Extra space above the focused input - increased for iOS physical devices
+  extraHeight = Platform.OS === 'ios' ? 150 : 130, // Increased for iOS physical keyboards
   enableOnAndroid = true,
   enableAutomaticScroll = true,
   keyboardShouldPersistTaps = 'handled',
   scrollEnabled = true,
-  resetScrollToCoords = null, // Don't reset scroll position by default
+  resetScrollToCoords = { x: 0, y: 0 }, // Reset to top to prevent stuck positions
   viewIsInsideTabBar = true, // Account for bottom navigation
-  keyboardOpeningTime = 300, // Unified timing for smoother animations
+  keyboardOpeningTime = Platform.OS === 'ios' ? 250 : 300, // Faster for iOS physical keyboards
   scrollEventThrottle = 16, // 60fps smooth scrolling
   showsVerticalScrollIndicator = false,
   contentContainerStyle,
   style,
   onScroll,
+  contentInset,
   ...props 
 }) => {
   const scrollRef = useRef(null);
@@ -64,6 +65,11 @@ const SmartKeyboardAwareScrollView = ({
     };
   }, []);
 
+  // iOS-specific content inset for tab bar
+  const defaultContentInset = Platform.OS === 'ios' 
+    ? { bottom: viewIsInsideTabBar ? 90 : 0, top: 0, left: 0, right: 0 }
+    : undefined;
+    
   return (
     <KeyboardAwareScrollView
       ref={scrollRef}
@@ -81,14 +87,19 @@ const SmartKeyboardAwareScrollView = ({
       // Animation timing
       keyboardOpeningTime={keyboardOpeningTime}
       
-      // Scroll behavior
-      enableResetScrollToCoords={false}
+      // Scroll behavior - enable reset to prevent stuck positions
+      enableResetScrollToCoords={true}
+      resetScrollToCoords={resetScrollToCoords}
       viewIsInsideTabBar={viewIsInsideTabBar}
       scrollEventThrottle={scrollEventThrottle}
+      
+      // iOS keyboard vertical offset for physical devices
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       
       // Styles
       contentContainerStyle={contentContainerStyle}
       style={style}
+      contentInset={contentInset || defaultContentInset}
       onScroll={handleScroll}
       
       // Performance optimizations

@@ -16,12 +16,24 @@ const useDoneButton = (inputRef = null, sharedID = null) => {
   ).current;
   
   const handleDonePress = () => {
-    // Blur the input first if ref provided (helps on physical devices)
-    if (inputRef?.current) {
-      inputRef.current.blur();
+    // Add a small delay for physical keyboards on iOS to prevent animation conflicts
+    if (Platform.OS === 'ios') {
+      // First dismiss keyboard to start animation
+      Keyboard.dismiss();
+      
+      // Then blur input after a small delay if ref provided
+      if (inputRef?.current) {
+        setTimeout(() => {
+          inputRef.current.blur();
+        }, 50);
+      }
+    } else {
+      // Android: blur first then dismiss
+      if (inputRef?.current) {
+        inputRef.current.blur();
+      }
+      Keyboard.dismiss();
     }
-    // Then dismiss keyboard as backup
-    Keyboard.dismiss();
   };
 
   const shouldShowDoneButton = Platform.OS === 'ios';
