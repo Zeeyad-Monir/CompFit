@@ -16,6 +16,7 @@ import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import 'firebase/compat/firestore';
 import 'firebase/compat/functions';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBL63A9pOmlvkYNq8ZPxQKZXfCMTMefYsI",
@@ -37,13 +38,38 @@ export const auth = firebase.auth();
 export const db = firebase.firestore();
 export const functions = firebase.functions();
 
+// Set up React Native persistence (AsyncStorage is used automatically)
+// Firebase Auth in React Native automatically persists auth state
+// We'll manage "remember me" at the app level
+
+// Import persistence service
+import persistenceService from './services/persistenceService';
+
 // Export auth functions (v8 style)
 export const onAuthStateChanged = (callback) => auth.onAuthStateChanged(callback);
 export const createUserWithEmailAndPassword = (email, password) => 
   auth.createUserWithEmailAndPassword(email, password);
 export const signInWithEmailAndPassword = (email, password) => 
   auth.signInWithEmailAndPassword(email, password);
-export const signOut = () => auth.signOut();
+
+// Custom sign in with remember me support
+export const signInWithRememberMe = async (email, password, rememberMe) => {
+  const userCredential = await auth.signInWithEmailAndPassword(email, password);
+  
+  // Handle remember me preference
+  if (rememberMe) {
+    await persistenceService.enablePersistence();
+  } else {
+    await persistenceService.disablePersistence();
+  }
+  
+  return userCredential;
+};
+
+export const signOut = async () => {
+  await persistenceService.clearPersistedSession();
+  return auth.signOut();
+};
 export const sendPasswordResetEmail = (email) => auth.sendPasswordResetEmail(email);
 export const updateProfile = (user, profile) => user.updateProfile(profile);
 export const updateEmail = (user, email) => user.updateEmail(email);

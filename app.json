@@ -44,7 +44,8 @@
         {
           "photosPermission": "The app accesses your photos to let you attach them to workout submissions."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

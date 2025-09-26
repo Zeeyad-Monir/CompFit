@@ -12,10 +12,11 @@ import {
   Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { signInWithEmailAndPassword } from '../firebase';
+import { signInWithRememberMe } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
 import useDoneButton from '../hooks/useDoneButton';
 import { SmartKeyboardAwareScrollView } from '../components';
+import RememberMeCheckbox from '../components/RememberMeCheckbox';
 
 const HERO_IMAGE = require('../../assets/Onboarding/OnboardingImgOne.jpg');
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -30,6 +31,7 @@ export default function LoginScreen({ navigation }) {
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   const emailRef = useRef(null);
   const slideAnim = useRef(new Animated.Value(0)).current; // 0 = hero view, 1 = email form
@@ -61,7 +63,7 @@ export default function LoginScreen({ navigation }) {
     setError('');
     
     try {
-      await signInWithEmailAndPassword(trimmedEmail, password);
+      await signInWithRememberMe(trimmedEmail, password, rememberMe);
       // User will be automatically redirected by AuthContext
     } catch (e) {
       console.log('Login error:', e.code);
@@ -280,6 +282,12 @@ export default function LoginScreen({ navigation }) {
               </View>
             </View>
 
+            <RememberMeCheckbox
+              checked={rememberMe}
+              onChange={setRememberMe}
+              disabled={loading}
+            />
+
             <TouchableOpacity
               onPress={() => navigation.navigate('ForgotPassword')}
               style={styles.forgotPasswordContainer}
@@ -452,7 +460,7 @@ const styles = StyleSheet.create({
   },
   forgotPasswordContainer: {
     alignSelf: 'flex-end',
-    marginTop: 12,
+    marginTop: 8,
   },
   forgotPasswordText: {
     color: '#93C31D',
