@@ -10,21 +10,20 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
  */
 const SmartKeyboardAwareScrollView = ({ 
   children,
-  extraScrollHeight = Platform.OS === 'ios' ? 120 : 100,  // Extra space above the focused input - increased for iOS physical devices
-  extraHeight = Platform.OS === 'ios' ? 150 : 130, // Increased for iOS physical keyboards
+  extraScrollHeight = 100,  // Extra space above the focused input
+  extraHeight = 130, // Unified for consistency across platforms
   enableOnAndroid = true,
   enableAutomaticScroll = true,
   keyboardShouldPersistTaps = 'handled',
   scrollEnabled = true,
-  resetScrollToCoords = { x: 0, y: 0 }, // Reset to top to prevent stuck positions
+  resetScrollToCoords = null, // Don't reset scroll position by default
   viewIsInsideTabBar = true, // Account for bottom navigation
-  keyboardOpeningTime = Platform.OS === 'ios' ? 250 : 300, // Faster for iOS physical keyboards
+  keyboardOpeningTime = 300, // Unified timing for smoother animations
   scrollEventThrottle = 16, // 60fps smooth scrolling
   showsVerticalScrollIndicator = false,
   contentContainerStyle,
   style,
   onScroll,
-  contentInset,
   ...props 
 }) => {
   const scrollRef = useRef(null);
@@ -65,46 +64,54 @@ const SmartKeyboardAwareScrollView = ({
     };
   }, []);
 
-  // iOS-specific content inset for tab bar
-  const defaultContentInset = Platform.OS === 'ios' 
-    ? { bottom: viewIsInsideTabBar ? 90 : 0, top: 0, left: 0, right: 0 }
-    : undefined;
-    
   return (
     <KeyboardAwareScrollView
       ref={scrollRef}
-      // Core behavior - simplified for stability
-      enableAutomaticScroll={enableAutomaticScroll}
-      extraScrollHeight={extraScrollHeight}
-      extraHeight={extraHeight}
+      // Core behavior with iOS physical device optimizations
+      enableAutomaticScroll={Platform.OS === 'ios' ? true : enableAutomaticScroll}
+      extraScrollHeight={Platform.OS === 'ios' ? 65 : extraScrollHeight}
+      extraHeight={Platform.OS === 'ios' ? 81 : extraHeight}
       enableOnAndroid={enableOnAndroid}
       
-      // Interaction
-      keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+      // Interaction - optimized for physical devices
+      keyboardShouldPersistTaps="always" // Changed from 'handled' for better physical device response
       scrollEnabled={scrollEnabled}
       showsVerticalScrollIndicator={showsVerticalScrollIndicator}
       
-      // Animation timing
-      keyboardOpeningTime={keyboardOpeningTime}
+      // Animation timing - faster for iOS physical devices
+      keyboardOpeningTime={Platform.OS === 'ios' ? 250 : keyboardOpeningTime}
       
-      // Scroll behavior - enable reset to prevent stuck positions
-      enableResetScrollToCoords={true}
-      resetScrollToCoords={resetScrollToCoords}
+      // Scroll behavior improvements
+      enableResetScrollToCoords={false} // Always prevent bounce back
       viewIsInsideTabBar={viewIsInsideTabBar}
       scrollEventThrottle={scrollEventThrottle}
       
-      // iOS keyboard vertical offset for physical devices
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      // Additional smoothing props
+      scrollToOverflowEnabled={false} // Prevent overscroll
+      automaticallyAdjustContentInsets={false} // Manual control for consistency
+      scrollIndicatorInsets={{ right: 1 }} // Prevent indicator jump
+      
+      // iOS 15+ optimization for physical devices
+      automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       
       // Styles
       contentContainerStyle={contentContainerStyle}
       style={style}
-      contentInset={contentInset || defaultContentInset}
       onScroll={handleScroll}
       
       // Performance optimizations
       removeClippedSubviews={Platform.OS === 'android'}
       keyboardDismissMode="on-drag"
+      bounces={false} // Disable bouncing completely for iOS
+      alwaysBounceVertical={false} // Prevent vertical bounce on iOS
+      overScrollMode="never"
+      
+      // Animation config for smoothness
+      decelerationRate="normal"
+      scrollsToTop={false}
+      directionalLockEnabled={true} // Prevent diagonal scrolling
+      contentInsetAdjustmentBehavior="automatic" // Changed from "never" for iOS physical devices
+      extraBottomInset={0} // Prevent bottom bounce
       
       {...props}
     >
