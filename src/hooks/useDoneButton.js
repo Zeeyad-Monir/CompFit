@@ -9,10 +9,15 @@ import {
   StyleSheet 
 } from 'react-native';
 
-const useDoneButton = () => {
+const useDoneButton = (inputRef = null) => {
   const inputAccessoryViewID = useRef(`DoneButton_${Math.random().toString(36).substr(2, 9)}`).current;
   
   const handleDonePress = () => {
+    // Blur the input first if ref provided (helps on physical devices)
+    if (inputRef?.current) {
+      inputRef.current.blur();
+    }
+    // Then dismiss keyboard as backup
     Keyboard.dismiss();
   };
 

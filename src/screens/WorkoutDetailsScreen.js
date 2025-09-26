@@ -17,6 +17,7 @@ import {
   RefreshControl,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Header, SmartKeyboardAwareScrollView } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -46,6 +47,7 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
   const { workout, competition, userName } = route.params;
   const { user } = useContext(AuthContext);
   const scrollViewRef = useRef(null);
+  const commentInputRef = useRef(null);
   
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
@@ -83,9 +85,10 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
   const [userProfiles, setUserProfiles] = useState({});
   const [deletingCommentId, setDeletingCommentId] = useState(null);
   const [workoutUserProfile, setWorkoutUserProfile] = useState(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   
-  // Done button hook for comment input
-  const commentDoneButton = useDoneButton();
+  // Done button hook for comment input with ref
+  const commentDoneButton = useDoneButton(commentInputRef);
 
   // Calculate visibility status
   useEffect(() => {
@@ -103,6 +106,23 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
       });
     }
   }, [workout?.userId]);
+
+  // Keyboard event listeners for physical device support
+  useEffect(() => {
+    const showListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const hideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+    
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+    };
+  }, []);
 
   // Check if this is the current user's workout
   const isOwnWorkout = workout.userId === user?.uid;
@@ -272,6 +292,17 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
       ]
     );
   };
+
+  // Handle comment input focus for physical devices
+  const handleCommentFocus = React.useCallback(() => {
+    // Small delay ensures keyboard is fully presented on device
+    setTimeout(() => {
+      if (scrollViewRef.current && Platform.OS === 'ios') {
+        // Scroll to comment section when focused
+        scrollViewRef.current.scrollToEnd({ animated: true });
+      }
+    }, 300);
+  }, []);
 
   // Handle posting a comment
   const handlePostComment = async () => {
@@ -740,19 +771,31 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
           )}
           
           {/* Comment Input Box - Now part of the comments section */}
-          <View style={styles.commentInputSection}>
-            <View style={styles.commentInputWrapper}>
-              <TextInput
-                style={styles.commentInput}
-                placeholder="Write a comment..."
-                placeholderTextColor="#999"
-                value={commentText}
-                onChangeText={setCommentText}
-                multiline
-                maxLength={500}
-                editable={!isPostingComment}
-                inputAccessoryViewID={commentDoneButton.inputAccessoryViewID}
-              />
+          <SafeAreaView edges={['bottom']}>
+            <View style={styles.commentInputSection}>
+              <View style={styles.commentInputWrapper}>
+                <TextInput
+                  ref={commentInputRef}
+                  style={styles.commentInput}
+                  placeholder="Write a comment..."
+                  placeholderTextColor="#999"
+                  value={commentText}
+                  onChangeText={setCommentText}
+                  onFocus={handleCommentFocus}
+                  multiline
+                  maxLength={500}
+                  editable={!isPostingComment}
+                  inputAccessoryViewID={commentDoneButton.inputAccessoryViewID}
+                  // iOS physical device optimizations
+                  blurOnSubmit={false}
+                  returnKeyType="default"
+                  enablesReturnKeyAutomatically={true}
+                  textAlignVertical="top"
+                  autoCorrect={false}
+                  spellCheck={true}
+                  keyboardType="default"
+                  scrollEnabled={false}
+                />
               <TouchableOpacity
                 style={[
                   styles.commentSubmitButton,
@@ -769,6 +812,7 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
               </TouchableOpacity>
             </View>
           </View>
+          </SafeAreaView>
         </View>
 
         {/* Bottom Spacer */}

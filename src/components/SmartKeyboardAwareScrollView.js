@@ -67,19 +67,19 @@ const SmartKeyboardAwareScrollView = ({
   return (
     <KeyboardAwareScrollView
       ref={scrollRef}
-      // Core behavior
-      enableAutomaticScroll={enableAutomaticScroll}
-      extraScrollHeight={extraScrollHeight}
-      extraHeight={extraHeight}
+      // Core behavior with iOS physical device optimizations
+      enableAutomaticScroll={Platform.OS === 'ios' ? true : enableAutomaticScroll}
+      extraScrollHeight={Platform.OS === 'ios' ? 120 : extraScrollHeight}
+      extraHeight={Platform.OS === 'ios' ? 150 : extraHeight}
       enableOnAndroid={enableOnAndroid}
       
-      // Interaction
-      keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+      // Interaction - optimized for physical devices
+      keyboardShouldPersistTaps="always" // Changed from 'handled' for better physical device response
       scrollEnabled={scrollEnabled}
       showsVerticalScrollIndicator={showsVerticalScrollIndicator}
       
-      // Animation timing (unified for consistency)
-      keyboardOpeningTime={keyboardOpeningTime}
+      // Animation timing - faster for iOS physical devices
+      keyboardOpeningTime={Platform.OS === 'ios' ? 250 : keyboardOpeningTime}
       
       // Scroll behavior improvements
       enableResetScrollToCoords={false} // Always prevent bounce back
@@ -90,6 +90,9 @@ const SmartKeyboardAwareScrollView = ({
       scrollToOverflowEnabled={false} // Prevent overscroll
       automaticallyAdjustContentInsets={false} // Manual control for consistency
       scrollIndicatorInsets={{ right: 1 }} // Prevent indicator jump
+      
+      // iOS 15+ optimization for physical devices
+      automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       
       // Styles
       contentContainerStyle={contentContainerStyle}
@@ -107,7 +110,7 @@ const SmartKeyboardAwareScrollView = ({
       decelerationRate="normal"
       scrollsToTop={false}
       directionalLockEnabled={true} // Prevent diagonal scrolling
-      contentInsetAdjustmentBehavior="never" // iOS - prevent automatic inset adjustments
+      contentInsetAdjustmentBehavior="automatic" // Changed from "never" for iOS physical devices
       extraBottomInset={0} // Prevent bottom bounce
       
       {...props}
