@@ -9,14 +9,12 @@ import {
   ImageBackground,
   Platform,
   Dimensions,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { db, createUserWithEmailAndPassword, updateProfile } from '../firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
-import useDoneButton from '../hooks/useDoneButton';
-import { SmartKeyboardAwareScrollView } from '../components';
-import { Keyboard, InputAccessoryView } from 'react-native';
 
 const HERO_IMAGE = require('../../assets/coverPhotos/coverPhotoSeven.png');
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -31,10 +29,6 @@ export default function SignUpScreen({ navigation }) {
   const [loading,       setLoading]       = useState(false);
   const [showPassword1, setShowPassword1] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
-
-  // Single shared done button for all inputs on this screen
-  const sharedAccessoryID = 'SignUpScreen_DoneButton';
-  const doneButton = useDoneButton(null, sharedAccessoryID);
 
   // Check if username is already taken using the usernames collection
   const isUsernameAvailable = async (username) => {
@@ -150,10 +144,8 @@ export default function SignUpScreen({ navigation }) {
   return (
     <View style={styles.root}>
       <View style={styles.fullWhiteContainer}>
-        <SmartKeyboardAwareScrollView
+        <ScrollView
           contentContainerStyle={styles.topContentContainer}
-          extraScrollHeight={100}
-          enableAutomaticScroll={true}
         >
           <Text style={styles.whiteScreenTitle}>CompFit</Text>
           <Text style={styles.whiteScreenSubtitle}>Compete With Your Friends</Text>
@@ -167,7 +159,6 @@ export default function SignUpScreen({ navigation }) {
               value={username}
               onChangeText={setUsername}
               editable={!loading}
-              inputAccessoryViewID={doneButton.inputAccessoryViewID}
             />
 
             <TextInput
@@ -180,7 +171,6 @@ export default function SignUpScreen({ navigation }) {
               onChangeText={setEmail}
               editable={!loading}
               textContentType="emailAddress"
-              inputAccessoryViewID={doneButton.inputAccessoryViewID}
             />
 
             <View style={styles.passwordContainer}>
@@ -196,8 +186,7 @@ export default function SignUpScreen({ navigation }) {
                 value={pass1}
                 onChangeText={setPass1}
                 editable={!loading}
-                inputAccessoryViewID={doneButton.inputAccessoryViewID}
-              />
+                />
               <TouchableOpacity
                 style={styles.eyeIcon}
                 onPress={() => setShowPassword1(!showPassword1)}
@@ -224,8 +213,7 @@ export default function SignUpScreen({ navigation }) {
                 value={pass2}
                 onChangeText={setPass2}
                 editable={!loading}
-                inputAccessoryViewID={doneButton.inputAccessoryViewID}
-              />
+                />
               <TouchableOpacity
                 style={styles.eyeIcon}
                 onPress={() => setShowPassword2(!showPassword2)}
@@ -266,18 +254,8 @@ export default function SignUpScreen({ navigation }) {
             By Continuing you agree to CompFit's{' '}
             <Text style={styles.legalLink}>Terms of Use</Text>
           </Text>
-        </SmartKeyboardAwareScrollView>
+        </ScrollView>
       </View>
-
-      {Platform.OS === 'ios' && (
-        <InputAccessoryView nativeID={sharedAccessoryID}>
-          <View style={styles.doneButtonContainer}>
-            <TouchableOpacity onPress={() => Keyboard.dismiss()} style={styles.doneButton}>
-              <Text style={styles.doneButtonText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-        </InputAccessoryView>
-      )}
     </View>
   );
 }
@@ -449,26 +427,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 32,
-  },
-  doneButtonContainer: {
-    backgroundColor: '#F8F9FA',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  doneButton: {
-    backgroundColor: '#A4D65E',
-    borderRadius: 6,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  doneButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

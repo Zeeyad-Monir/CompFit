@@ -10,14 +10,12 @@ import {
   Platform,
   Dimensions,
   Animated,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { signInWithRememberMe } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
-import useDoneButton from '../hooks/useDoneButton';
-import { SmartKeyboardAwareScrollView } from '../components';
 import RememberMeCheckbox from '../components/RememberMeCheckbox';
-import { Keyboard, InputAccessoryView } from 'react-native';
 
 const HERO_IMAGE = require('../../assets/Onboarding/OnboardingImgOne.jpg');
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -34,10 +32,6 @@ export default function LoginScreen({ navigation }) {
 
   const emailRef = useRef(null);
   const slideAnim = useRef(new Animated.Value(0)).current; // 0 = hero view, 1 = email form
-
-  // Single shared done button for all inputs on this screen
-  const sharedAccessoryID = 'LoginScreen_DoneButton';
-  const doneButton = useDoneButton(null, sharedAccessoryID);
 
   useEffect(() => {
     if (showEmailForm && emailRef.current) {
@@ -141,10 +135,8 @@ export default function LoginScreen({ navigation }) {
         </View>
 
         <View style={styles.sheetContainer}>
-          <SmartKeyboardAwareScrollView
+          <ScrollView
             contentContainerStyle={styles.sheetContent}
-            extraScrollHeight={100}
-            enableAutomaticScroll={true}
           >
             <Text style={styles.sheetTitle}>Get Started</Text>
             <Text style={styles.sheetDescription}>
@@ -189,7 +181,7 @@ export default function LoginScreen({ navigation }) {
               By Continuing you agree to CompFit's{' '}
               <Text style={styles.legalLink}>Terms of Use</Text>
             </Text>
-          </SmartKeyboardAwareScrollView>
+          </ScrollView>
         </View>
       </Animated.View>
 
@@ -206,10 +198,8 @@ export default function LoginScreen({ navigation }) {
         }
       ]}>
         <View style={styles.fullWhiteContainer}>
-          <SmartKeyboardAwareScrollView
+          <ScrollView
             contentContainerStyle={styles.topContentContainer}
-            extraScrollHeight={100}
-            enableAutomaticScroll={true}
           >
             <Text style={styles.whiteScreenTitle}>CompFit</Text>
             <Text style={styles.whiteScreenSubtitle}>Compete With Your Friends</Text>
@@ -241,7 +231,6 @@ export default function LoginScreen({ navigation }) {
                 onChangeText={setEmail}
                 editable={!loading}
                 textContentType="emailAddress"
-                inputAccessoryViewID={doneButton.inputAccessoryViewID}
               />
 
               <View style={styles.passwordContainer}>
@@ -257,7 +246,6 @@ export default function LoginScreen({ navigation }) {
                   onChangeText={setPassword}
                   editable={!loading}
                   textContentType="password"
-                  inputAccessoryViewID={doneButton.inputAccessoryViewID}
                 />
                 <TouchableOpacity
                   style={styles.eyeIcon}
@@ -320,19 +308,9 @@ export default function LoginScreen({ navigation }) {
               By Continuing you agree to CompFit's{' '}
               <Text style={styles.legalLink}>Terms of Use</Text>
             </Text>
-          </SmartKeyboardAwareScrollView>
+          </ScrollView>
         </View>
       </Animated.View>
-
-      {Platform.OS === 'ios' && (
-        <InputAccessoryView nativeID={sharedAccessoryID}>
-          <View style={styles.doneButtonContainer}>
-            <TouchableOpacity onPress={() => Keyboard.dismiss()} style={styles.doneButton}>
-              <Text style={styles.doneButtonText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-        </InputAccessoryView>
-      )}
     </View>
   );
 }
@@ -572,26 +550,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 32,
-  },
-  doneButtonContainer: {
-    backgroundColor: '#F8F9FA',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  doneButton: {
-    backgroundColor: '#A4D65E',
-    borderRadius: 6,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  doneButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
