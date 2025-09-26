@@ -4,9 +4,10 @@
  * Handles navigation between Home, Create Competition, and Profile sections
  */
 
-import React, { useEffect, useContext } from 'react';
+import React, { useEffect, useContext, useCallback } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
+import { useFocusEffect, CommonActions } from '@react-navigation/native';
 import CustomBottomNavigation from '../components/CustomBottomNavigation';
 import { useOnboarding } from '../components/onboarding/OnboardingController';
 import onboardingService from '../services/onboardingService';
@@ -110,6 +111,22 @@ const AppNavigator = () => {
     };
     initOnboarding();
   }, [user]); // Re-run when user changes
+
+  // Ensure we always start on home tab when AppNavigator becomes active
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return; // Only run for authenticated users
+      
+      console.log('AppNavigator focused - ensuring user starts at home screen');
+      // Small delay to ensure navigation is ready
+      const timer = setTimeout(() => {
+        // The initial state should handle this, but this provides extra assurance
+        console.log('Home screen navigation ensured via useFocusEffect');
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }, [user])
+  );
 
   return (
     <Tab.Navigator

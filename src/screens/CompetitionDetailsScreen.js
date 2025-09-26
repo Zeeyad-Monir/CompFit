@@ -1885,11 +1885,6 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
               onPress={() => setActivityType(type)}
               disabled={isSubmitting}
             >
-              <Ionicons
-                name="fitness"
-                size={24}
-                color={activityType === type ? '#FFF' : '#1A1E23'}
-              />
               <Text style={[
                 styles.activityTypeText,
                 activityType === type && styles.selectedActivityTypeText
@@ -2589,7 +2584,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   workoutType: {
-    fontSize: 20,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#A4D65E',
     marginBottom: 10,
@@ -2600,9 +2595,9 @@ const styles = StyleSheet.create({
   },
   detailItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     marginRight: 15,
-    marginBottom: 5,
+    marginBottom: 0,
   },
   detailIcon: {
     fontSize: 16,
@@ -2738,9 +2733,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dateLabel: {
-    fontSize: 14,
+    fontSize: 18,
+    fontWeight: '400',
     color: '#6B7280',
-    fontWeight: '500',
   },
   dateValue: {
     fontSize: 16,
@@ -3221,8 +3216,8 @@ const styles = StyleSheet.create({
     paddingBottom: 120, 
   },
   dateSection: { 
-    marginBottom: 10, 
-    marginTop: 10,
+    marginBottom: 11, 
+    marginTop: 11,
   },
   dateRangeText: { 
     fontSize: 12, 
@@ -3231,16 +3226,17 @@ const styles = StyleSheet.create({
     textAlign: 'center' 
   },
   label: { 
-    fontSize: 16, 
+    fontSize: 18,
+    fontWeight: '400', 
     color: '#1A1E23', 
-    marginBottom: 8, 
-    marginTop: 16 
+    marginBottom: 10, 
+    marginTop: 17 
   },
   activityTypesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginHorizontal: -5,
-    marginBottom: 10, 
+    marginBottom: 11, 
   },
   activityTypeButton: {
     flexDirection: 'row',
@@ -3259,9 +3255,9 @@ const styles = StyleSheet.create({
     borderColor: '#A4D65E'
   },
   activityTypeText: {
-    fontSize: 14,
-    color: '#1A1E23',
-    marginLeft: 5
+    fontSize: 15.4,
+    fontWeight: '475',
+    color: '#1A1E23'
   },
   selectedActivityTypeText: {
     color: '#FFF'
@@ -3327,7 +3323,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#A4D65E',
     borderRadius: 8,
     padding: 16,
-    marginTop: 20
+    marginTop: 21
   },
   pointsLabel: {
     fontSize: 18,
@@ -3362,7 +3358,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F5E8',
     borderRadius: 8,
     padding: 16,
-    marginTop: 12,
+    marginTop: 13,
     borderWidth: 1,
     borderColor: '#A4D65E'
   },
@@ -3421,7 +3417,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderRadius: 8,
     padding: 12,
-    marginVertical: 10,
+    marginVertical: 11,
     borderWidth: 2,
     borderColor: '#A4D65E',
     borderStyle: 'dashed'
@@ -3432,11 +3428,11 @@ const styles = StyleSheet.create({
     color: '#1A1E23'
   },
   submitButton: {
-    marginTop: 20,
-    marginBottom: 20
+    marginTop: 21,
+    marginBottom: 21
   },
   imagePreviewContainer: {
-    marginVertical: 10,
+    marginVertical: 11,
     alignItems: 'center',
   },
   imagePreview: {
@@ -3464,7 +3460,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF2F2',
     borderRadius: 8,
     padding: 10,
-    marginVertical: 10,
+    marginVertical: 11,
     borderWidth: 1,
     borderColor: '#FF6B6B',
   },
@@ -3486,7 +3482,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
     borderRadius: 8,
     padding: 16,
-    marginTop: 12,
+    marginTop: 13,
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
@@ -3535,7 +3531,7 @@ const styles = StyleSheet.create({
   
   // New styles for multiple photo support
   photoGalleryContainer: {
-    marginVertical: 10,
+    marginVertical: 11,
   },
   addMorePhotosButton: {
     flexDirection: 'row',
@@ -3544,7 +3540,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderRadius: 8,
     padding: 10,
-    marginTop: 10,
+    marginTop: 11,
     borderWidth: 1,
     borderColor: '#A4D65E',
   },

@@ -721,10 +721,33 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
                     <Text style={styles.activityScoring}>
                       {rule.unitsPerPoint} {rule.unit.toLowerCase()} = {rule.pointsPerUnit} point{rule.pointsPerUnit !== 1 ? 's' : ''}
                     </Text>
-                    {(rule.minPace !== null && rule.minPace !== undefined) && (
-                      <Text style={styles.activityPace}>
-                        Min pace: {rule.minPace} {rule.paceUnit || 'min/km'}
-                      </Text>
+                    {/* Display activity limits if any exist */}
+                    {(rule.maxSubmissionsPerDay || 
+                      rule.maxPointsPerWeek || 
+                      rule.perSubmissionCap ||
+                      (rule.minPace !== null && rule.minPace !== undefined)) && (
+                      <View style={styles.activityLimits}>
+                        {rule.maxSubmissionsPerDay && (
+                          <Text style={styles.activityLimit}>
+                            • Max {rule.maxSubmissionsPerDay} submission{rule.maxSubmissionsPerDay !== 1 ? 's' : ''}/day
+                          </Text>
+                        )}
+                        {rule.maxPointsPerWeek && (
+                          <Text style={styles.activityLimit}>
+                            • Max {rule.maxPointsPerWeek} pts/week
+                          </Text>
+                        )}
+                        {rule.perSubmissionCap && (
+                          <Text style={styles.activityLimit}>
+                            • Max {rule.perSubmissionCap} pts per submission
+                          </Text>
+                        )}
+                        {(rule.minPace !== null && rule.minPace !== undefined) && (
+                          <Text style={styles.activityLimit}>
+                            • Min pace: {rule.minPace} {rule.paceUnit || 'min/km'}
+                          </Text>
+                        )}
+                      </View>
                     )}
                   </View>
                 </View>
@@ -969,10 +992,33 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
                         <Text style={styles.activityScoring}>
                           {rule.unitsPerPoint} {rule.unit.toLowerCase()} = {rule.pointsPerUnit} point{rule.pointsPerUnit !== 1 ? 's' : ''}
                         </Text>
-                        {(rule.minPace !== null && rule.minPace !== undefined) && (
-                          <Text style={styles.activityPace}>
-                            Min pace: {rule.minPace} {rule.paceUnit || 'min/km'}
-                          </Text>
+                        {/* Display activity limits if any exist */}
+                        {(rule.maxSubmissionsPerDay || 
+                          rule.maxPointsPerWeek || 
+                          rule.perSubmissionCap ||
+                          (rule.minPace !== null && rule.minPace !== undefined)) && (
+                          <View style={styles.activityLimits}>
+                            {rule.maxSubmissionsPerDay && (
+                              <Text style={styles.activityLimit}>
+                                • Max {rule.maxSubmissionsPerDay} submission{rule.maxSubmissionsPerDay !== 1 ? 's' : ''}/day
+                              </Text>
+                            )}
+                            {rule.maxPointsPerWeek && (
+                              <Text style={styles.activityLimit}>
+                                • Max {rule.maxPointsPerWeek} pts/week
+                              </Text>
+                            )}
+                            {rule.perSubmissionCap && (
+                              <Text style={styles.activityLimit}>
+                                • Max {rule.perSubmissionCap} pts per submission
+                              </Text>
+                            )}
+                            {(rule.minPace !== null && rule.minPace !== undefined) && (
+                              <Text style={styles.activityLimit}>
+                                • Min pace: {rule.minPace} {rule.paceUnit || 'min/km'}
+                              </Text>
+                            )}
+                          </View>
                         )}
                       </View>
                     </View>
@@ -1290,6 +1336,18 @@ const styles = StyleSheet.create({
   activityPace: {
     fontSize: 12,
     color: '#FF9800',
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  activityLimits: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  activityLimit: {
+    fontSize: 13,
+    color: '#6B7280',
     marginTop: 2,
     fontStyle: 'italic',
   },

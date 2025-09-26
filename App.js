@@ -2,12 +2,30 @@
 import 'react-native-gesture-handler';
 import React, { useContext, useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
 import AppNavigator   from './src/navigation/AppNavigator';
 import AuthNavigator  from './src/navigation/AuthNavigator';
 import { AuthProvider, AuthContext } from './src/contexts/AuthContext';
 import notificationService from './src/services/notificationService';
 import { OnboardingProvider } from './src/components/onboarding/OnboardingController';
 import OnboardingOverlay from './src/components/onboarding/OnboardingOverlay';
+
+/**
+ * Creates initial navigation state that always starts at home screen
+ * Only used when user is authenticated - ensures consistent starting point
+ */
+const getInitialNavigationState = () => ({
+  index: 0,
+  routes: [{
+    name: 'HomeStack',
+    state: {
+      index: 0,
+      routes: [{
+        name: 'ActiveCompetitions'
+      }]
+    }
+  }]
+});
 
 /**
  * Main App component that sets up the entire application structure
@@ -22,15 +40,12 @@ export default function App() {
   return (
     // AuthProvider wraps the entire app to provide authentication context
     <AuthProvider>
-      {/* NavigationContainer enables navigation throughout the app */}
-      <NavigationContainer ref={navigationRef}>
-        {/* OnboardingProvider manages the tutorial state */}
-        <OnboardingProvider navigationRef={navigationRef}>
-          <RootNavigator navigationRef={navigationRef} />
-          {/* Onboarding overlay that appears for new users */}
-          <OnboardingOverlay />
-        </OnboardingProvider>
-      </NavigationContainer>
+      {/* OnboardingProvider manages the tutorial state */}
+      <OnboardingProvider navigationRef={navigationRef}>
+        <RootNavigator navigationRef={navigationRef} />
+        {/* Onboarding overlay that appears for new users */}
+        <OnboardingOverlay />
+      </OnboardingProvider>
     </AuthProvider>
   );
 }
@@ -62,7 +77,16 @@ function RootNavigator({ navigationRef }) {
     };
   }, [user, navigationRef]);
   
-  // If user is authenticated, show the main app navigator
-  // Otherwise, show the authentication navigator (login/signup screens)
-  return user ? <AppNavigator /> : <AuthNavigator />;
+  // Return NavigationContainer with appropriate key and initial state
+  return (
+    <NavigationContainer 
+      ref={navigationRef}
+      key={user ? `authenticated-${user.uid}` : 'unauthenticated'}
+      initialState={user ? getInitialNavigationState() : undefined}
+    >
+      {/* If user is authenticated, show the main app navigator */}
+      {/* Otherwise, show the authentication navigator (login/signup screens) */}
+      {user ? <AppNavigator /> : <AuthNavigator />}
+    </NavigationContainer>
+  );
 }

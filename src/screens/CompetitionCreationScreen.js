@@ -1743,19 +1743,19 @@ export default function CompetitionCreationScreen({ navigation, route }) {
             )}
 
             <FormInput
-              label={getPointsLabel(getUnitDisplayName(act))}
-              keyboardType="numeric"
-              value={act.points}
-              onChangeText={p=>updateAct(idx,{points:p})}
-              placeholder={getPointsPlaceholder(getUnitDisplayName(act))}
-            />
-
-            <FormInput
               label={getUnitsLabel(getUnitDisplayName(act))}
               keyboardType="numeric"
               value={act.unitsPerPoint}
               onChangeText={u=>updateAct(idx,{unitsPerPoint:u})}
               placeholder={getUnitsPlaceholder(getUnitDisplayName(act))}
+            />
+
+            <FormInput
+              label={getPointsLabel(getUnitDisplayName(act))}
+              keyboardType="numeric"
+              value={act.points}
+              onChangeText={p=>updateAct(idx,{points:p})}
+              placeholder={getPointsPlaceholder(getUnitDisplayName(act))}
             />
 
             <View style={styles.activitySummary}>
