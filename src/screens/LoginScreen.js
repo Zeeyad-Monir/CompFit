@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import useDoneButton from '../hooks/useDoneButton';
 import { SmartKeyboardAwareScrollView } from '../components';
 import RememberMeCheckbox from '../components/RememberMeCheckbox';
+import { Keyboard, InputAccessoryView } from 'react-native';
 
 const HERO_IMAGE = require('../../assets/Onboarding/OnboardingImgOne.jpg');
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -29,16 +30,14 @@ export default function LoginScreen({ navigation }) {
   const [loading,      setLoading]      = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
-  const [emailFocused, setEmailFocused] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
   const emailRef = useRef(null);
   const slideAnim = useRef(new Animated.Value(0)).current; // 0 = hero view, 1 = email form
 
-  // Done button hooks for both inputs
-  const emailDoneButton = useDoneButton();
-  const passwordDoneButton = useDoneButton();
+  // Single shared done button for all inputs on this screen
+  const sharedAccessoryID = 'LoginScreen_DoneButton';
+  const doneButton = useDoneButton(null, sharedAccessoryID);
 
   useEffect(() => {
     if (showEmailForm && emailRef.current) {
@@ -235,18 +234,14 @@ export default function LoginScreen({ navigation }) {
                 style={[
                   styles.input,
                   styles.emailInput,
-                  emailFocused && styles.inputFocused,
                 ]}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 value={email}
                 onChangeText={setEmail}
                 editable={!loading}
-                autoComplete="email"
                 textContentType="emailAddress"
-                onFocus={() => setEmailFocused(true)}
-                onBlur={() => setEmailFocused(false)}
-                inputAccessoryViewID={emailDoneButton.inputAccessoryViewID}
+                inputAccessoryViewID={doneButton.inputAccessoryViewID}
               />
 
               <View style={styles.passwordContainer}>
@@ -256,17 +251,13 @@ export default function LoginScreen({ navigation }) {
                   style={[
                     styles.input,
                     styles.passwordInput,
-                    passwordFocused && styles.inputFocused,
                   ]}
                   secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={setPassword}
                   editable={!loading}
-                  autoComplete="password"
                   textContentType="password"
-                  onFocus={() => setPasswordFocused(true)}
-                  onBlur={() => setPasswordFocused(false)}
-                  inputAccessoryViewID={passwordDoneButton.inputAccessoryViewID}
+                  inputAccessoryViewID={doneButton.inputAccessoryViewID}
                 />
                 <TouchableOpacity
                   style={styles.eyeIcon}
@@ -333,8 +324,15 @@ export default function LoginScreen({ navigation }) {
         </View>
       </Animated.View>
 
-      {emailDoneButton.accessoryView}
-      {passwordDoneButton.accessoryView}
+      {Platform.OS === 'ios' && (
+        <InputAccessoryView nativeID={sharedAccessoryID}>
+          <View style={styles.doneButtonContainer}>
+            <TouchableOpacity onPress={() => Keyboard.dismiss()} style={styles.doneButton}>
+              <Text style={styles.doneButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </InputAccessoryView>
+      )}
     </View>
   );
 }
@@ -438,10 +436,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEEEEE',
     borderWidth: 1,
     borderColor: 'transparent',
-  },
-  inputFocused: {
-    borderColor: '#B7D564',
-    backgroundColor: '#FFFFFF',
   },
   emailInput: {
     marginBottom: 12,
@@ -578,5 +572,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 32,
+  },
+  doneButtonContainer: {
+    backgroundColor: '#F8F9FA',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  doneButton: {
+    backgroundColor: '#A4D65E',
+    borderRadius: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  doneButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

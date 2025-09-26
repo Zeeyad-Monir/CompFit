@@ -67,32 +67,24 @@ const SmartKeyboardAwareScrollView = ({
   return (
     <KeyboardAwareScrollView
       ref={scrollRef}
-      // Core behavior with iOS physical device optimizations
-      enableAutomaticScroll={Platform.OS === 'ios' ? true : enableAutomaticScroll}
-      extraScrollHeight={Platform.OS === 'ios' ? 65 : extraScrollHeight}
-      extraHeight={Platform.OS === 'ios' ? 81 : extraHeight}
+      // Core behavior - simplified for stability
+      enableAutomaticScroll={enableAutomaticScroll}
+      extraScrollHeight={extraScrollHeight}
+      extraHeight={extraHeight}
       enableOnAndroid={enableOnAndroid}
       
-      // Interaction - optimized for physical devices
-      keyboardShouldPersistTaps="always" // Changed from 'handled' for better physical device response
+      // Interaction
+      keyboardShouldPersistTaps={keyboardShouldPersistTaps}
       scrollEnabled={scrollEnabled}
       showsVerticalScrollIndicator={showsVerticalScrollIndicator}
       
-      // Animation timing - faster for iOS physical devices
-      keyboardOpeningTime={Platform.OS === 'ios' ? 250 : keyboardOpeningTime}
+      // Animation timing
+      keyboardOpeningTime={keyboardOpeningTime}
       
-      // Scroll behavior improvements
-      enableResetScrollToCoords={false} // Always prevent bounce back
+      // Scroll behavior
+      enableResetScrollToCoords={false}
       viewIsInsideTabBar={viewIsInsideTabBar}
       scrollEventThrottle={scrollEventThrottle}
-      
-      // Additional smoothing props
-      scrollToOverflowEnabled={false} // Prevent overscroll
-      automaticallyAdjustContentInsets={false} // Manual control for consistency
-      scrollIndicatorInsets={{ right: 1 }} // Prevent indicator jump
-      
-      // iOS 15+ optimization for physical devices
-      automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
       
       // Styles
       contentContainerStyle={contentContainerStyle}
@@ -102,16 +94,6 @@ const SmartKeyboardAwareScrollView = ({
       // Performance optimizations
       removeClippedSubviews={Platform.OS === 'android'}
       keyboardDismissMode="on-drag"
-      bounces={false} // Disable bouncing completely for iOS
-      alwaysBounceVertical={false} // Prevent vertical bounce on iOS
-      overScrollMode="never"
-      
-      // Animation config for smoothness
-      decelerationRate="normal"
-      scrollsToTop={false}
-      directionalLockEnabled={true} // Prevent diagonal scrolling
-      contentInsetAdjustmentBehavior="automatic" // Changed from "never" for iOS physical devices
-      extraBottomInset={0} // Prevent bottom bounce
       
       {...props}
     >

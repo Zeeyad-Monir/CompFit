@@ -16,6 +16,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
 import useDoneButton from '../hooks/useDoneButton';
 import { SmartKeyboardAwareScrollView } from '../components';
+import { Keyboard, InputAccessoryView } from 'react-native';
 
 const HERO_IMAGE = require('../../assets/coverPhotos/coverPhotoSeven.png');
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -30,16 +31,10 @@ export default function SignUpScreen({ navigation }) {
   const [loading,       setLoading]       = useState(false);
   const [showPassword1, setShowPassword1] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
-  const [usernameFocused, setUsernameFocused] = useState(false);
-  const [emailFocused, setEmailFocused] = useState(false);
-  const [pass1Focused, setPass1Focused] = useState(false);
-  const [pass2Focused, setPass2Focused] = useState(false);
 
-  // Done button hooks for all four inputs
-  const usernameDoneButton = useDoneButton();
-  const emailDoneButton = useDoneButton();
-  const password1DoneButton = useDoneButton();
-  const password2DoneButton = useDoneButton();
+  // Single shared done button for all inputs on this screen
+  const sharedAccessoryID = 'SignUpScreen_DoneButton';
+  const doneButton = useDoneButton(null, sharedAccessoryID);
 
   // Check if username is already taken using the usernames collection
   const isUsernameAvailable = async (username) => {
@@ -167,36 +162,25 @@ export default function SignUpScreen({ navigation }) {
             <TextInput
               placeholder="Username"
               placeholderTextColor="#878988"
-              style={[
-                styles.input,
-                usernameFocused && styles.inputFocused,
-              ]}
+              style={styles.input}
               autoCapitalize="none"
               value={username}
               onChangeText={setUsername}
               editable={!loading}
-              onFocus={() => setUsernameFocused(true)}
-              onBlur={() => setUsernameFocused(false)}
-              inputAccessoryViewID={usernameDoneButton.inputAccessoryViewID}
+              inputAccessoryViewID={doneButton.inputAccessoryViewID}
             />
 
             <TextInput
               placeholder="Email"
               placeholderTextColor="#878988"
-              style={[
-                styles.input,
-                emailFocused && styles.inputFocused,
-              ]}
+              style={styles.input}
               autoCapitalize="none"
               keyboardType="email-address"
               value={email}
               onChangeText={setEmail}
               editable={!loading}
-              autoComplete="email"
               textContentType="emailAddress"
-              onFocus={() => setEmailFocused(true)}
-              onBlur={() => setEmailFocused(false)}
-              inputAccessoryViewID={emailDoneButton.inputAccessoryViewID}
+              inputAccessoryViewID={doneButton.inputAccessoryViewID}
             />
 
             <View style={styles.passwordContainer}>
@@ -206,17 +190,13 @@ export default function SignUpScreen({ navigation }) {
                 style={[
                   styles.input,
                   styles.passwordInput,
-                  pass1Focused && styles.inputFocused,
                 ]}
                 secureTextEntry={!showPassword1}
-                textContentType="none"
-                autoComplete="off"
+                textContentType="newPassword"
                 value={pass1}
                 onChangeText={setPass1}
                 editable={!loading}
-                onFocus={() => setPass1Focused(true)}
-                onBlur={() => setPass1Focused(false)}
-                inputAccessoryViewID={password1DoneButton.inputAccessoryViewID}
+                inputAccessoryViewID={doneButton.inputAccessoryViewID}
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
@@ -238,17 +218,13 @@ export default function SignUpScreen({ navigation }) {
                 style={[
                   styles.input,
                   styles.passwordInput,
-                  pass2Focused && styles.inputFocused,
                 ]}
                 secureTextEntry={!showPassword2}
-                textContentType="none"
-                autoComplete="off"
+                textContentType="newPassword"
                 value={pass2}
                 onChangeText={setPass2}
                 editable={!loading}
-                onFocus={() => setPass2Focused(true)}
-                onBlur={() => setPass2Focused(false)}
-                inputAccessoryViewID={password2DoneButton.inputAccessoryViewID}
+                inputAccessoryViewID={doneButton.inputAccessoryViewID}
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
@@ -293,10 +269,15 @@ export default function SignUpScreen({ navigation }) {
         </SmartKeyboardAwareScrollView>
       </View>
 
-      {usernameDoneButton.accessoryView}
-      {emailDoneButton.accessoryView}
-      {password1DoneButton.accessoryView}
-      {password2DoneButton.accessoryView}
+      {Platform.OS === 'ios' && (
+        <InputAccessoryView nativeID={sharedAccessoryID}>
+          <View style={styles.doneButtonContainer}>
+            <TouchableOpacity onPress={() => Keyboard.dismiss()} style={styles.doneButton}>
+              <Text style={styles.doneButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </InputAccessoryView>
+      )}
     </View>
   );
 }
@@ -376,10 +357,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'transparent',
     marginBottom: 12,
-  },
-  inputFocused: {
-    borderColor: '#B7D564',
-    backgroundColor: '#FFFFFF',
   },
   passwordContainer: {
     position: 'relative',
@@ -472,5 +449,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 32,
+  },
+  doneButtonContainer: {
+    backgroundColor: '#F8F9FA',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  doneButton: {
+    backgroundColor: '#A4D65E',
+    borderRadius: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  doneButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

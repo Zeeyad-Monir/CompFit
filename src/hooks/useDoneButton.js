@@ -9,8 +9,11 @@ import {
   StyleSheet 
 } from 'react-native';
 
-const useDoneButton = (inputRef = null) => {
-  const inputAccessoryViewID = useRef(`DoneButton_${Math.random().toString(36).substr(2, 9)}`).current;
+const useDoneButton = (inputRef = null, sharedID = null) => {
+  // Use shared ID if provided, otherwise create a unique one (for backward compatibility)
+  const inputAccessoryViewID = useRef(
+    sharedID || `DoneButton_${Math.random().toString(36).substr(2, 9)}`
+  ).current;
   
   const handleDonePress = () => {
     // Blur the input first if ref provided (helps on physical devices)
@@ -23,7 +26,8 @@ const useDoneButton = (inputRef = null) => {
 
   const shouldShowDoneButton = Platform.OS === 'ios';
 
-  const accessoryView = shouldShowDoneButton ? (
+  // Only render accessoryView if no shared ID (to avoid duplicates)
+  const accessoryView = (shouldShowDoneButton && !sharedID) ? (
     <InputAccessoryView nativeID={inputAccessoryViewID}>
       <View style={styles.doneButtonContainer}>
         <TouchableOpacity onPress={handleDonePress} style={styles.doneButton}>

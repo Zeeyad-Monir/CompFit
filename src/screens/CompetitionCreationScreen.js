@@ -15,6 +15,8 @@ import {
   Dimensions,
   Easing,
   Image,
+  Keyboard,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, FormInput, Dropdown, DatePicker, LeaderboardUpdatePicker, SmartKeyboardAwareScrollView } from '../components';
@@ -272,6 +274,8 @@ export default function CompetitionCreationScreen({ navigation, route }) {
   
   // ScrollView ref for resetting position
   const scrollViewRef = React.useRef(null);
+  const descriptionInputRef = React.useRef(null);
+  const [keyboardVisible, setKeyboardVisible] = React.useState(false);
 
   // Animate to new tab
   const animateToTab = (newTab) => {
@@ -445,9 +449,35 @@ export default function CompetitionCreationScreen({ navigation, route }) {
   
   // Done button hooks for TextInputs
   const competitionNameDoneButton = useDoneButton();
-  const descriptionDoneButton = useDoneButton();
+  const descriptionDoneButton = useDoneButton(descriptionInputRef);
   const inviteUsernameDoneButton = useDoneButton();
   const paceValueDoneButton = useDoneButton();
+  
+  // Add keyboard event listeners for physical device support
+  React.useEffect(() => {
+    const showListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const hideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+    
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+    };
+  }, []);
+  
+  // Handle description input focus for physical devices
+  const handleDescriptionFocus = React.useCallback(() => {
+    setTimeout(() => {
+      if (scrollViewRef.current && Platform.OS === 'ios') {
+        scrollViewRef.current.scrollToFocusedInput && scrollViewRef.current.scrollToFocusedInput();
+      }
+    }, 203);
+  }, []);
   
   // Draft state
   const [drafts, setDrafts] = useState([]);
@@ -1593,7 +1623,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
     <SmartKeyboardAwareScrollView 
       style={styles.scrollView} 
       contentContainerStyle={styles.scrollContent}
-      extraScrollHeight={130}
+      extraScrollHeight={Platform.OS === 'ios' ? 80 : 100}
       enableAutomaticScroll={true}
     >
       <View style={styles.competitionDetailsHeader}>
@@ -1687,14 +1717,25 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       
       <Text style={styles.label}>Description</Text>
       <TextInput 
+        ref={descriptionInputRef}
         style={styles.textArea} 
         multiline
         numberOfLines={4}
         value={description} 
-        onChangeText={setDesc} 
+        onChangeText={setDesc}
+        onFocus={handleDescriptionFocus}
         placeholder="Describe your competition..." 
         placeholderTextColor="#999"
         inputAccessoryViewID={descriptionDoneButton.inputAccessoryViewID}
+        // iOS physical device optimizations
+        blurOnSubmit={false}
+        returnKeyType="default"
+        enablesReturnKeyAutomatically={true}
+        textAlignVertical="top"
+        autoCorrect={false}
+        spellCheck={true}
+        keyboardType="default"
+        scrollEnabled={false}
       />
 
       <Text style={styles.sectionTitle}>Activity Rules</Text>

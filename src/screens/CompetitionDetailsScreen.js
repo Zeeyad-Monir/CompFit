@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, TextInput, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Alert, TextInput, Image, ActivityIndicator, Keyboard, Platform } from 'react-native';
 import { Header, Button, FormInput, DatePicker, SearchBar, SmartKeyboardAwareScrollView } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -98,10 +98,37 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [activityDailySubmissions, setActivityDailySubmissions] = useState(0);
   
-  // Done button hook for notes input
-  const notesDoneButton = useDoneButton();
+  // Done button hook for notes input with ref
+  const notesInputRef = React.useRef(null);
+  const notesDoneButton = useDoneButton(notesInputRef);
+  const [keyboardVisible, setKeyboardVisible] = React.useState(false);
   const [activityWeeklyPoints, setActivityWeeklyPoints] = useState(0);
   const [activityLimits, setActivityLimits] = useState(null);
+  
+  // Add keyboard event listeners for physical device support
+  React.useEffect(() => {
+    const showListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const hideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+    
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+    };
+  }, []);
+  
+  // Handle notes input focus for physical devices
+  const handleNotesFocus = React.useCallback(() => {
+    setTimeout(() => {
+      // The SmartKeyboardAwareScrollView will handle the scrolling automatically
+      // This is just for any additional logic needed
+    }, 203);
+  }, []);
   
   // Constants for activity display management
   const ACTIVITIES_PER_ROW = 3;
@@ -1847,7 +1874,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
       <SmartKeyboardAwareScrollView 
         style={styles.addContainer}
         contentContainerStyle={styles.addScrollContent}
-        extraScrollHeight={130}
+        extraScrollHeight={Platform.OS === 'ios' ? 80 : 100}
         enableAutomaticScroll={true}
         refreshControl={
           <RefreshControl
@@ -2038,15 +2065,26 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
         {/* Notes */}
         <Text style={styles.label}>Notes</Text>
         <TextInput
+          ref={notesInputRef}
           style={styles.textArea}
           multiline
           numberOfLines={3}
           value={notes}
           onChangeText={setNotes}
+          onFocus={handleNotesFocus}
           placeholder="Add any additional details..."
           placeholderTextColor="#999"
           editable={!isSubmitting}
           inputAccessoryViewID={notesDoneButton.inputAccessoryViewID}
+          // iOS physical device optimizations
+          blurOnSubmit={false}
+          returnKeyType="default"
+          enablesReturnKeyAutomatically={true}
+          textAlignVertical="top"
+          autoCorrect={false}
+          spellCheck={true}
+          keyboardType="default"
+          scrollEnabled={false}
         />
 
         {/* Points Preview with correct unit display */}
