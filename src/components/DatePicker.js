@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Modal } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Modal, Animated } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 
 const DatePicker = ({ label, date, onDateChange, mode = 'date', minimumDate, maximumDate }) => {
   const [showPicker, setShowPicker] = useState(false);
+  const slideAnim = useRef(new Animated.Value(320)).current; // Initial position below screen
   
   const formatDate = (date) => {
     if (mode === 'datetime') {
@@ -41,10 +42,23 @@ const DatePicker = ({ label, date, onDateChange, mode = 'date', minimumDate, max
 
   const showDatePicker = () => {
     setShowPicker(true);
+    // Animate slide up
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
   };
 
   const hideDatePicker = () => {
-    setShowPicker(false);
+    // Animate slide down
+    Animated.timing(slideAnim, {
+      toValue: 320,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowPicker(false);
+    });
   };
 
   return (
@@ -67,12 +81,14 @@ const DatePicker = ({ label, date, onDateChange, mode = 'date', minimumDate, max
       {Platform.OS === 'ios' && showPicker && (
         <Modal
           transparent={true}
-          animationType="slide"
+          animationType="fade"
           visible={showPicker}
           onRequestClose={hideDatePicker}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
+            <Animated.View style={[styles.modalContent, {
+              transform: [{ translateY: slideAnim }]
+            }]}>
               <View style={styles.modalHeader}>
                 <TouchableOpacity onPress={hideDatePicker}>
                   <Text style={styles.cancelText}>Cancel</Text>
@@ -93,7 +109,7 @@ const DatePicker = ({ label, date, onDateChange, mode = 'date', minimumDate, max
                   />
                 </View>
               </View>
-            </View>
+            </Animated.View>
           </View>
         </Modal>
       )}

@@ -60,7 +60,7 @@ export default function ForgotPasswordScreen({ navigation }) {
         keyboardShouldPersistTaps="handled"
       >
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={28} color="#A4D65E" />
+          <Ionicons name="chevron-back" size={28} color="#111111" />
         </TouchableOpacity>
         
         <Text style={styles.logo}>Reset Password</Text>
@@ -69,7 +69,7 @@ export default function ForgotPasswordScreen({ navigation }) {
         <View style={styles.form}>
         <TextInput
           placeholder="Email"
-          placeholderTextColor="#6B7280"
+          placeholderTextColor="#9CA3AF"
           style={styles.input}
           autoCapitalize="none"
           keyboardType="email-address"
@@ -101,7 +101,7 @@ export default function ForgotPasswordScreen({ navigation }) {
 const styles = StyleSheet.create({
   root: { 
     flex: 1, 
-    backgroundColor: '#2E3439',
+    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     flexGrow: 1,
@@ -116,12 +116,12 @@ const styles = StyleSheet.create({
   logo: { 
     fontSize: 42, 
     fontWeight: '900', 
-    color: '#A4D65E', 
+    color: '#B6DB78', 
     marginTop: 120 
   },
   tagline: { 
     fontSize: 18, 
-    color: '#FFF', 
+    color: '#666666', 
     marginTop: 12, 
     marginBottom: 60,
     textAlign: 'center',
@@ -131,36 +131,39 @@ const styles = StyleSheet.create({
     width: '80%' 
   },
   input: {
-    backgroundColor: '#FFF', 
+    backgroundColor: '#FFFFFF', 
     borderRadius: 12, 
     padding: 16,
     fontSize: 16, 
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    color: '#111111',
   },
   btn: {
-    backgroundColor: '#A4D65E', 
+    backgroundColor: '#B6DB78', 
     borderRadius: 12, 
     paddingVertical: 16,
     alignItems: 'center', 
     marginTop: 10,
   },
   disabledBtn: {
-    backgroundColor: '#7A9B47',
+    backgroundColor: '#D4E8B8',
     opacity: 0.7,
   },
   btnText: { 
-    color: '#FFF', 
+    color: '#FFFFFF', 
     fontWeight: 'bold', 
     fontSize: 18 
   },
   error: { 
-    color: '#F87171', 
+    color: '#EF4444', 
     textAlign: 'center', 
     marginBottom: 10,
     fontSize: 14,
   },
   success: {
-    color: '#A4D65E',
+    color: '#22C55E',
     textAlign: 'center',
     marginBottom: 10,
     fontSize: 14,

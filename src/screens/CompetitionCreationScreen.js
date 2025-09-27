@@ -845,7 +845,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       const snap = await getDocs(q);
       if (!snap.empty) {
         const userData = snap.docs[0].data();
-        return { uid: snap.docs[0].id, username: userData.username, email: userData.email };
+        return { uid: snap.docs[0].id, username: userData.username, email: userData.email, profilePicture: userData.profilePicture };
       }
       
       const usernameDoc = await getDoc(doc(db,'usernames',trimmedUsername));
@@ -854,7 +854,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
         const userDoc = await getDoc(doc(db,'users',uid));
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          return { uid, username: userData.username, email: userData.email };
+          return { uid, username: userData.username, email: userData.email, profilePicture: userData.profilePicture };
         }
       }
       
@@ -912,7 +912,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
     }
     
     setInvitedFriends([...invitedFriends, {
-      uid: friend.uid, username: friend.username, email: friend.email,
+      uid: friend.uid, username: friend.username, email: friend.email, profilePicture: friend.profilePicture,
     }]);
     
     Alert.alert('Success', `${friend.username} has been invited!`);
@@ -1418,7 +1418,6 @@ export default function CompetitionCreationScreen({ navigation, route }) {
                   </View>
                   <View style={styles.participantInfo}>
                     <Text style={styles.participantName}>{f.username}</Text>
-                    <Text style={styles.participantEmail}>{f.email}</Text>
                   </View>
                   <TouchableOpacity onPress={()=>removeInvite(f.uid)}>
                     <Ionicons name="close-circle" size={24} color="#FF6B6B"/>
@@ -2137,7 +2136,6 @@ export default function CompetitionCreationScreen({ navigation, route }) {
               </View>
               <View style={styles.participantInfo}>
                 <Text style={styles.participantName}>{f.username}</Text>
-                <Text style={styles.participantEmail}>{f.email}</Text>
               </View>
               <TouchableOpacity onPress={()=>removeInvite(f.uid)}>
                 <Ionicons name="close-circle" size={24} color="#FF6B6B"/>

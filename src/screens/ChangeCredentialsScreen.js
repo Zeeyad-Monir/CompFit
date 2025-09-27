@@ -8,6 +8,9 @@ import {
   Alert,
   AppState,
   ScrollView,
+  Animated,
+  Dimensions,
+  Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../contexts/AuthContext';
@@ -25,6 +28,8 @@ import {
   signOut
 } from '../firebase';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+
+const screenWidth = Dimensions.get('window').width;
 
 export default function ChangeCredentialsScreen({ navigation }) {
   const { user } = useContext(AuthContext);
@@ -51,6 +56,66 @@ export default function ChangeCredentialsScreen({ navigation }) {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [previousEmail, setPreviousEmail] = useState('');
   const [verificationSent, setVerificationSent] = useState(false);
+
+  // Tab animation setup
+  const baseUnderlineWidth = 60;
+  const [measurementsReady, setMeasurementsReady] = useState(false);
+  const [tabMeasurements, setTabMeasurements] = useState({
+    password: { scale: 1.2, x: (screenWidth - 40) / 4 - baseUnderlineWidth / 2 },
+    email: { scale: 1.2, x: (screenWidth - 40) * 3 / 4 - baseUnderlineWidth / 2 },
+  });
+
+  // Animation refs for underline and press feedback
+  const underlinePosition = React.useRef(new Animated.Value(
+    activeTab === 'email' ? (screenWidth - 40) * 3 / 4 - baseUnderlineWidth / 2 : (screenWidth - 40) / 4 - baseUnderlineWidth / 2
+  )).current;
+  const underlineScale = React.useRef(new Animated.Value(1.2)).current;
+  const passwordScale = React.useRef(new Animated.Value(1)).current;
+  const emailScale = React.useRef(new Animated.Value(1)).current;
+
+  // Tab animation functions
+  const handleTabPress = (newTab) => {
+    if (newTab === activeTab) return;
+    
+    setActiveTab(newTab);
+    const targetMeasurement = tabMeasurements[newTab];
+    
+    // Animate underline position and scale
+    Animated.parallel([
+      Animated.timing(underlinePosition, {
+        toValue: targetMeasurement.x,
+        duration: 200,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(underlineScale, {
+        toValue: targetMeasurement.scale,
+        duration: 200,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const handlePressIn = (scale) => {
+    Animated.spring(scale, {
+      toValue: 0.95,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+  };
+
+  const handlePressOut = (tab, scale) => {
+    Animated.spring(scale, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 300,
+      friction: 10,
+    }).start();
+    
+    handleTabPress(tab);
+  };
 
   const handlePasswordReset = async () => {
     setPasswordResetLoading(true);
@@ -291,6 +356,11 @@ export default function ChangeCredentialsScreen({ navigation }) {
   };
 
 
+  // Set initial underline scale to match the active tab
+  React.useEffect(() => {
+    underlineScale.setValue(1.2);
+  }, []);
+
   // Auto-check verification status when app resumes
   useEffect(() => {
     if (emailChangeStatus === 'pending') {
@@ -323,7 +393,7 @@ export default function ChangeCredentialsScreen({ navigation }) {
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.infoCard}>
-        <Ionicons name="information-circle" size={24} color="#A4D65E" />
+        <Ionicons name="information-circle" size={24} color="#B6DB78" />
         <Text style={styles.infoText}>
           We'll send a password reset link to your email address: {'\n'}
           <Text style={styles.emailText}>{user.email}</Text>
@@ -362,7 +432,7 @@ export default function ChangeCredentialsScreen({ navigation }) {
         // Pending verification UI
         <View>
           <View style={styles.pendingCard}>
-            <Ionicons name="mail-unread" size={48} color="#A4D65E" />
+            <Ionicons name="mail-unread" size={48} color="#B6DB78" />
             <Text style={styles.pendingTitle}>Verification Pending</Text>
             <Text style={styles.pendingText}>
               We've sent a verification link to:
@@ -407,7 +477,7 @@ export default function ChangeCredentialsScreen({ navigation }) {
         // Normal email change form
         <View>
           <View style={styles.infoCard}>
-            <Ionicons name="information-circle" size={24} color="#A4D65E" />
+            <Ionicons name="information-circle" size={24} color="#B6DB78" />
             <Text style={styles.infoText}>
               Current email: <Text style={styles.emailText}>{user.email}</Text>
               {'\n\n'}You'll receive a verification link at your new email address.
@@ -418,7 +488,7 @@ export default function ChangeCredentialsScreen({ navigation }) {
           <View style={styles.inputContainer}>
             <TextInput
               placeholder="Enter your current password"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor="#9CA3AF"
               style={styles.input}
               secureTextEntry={!showPassword}
               value={currentPassword}
@@ -441,7 +511,7 @@ export default function ChangeCredentialsScreen({ navigation }) {
           <Text style={styles.label}>New Email Address</Text>
           <TextInput
             placeholder="Enter new email address"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor="#9CA3AF"
             style={styles.input}
             autoCapitalize="none"
             keyboardType="email-address"
@@ -476,40 +546,95 @@ export default function ChangeCredentialsScreen({ navigation }) {
     <View style={styles.root}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={28} color="#A4D65E" />
+          <Ionicons name="chevron-back" size={28} color="#111111" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Account Settings</Text>
         <View style={{ width: 28 }} />
       </View>
 
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'password' && styles.activeTab]}
-          onPress={() => setActiveTab('password')}
-        >
-          <Ionicons 
-            name="key" 
-            size={20} 
-            color={activeTab === 'password' ? '#A4D65E' : '#6B7280'} 
-          />
-          <Text style={[styles.tabText, activeTab === 'password' && styles.activeTabText]}>
-            Password
-          </Text>
-        </TouchableOpacity>
+      <View style={styles.topNavContainer}>
+        <View style={styles.tabRow}>
+          {/* Password Tab */}
+          <Animated.View style={[styles.tabColumn, { transform: [{ scale: passwordScale }] }]}>
+            <TouchableOpacity
+              style={styles.tabButton}
+              onPressIn={() => handlePressIn(passwordScale)}
+              onPressOut={() => handlePressOut('password', passwordScale)}
+              onLayout={(event) => {
+                const { x, width } = event.nativeEvent.layout;
+                const textWidth = width * 0.8;
+                const indicatorWidth = textWidth + 12;
+                const scale = indicatorWidth / baseUnderlineWidth;
+                const columnCenter = (screenWidth - 40) / 2 * 0 + (screenWidth - 40) / 4;
+                setTabMeasurements(prev => ({
+                  ...prev,
+                  password: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
+                }));
+                setMeasurementsReady(true);
+              }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === 'password' }}
+            >
+              <Text style={[
+                styles.tabLabel,
+                { 
+                  color: activeTab === 'password' ? '#B6DB78' : '#B3B3B3',
+                  fontSize: 18.4
+                }
+              ]}>
+                Password
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
 
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'email' && styles.activeTab]}
-          onPress={() => setActiveTab('email')}
-        >
-          <Ionicons 
-            name="mail" 
-            size={20} 
-            color={activeTab === 'email' ? '#A4D65E' : '#6B7280'} 
-          />
-          <Text style={[styles.tabText, activeTab === 'email' && styles.activeTabText]}>
-            Email
-          </Text>
-        </TouchableOpacity>
+          {/* Email Tab */}
+          <Animated.View style={[styles.tabColumn, { transform: [{ scale: emailScale }] }]}>
+            <TouchableOpacity
+              style={styles.tabButton}
+              onPressIn={() => handlePressIn(emailScale)}
+              onPressOut={() => handlePressOut('email', emailScale)}
+              onLayout={(event) => {
+                const { x, width } = event.nativeEvent.layout;
+                const textWidth = width * 0.8;
+                const indicatorWidth = textWidth + 12;
+                const scale = indicatorWidth / baseUnderlineWidth;
+                const columnCenter = (screenWidth - 40) / 2 * 1 + (screenWidth - 40) / 4;
+                setTabMeasurements(prev => ({
+                  ...prev,
+                  email: { scale: Math.min(Math.max(scale, 0.6), 2.3), x: columnCenter - baseUnderlineWidth / 2 }
+                }));
+                setMeasurementsReady(true);
+              }}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === 'email' }}
+            >
+              <Text style={[
+                styles.tabLabel,
+                { 
+                  color: activeTab === 'email' ? '#B6DB78' : '#B3B3B3',
+                  fontSize: 18.4
+                }
+              ]}>
+                Email
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+
+        {/* Animated underline indicator */}
+        <Animated.View 
+          style={[
+            styles.underlineIndicator,
+            {
+              width: baseUnderlineWidth,
+              opacity: measurementsReady ? 1 : 0,
+              transform: [
+                { translateX: underlinePosition },
+                { scaleX: underlineScale }
+              ]
+            }
+          ]}
+        />
       </View>
 
       <View style={styles.content}>
@@ -522,7 +647,7 @@ export default function ChangeCredentialsScreen({ navigation }) {
 const styles = StyleSheet.create({
   root: { 
     flex: 1, 
-    backgroundColor: '#2E3439',
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -538,36 +663,40 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#A4D65E',
+    color: '#B6DB78',
   },
-  tabContainer: {
+  topNavContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  tabRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginHorizontal: 20,
-    borderRadius: 12,
-    padding: 4,
+    height: 56,
+    alignItems: 'flex-end',
   },
-  tab: {
+  tabColumn: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
   },
-  activeTab: {
-    backgroundColor: 'rgba(164, 214, 94, 0.2)',
+  tabButton: {
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    position: 'relative',
   },
-  tabText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginLeft: 8,
+  tabLabel: {
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
-  activeTabText: {
-    color: '#A4D65E',
-    fontWeight: '600',
+  underlineIndicator: {
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: '#B6DB78',
+    marginTop: 1,
   },
   content: {
     flex: 1,
@@ -577,26 +706,28 @@ const styles = StyleSheet.create({
     paddingTop: 30,
   },
   infoCard: {
-    backgroundColor: 'rgba(164, 214, 94, 0.1)',
+    backgroundColor: '#F9FAFB',
     borderRadius: 12,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginBottom: 30,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   infoText: {
-    color: '#FFF',
+    color: '#4B5563',
     fontSize: 14,
     lineHeight: 20,
     marginLeft: 12,
     flex: 1,
   },
   emailText: {
-    color: '#A4D65E',
+    color: '#B6DB78',
     fontWeight: 'bold',
   },
   label: {
-    color: '#A4D65E',
+    color: '#374151',
     fontSize: 14,
     fontWeight: '500',
     marginBottom: 8,
@@ -607,12 +738,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   input: {
-    backgroundColor: '#FFF', 
+    backgroundColor: '#FFFFFF', 
     borderRadius: 12, 
     padding: 16,
     fontSize: 16, 
     marginBottom: 20,
-    color: '#1A1E23',
+    color: '#111111',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   eyeIcon: {
     position: 'absolute',
@@ -620,68 +753,70 @@ const styles = StyleSheet.create({
     top: 16,
   },
   btn: {
-    backgroundColor: '#A4D65E', 
+    backgroundColor: '#B6DB78', 
     borderRadius: 12, 
     paddingVertical: 16,
     alignItems: 'center', 
     marginTop: 10,
   },
   disabledBtn: {
-    backgroundColor: '#7A9B47',
+    backgroundColor: '#D4E8B8',
     opacity: 0.7,
   },
   btnText: { 
-    color: '#FFF', 
+    color: '#FFFFFF', 
     fontWeight: 'bold', 
     fontSize: 18 
   },
   error: { 
-    color: '#F87171', 
+    color: '#EF4444', 
     textAlign: 'center', 
     marginBottom: 10,
     fontSize: 14,
   },
   success: {
-    color: '#A4D65E',
+    color: '#22C55E',
     textAlign: 'center',
     marginBottom: 10,
     fontSize: 14,
   },
   helpText: {
-    color: '#9CA3AF',
+    color: '#6B7280',
     textAlign: 'center',
     marginTop: 20,
     fontSize: 14,
     lineHeight: 20,
   },
   pendingCard: {
-    backgroundColor: 'rgba(164, 214, 94, 0.1)',
+    backgroundColor: '#F9FAFB',
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
     marginBottom: 30,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   pendingTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#A4D65E',
+    color: '#111111',
     marginTop: 16,
     marginBottom: 12,
   },
   pendingText: {
-    color: '#FFF',
+    color: '#4B5563',
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 8,
   },
   pendingEmail: {
-    color: '#A4D65E',
+    color: '#B6DB78',
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 12,
   },
   pendingSubtext: {
-    color: '#9CA3AF',
+    color: '#6B7280',
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
@@ -692,14 +827,14 @@ const styles = StyleSheet.create({
   secondaryBtn: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#A4D65E',
+    borderColor: '#B6DB78',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 12,
   },
   secondaryBtnText: {
-    color: '#A4D65E',
+    color: '#B6DB78',
     fontWeight: '600',
     fontSize: 16,
   },
@@ -708,7 +843,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   textBtnText: {
-    color: '#9CA3AF',
+    color: '#6B7280',
     fontSize: 14,
     textDecorationLine: 'underline',
   },
