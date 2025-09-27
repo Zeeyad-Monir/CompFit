@@ -1408,6 +1408,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
   const renderRulesTab = () => (
     <ScrollView 
       style={styles.rulesContainer}
+      contentContainerStyle={styles.rulesScrollContent}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -1806,6 +1807,7 @@ const CompetitionDetailsScreen = ({ route, navigation }) => {
           <View style={styles.rankingsBackground}>
             <ScrollView 
               style={styles.rankingsList}
+              contentContainerStyle={styles.rankingsScrollContent}
               showsVerticalScrollIndicator={false}
               refreshControl={
                 <RefreshControl
@@ -2711,6 +2713,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 20,
   },
+  rulesScrollContent: {
+    paddingBottom: BOTTOM_SPACING,
+  },
   rulesSection: {
     marginBottom: 24,
   },
@@ -2929,7 +2934,7 @@ const styles = StyleSheet.create({
   endCompetitionSection: {
     marginTop: 32,
     paddingTop: 24,
-    paddingBottom: 40,
+    paddingBottom: 30,
     paddingHorizontal: 16,
   },
   endCompetitionButton: {
@@ -2960,6 +2965,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     marginTop: 8,
+    marginBottom: 20,
     fontStyle: 'italic',
   },
   
@@ -2967,7 +2973,7 @@ const styles = StyleSheet.create({
   leaveCompetitionSection: {
     marginTop: 32,
     paddingTop: 24,
-    paddingBottom: 40,
+    paddingBottom: 30,
     paddingHorizontal: 16,
   },
   leaveCompetitionButton: {
@@ -2996,6 +3002,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     marginTop: 8,
+    marginBottom: 20,
     fontStyle: 'italic',
   },
   
@@ -3185,6 +3192,9 @@ const styles = StyleSheet.create({
   rankingsList: {
     flex: 1,
     paddingHorizontal: 16,
+  },
+  rankingsScrollContent: {
+    paddingBottom: BOTTOM_SPACING,
   },
   rankingItem: {
     flexDirection: 'row',
@@ -3476,7 +3486,7 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: 21,
-    marginBottom: 21
+    marginBottom: 16
   },
   imagePreviewContainer: {
     marginVertical: 11,

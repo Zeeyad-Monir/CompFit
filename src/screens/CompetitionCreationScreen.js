@@ -485,6 +485,9 @@ export default function CompetitionCreationScreen({ navigation, route }) {
   const [currentDraftId, setCurrentDraftId] = useState(null);
   const [loadingDrafts, setLoadingDrafts] = useState(false);
   
+  // State to prevent duplicate competition creation
+  const [isCreating, setIsCreating] = useState(false);
+  
   // Handler for competition name with 18-character limit
   const handleNameChange = (text) => {
     if (text.length <= 14) {
@@ -732,6 +735,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
     setSelectedPreset(null); animateToTab('presets');
     setExpandedCards({}); // Reset expanded cards state
     setCurrentDraftId(null); // Reset draft ID
+    setIsCreating(false); // Reset the creating state
   };
 
   /* ---------- leaderboard helpers ---------- */
@@ -1011,7 +1015,13 @@ export default function CompetitionCreationScreen({ navigation, route }) {
   };
 
   const createPresetCompetition = async () => {
+    if (isCreating) {
+      return;
+    }
+    
     if (!selectedPreset) return;
+    
+    setIsCreating(true);
 
     try {
       const startDateTime = getPresetCombinedStartDateTime();
@@ -1020,6 +1030,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
       // Validate dates
       if (endDateTime <= startDateTime) {
         Alert.alert('Validation', 'End date/time must be after start date/time');
+        setIsCreating(false);
         return;
       }
 
@@ -1059,11 +1070,16 @@ export default function CompetitionCreationScreen({ navigation, route }) {
     } catch(e) {
       console.error('Error creating preset competition:', e);
       Alert.alert('Error', 'Failed to create competition. Please try again.');
+      setIsCreating(false);
     }
   };
 
   /* ---------- manual create competition ---------- */
   const handleCreate = async () => {
+    if (isCreating) {
+      return;
+    }
+    
     if (!name.trim()) {
       Alert.alert('Validation','Competition name is required');
       return;
@@ -1117,6 +1133,8 @@ export default function CompetitionCreationScreen({ navigation, route }) {
         return;
       }
     }
+    
+    setIsCreating(true);
     
     try {
       const rules = activities.map(a => ({
@@ -1177,6 +1195,7 @@ export default function CompetitionCreationScreen({ navigation, route }) {
     } catch(e) {
       console.error('Error creating competition:', e);
       Alert.alert('Error', 'Failed to create competition. Please try again.');
+      setIsCreating(false);
     }
   };
 
@@ -1430,10 +1449,14 @@ export default function CompetitionCreationScreen({ navigation, route }) {
         </View>
 
         <TouchableOpacity 
-          style={styles.createButton} 
+          style={[styles.createButton, isCreating && styles.disabledCreateButton]} 
           onPress={createPresetCompetition}
+          disabled={isCreating}
+          activeOpacity={isCreating ? 1 : 0.8}
         >
-          <Text style={styles.createButtonText}>Create Competition</Text>
+          <Text style={styles.createButtonText}>
+            {isCreating ? "Creating Competition..." : "Create Competition"}
+          </Text>
         </TouchableOpacity>
       </View>
     </SmartKeyboardAwareScrollView>
@@ -2146,7 +2169,12 @@ export default function CompetitionCreationScreen({ navigation, route }) {
         </>
       )}
 
-      <Button title="Create Competition" onPress={handleCreate} style={styles.createCompetitionButton}/>
+      <Button 
+        title={isCreating ? "Creating Competition..." : "Create Competition"} 
+        onPress={handleCreate} 
+        style={[styles.createCompetitionButton, isCreating && styles.disabledButton]}
+        disabled={isCreating}
+      />
     </SmartKeyboardAwareScrollView>
   );
 
@@ -2687,6 +2715,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  disabledButton: {
+    backgroundColor: '#CCCCCC',
+    opacity: 0.6
+  },
+  disabledCreateButton: {
+    backgroundColor: '#CCCCCC',
+    opacity: 0.6
   },
 
   // Invite Section
