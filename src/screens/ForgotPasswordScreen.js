@@ -7,20 +7,16 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { auth, sendPasswordResetEmail } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
-import useDoneButton from '../hooks/useDoneButton';
-import { SmartKeyboardAwareScrollView } from '../components';
 
 export default function ForgotPasswordScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  
-  // Done button hook for email input
-  const emailDoneButton = useDoneButton();
 
   const handlePasswordReset = async () => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -58,10 +54,10 @@ export default function ForgotPasswordScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
-      <SmartKeyboardAwareScrollView 
+      <ScrollView 
         contentContainerStyle={styles.scrollContent}
-        extraScrollHeight={100}
-        enableAutomaticScroll={true}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={28} color="#A4D65E" />
@@ -82,7 +78,6 @@ export default function ForgotPasswordScreen({ navigation }) {
           editable={!loading}
           autoComplete="email"
           textContentType="emailAddress"
-          inputAccessoryViewID={emailDoneButton.inputAccessoryViewID}
         />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -98,10 +93,7 @@ export default function ForgotPasswordScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
         </View>
-        
-        {/* Done button accessory for email input */}
-        {emailDoneButton.accessoryView}
-      </SmartKeyboardAwareScrollView>
+      </ScrollView>
     </View>
   );
 }

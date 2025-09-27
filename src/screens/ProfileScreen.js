@@ -96,6 +96,10 @@ export default function ProfileScreen({ route, navigation }) {
   const profileScrollRef = useRef(null);
   const friendsScrollRef = useRef(null);
   
+  // TextInput refs for Done button functionality
+  const friendUsernameInputRef = useRef(null);
+  const favouriteWorkoutInputRef = useRef(null);
+  
   // Profile card animation
   const profileCardScale = useRef(new Animated.Value(0.95)).current;
   const profileCardOpacity = useRef(new Animated.Value(0)).current;
@@ -262,8 +266,8 @@ export default function ProfileScreen({ route, navigation }) {
   const friendsListAnimation = useRef(new Animated.Value(0)).current;
   
   // Done button hooks for TextInputs
-  const favouriteWorkoutDoneButton = useDoneButton();
-  const friendUsernameDoneButton = useDoneButton();
+  const favouriteWorkoutDoneButton = useDoneButton(favouriteWorkoutInputRef);
+  const friendUsernameDoneButton = useDoneButton(friendUsernameInputRef);
   
   // New state for competition stats
   const [currentStreak, setCurrentStreak] = useState(0);
@@ -1462,6 +1466,7 @@ export default function ProfileScreen({ route, navigation }) {
             <View style={styles.statValueContainer}>
               {editing ? (
                 <TextInput
+                  ref={favouriteWorkoutInputRef}
                   style={[styles.statValue, styles.editableInput]}
                   value={draft.favouriteWorkout}
                   onChangeText={t => setDraft({ ...draft, favouriteWorkout: t })}
@@ -1574,6 +1579,7 @@ export default function ProfileScreen({ route, navigation }) {
           <Text style={styles.addFriendSubtext}>Search by username to send a friend request</Text>
           <View style={styles.addFriendRow}>
             <TextInput
+              ref={friendUsernameInputRef}
               style={styles.addFriendInput}
               placeholder="Enter username"
               value={friendUsername}

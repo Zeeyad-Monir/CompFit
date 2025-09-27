@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   AppState,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../contexts/AuthContext';
@@ -24,8 +25,6 @@ import {
   signOut
 } from '../firebase';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import useDoneButton from '../hooks/useDoneButton';
-import { SmartKeyboardAwareScrollView } from '../components';
 
 export default function ChangeCredentialsScreen({ navigation }) {
   const { user } = useContext(AuthContext);
@@ -40,10 +39,6 @@ export default function ChangeCredentialsScreen({ navigation }) {
   const [newEmail, setNewEmail] = useState('');
   const [emailChangeLoading, setEmailChangeLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
-  // Done button hooks for inputs
-  const currentPasswordDoneButton = useDoneButton();
-  const newEmailDoneButton = useDoneButton();
   
   // Error states
   const [passwordError, setPasswordError] = useState('');
@@ -322,7 +317,11 @@ export default function ChangeCredentialsScreen({ navigation }) {
   }, []);
 
   const renderPasswordTab = () => (
-    <SmartKeyboardAwareScrollView style={styles.tabContent} extraScrollHeight={100} enableAutomaticScroll={true}>
+    <ScrollView 
+      style={styles.tabContent} 
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.infoCard}>
         <Ionicons name="information-circle" size={24} color="#A4D65E" />
         <Text style={styles.infoText}>
@@ -350,11 +349,15 @@ export default function ChangeCredentialsScreen({ navigation }) {
       <Text style={styles.helpText}>
         After receiving the email, follow the link to create a new password.
       </Text>
-    </SmartKeyboardAwareScrollView>
+    </ScrollView>
   );
 
   const renderEmailTab = () => (
-    <SmartKeyboardAwareScrollView style={styles.tabContent} extraScrollHeight={100} enableAutomaticScroll={true}>
+    <ScrollView 
+      style={styles.tabContent} 
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
       {emailChangeStatus === 'pending' ? (
         // Pending verification UI
         <View>
@@ -422,7 +425,6 @@ export default function ChangeCredentialsScreen({ navigation }) {
               onChangeText={setCurrentPassword}
               editable={!emailChangeLoading}
               autoCapitalize="none"
-              inputAccessoryViewID={currentPasswordDoneButton.inputAccessoryViewID}
             />
             <TouchableOpacity 
               style={styles.eyeIcon}
@@ -448,7 +450,6 @@ export default function ChangeCredentialsScreen({ navigation }) {
             editable={!emailChangeLoading}
             autoComplete="email"
             textContentType="emailAddress"
-            inputAccessoryViewID={newEmailDoneButton.inputAccessoryViewID}
           />
 
           {emailError ? <Text style={styles.error}>{emailError}</Text> : null}
@@ -468,7 +469,7 @@ export default function ChangeCredentialsScreen({ navigation }) {
           </Text>
         </View>
       )}
-    </SmartKeyboardAwareScrollView>
+    </ScrollView>
   );
 
   return (
@@ -514,10 +515,6 @@ export default function ChangeCredentialsScreen({ navigation }) {
       <View style={styles.content}>
         {activeTab === 'password' ? renderPasswordTab() : renderEmailTab()}
       </View>
-      
-      {/* Done button accessories for inputs */}
-      {currentPasswordDoneButton.accessoryView}
-      {newEmailDoneButton.accessoryView}
     </View>
   );
 }
