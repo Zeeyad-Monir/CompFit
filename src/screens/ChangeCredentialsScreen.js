@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../contexts/AuthContext';
+import { BOTTOM_SPACING } from '../styles/globalStyles';
 import { 
   auth, 
   db,
@@ -388,7 +389,8 @@ export default function ChangeCredentialsScreen({ navigation }) {
 
   const renderPasswordTab = () => (
     <ScrollView 
-      style={styles.tabContent} 
+      style={styles.tabContent}
+      contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
@@ -424,7 +426,8 @@ export default function ChangeCredentialsScreen({ navigation }) {
 
   const renderEmailTab = () => (
     <ScrollView 
-      style={styles.tabContent} 
+      style={styles.tabContent}
+      contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
@@ -704,6 +707,9 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     paddingTop: 30,
+  },
+  scrollContent: {
+    paddingBottom: BOTTOM_SPACING,
   },
   infoCard: {
     backgroundColor: '#F9FAFB',

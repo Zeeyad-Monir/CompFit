@@ -18,6 +18,7 @@ import { AuthContext } from '../contexts/AuthContext';
 import { db } from '../firebase';
 import { doc, getDoc, onSnapshot, updateDoc, arrayRemove, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BOTTOM_SPACING } from '../styles/globalStyles';
 
 export default function CompetitionLobbyScreen({ route, navigation }) {
   const { competition: initialCompetition, skipLobby, isPendingInvite } = route.params;
@@ -883,8 +884,6 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
             <Text style={styles.leaveButtonText}>Leave Competition</Text>
           </TouchableOpacity>
         )}
-
-            <View style={{ height: 100 }} />
           </>
         ) : (
           <>
@@ -1035,8 +1034,6 @@ export default function CompetitionLobbyScreen({ route, navigation }) {
               <Text style={styles.enterButtonText}>Enter Competition</Text>
               <Ionicons name="arrow-forward" size={24} color="#1A1E23" />
             </TouchableOpacity>
-
-            <View style={{ height: 100 }} />
           </>
         )}
       </ScrollView>
@@ -1053,7 +1050,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 120,
+    paddingBottom: BOTTOM_SPACING,
   },
   
   // Title Card

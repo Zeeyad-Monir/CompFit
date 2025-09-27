@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { auth, sendPasswordResetEmail } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
+import { BOTTOM_SPACING } from '../styles/globalStyles';
 
 export default function ForgotPasswordScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -106,7 +107,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     alignItems: 'center',
-    paddingBottom: 40,
+    paddingBottom: BOTTOM_SPACING,
   },
   backButton: {
     position: 'absolute',

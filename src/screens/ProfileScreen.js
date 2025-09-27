@@ -60,6 +60,7 @@ import {
   calculateFriendsRankings,
   transformCompetitionData 
 } from '../utils/bprCalculation';
+import { BOTTOM_SPACING } from '../styles/globalStyles';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -2068,7 +2069,7 @@ const styles = StyleSheet.create({
 
   // Common
   scrollView: { flex: 1, paddingHorizontal: 16 },
-  scrollViewContent: { paddingBottom: 110 },
+  scrollViewContent: { paddingBottom: BOTTOM_SPACING },
   section: { marginTop: 36 },
   sectionTitle: { 
     fontSize: 20, 

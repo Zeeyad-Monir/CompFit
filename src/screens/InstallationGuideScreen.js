@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Image } from 'react-native';
 import { createZipArchive } from '../utils/fileUtils';
+import { BOTTOM_SPACING } from '../styles/globalStyles';
 
 const InstallationGuideScreen = () => {
   return (
@@ -109,7 +110,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: BOTTOM_SPACING,
   },
   title: {
     fontSize: 28,

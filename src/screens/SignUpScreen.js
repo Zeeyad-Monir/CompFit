@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { db, createUserWithEmailAndPassword, updateProfile } from '../firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
+import { BOTTOM_SPACING } from '../styles/globalStyles';
 
 const HERO_IMAGE = require('../../assets/coverPhotos/coverPhotoSeven.png');
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -410,7 +411,7 @@ const styles = StyleSheet.create({
   topContentContainer: {
     paddingTop: 66,
     paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingBottom: BOTTOM_SPACING,
     minHeight: '50%',
   },
   whiteScreenTitle: {

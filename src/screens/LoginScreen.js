@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { signInWithRememberMe } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
 import RememberMeCheckbox from '../components/RememberMeCheckbox';
+import { BOTTOM_SPACING } from '../styles/globalStyles';
 
 const HERO_IMAGE = require('../../assets/Onboarding/OnboardingImgOne.jpg');
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -384,7 +385,7 @@ const styles = StyleSheet.create({
   sheetContent: {
     flexGrow: 1,
     justifyContent: 'flex-start',
-    paddingBottom: 16,
+    paddingBottom: BOTTOM_SPACING,
   },
   sheetTitle: {
     fontSize: 32,
@@ -555,7 +556,7 @@ const styles = StyleSheet.create({
   topContentContainer: {
     paddingTop: 66,
     paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingBottom: BOTTOM_SPACING,
     minHeight: '50%',
   },
   whiteScreenTitle: {

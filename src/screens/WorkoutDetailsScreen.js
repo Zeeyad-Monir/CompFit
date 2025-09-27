@@ -28,6 +28,7 @@ import useDoneButton from '../hooks/useDoneButton';
 import SwipeablePhotoGallery from '../components/SwipeablePhotoGallery';
 import FullScreenPhotoViewer from '../components/FullScreenPhotoViewer';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BOTTOM_SPACING } from '../styles/globalStyles';
 import { 
   doc, 
   getDoc, 
@@ -511,6 +512,7 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
         <SmartKeyboardAwareScrollView 
           ref={scrollViewRef}
           style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
           extraScrollHeight={Platform.OS === 'ios' ? 140 : 130}
           extraHeight={Platform.OS === 'ios' ? 160 : 130}
           enableAutomaticScroll={true}
@@ -818,8 +820,6 @@ export default function WorkoutDetailsScreen({ route, navigation }) {
           </SafeAreaView>
         </View>
 
-        {/* Bottom Spacer */}
-        <View style={{ height: Platform.OS === 'ios' ? 49 : 73 }} />
         </SmartKeyboardAwareScrollView>
         
         {/* Done button accessory for comment input */}
@@ -836,6 +836,9 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: BOTTOM_SPACING,
   },
   
   // Photo Section
