@@ -21,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getBackgroundImage } from '../utils/competitionBackgrounds';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BOTTOM_SPACING } from '../styles/globalStyles';
+import { BOTTOM_SPACING, COMPETITION_SCREEN_BOTTOM_SPACING } from '../styles/globalStyles';
 
 import { db } from '../firebase';
 import {
@@ -1205,7 +1205,7 @@ const handleCompetitionPress = async (competition) => {
           ref={scrollViewRef}
           style={styles.scroll}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 30 }}
+          contentContainerStyle={{ paddingBottom: COMPETITION_SCREEN_BOTTOM_SPACING }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

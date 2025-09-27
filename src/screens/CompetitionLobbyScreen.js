@@ -18,7 +18,7 @@ import { AuthContext } from '../contexts/AuthContext';
 import { db } from '../firebase';
 import { doc, getDoc, onSnapshot, updateDoc, arrayRemove, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BOTTOM_SPACING } from '../styles/globalStyles';
+import { BOTTOM_SPACING, COMPETITION_SCREEN_BOTTOM_SPACING } from '../styles/globalStyles';
 
 export default function CompetitionLobbyScreen({ route, navigation }) {
   const { competition: initialCompetition, skipLobby, isPendingInvite } = route.params;
@@ -1050,7 +1050,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 120,
+    paddingBottom: COMPETITION_SCREEN_BOTTOM_SPACING,
   },
   
   // Title Card

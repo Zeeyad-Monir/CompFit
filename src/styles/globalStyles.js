@@ -6,6 +6,10 @@ import { StyleSheet } from 'react-native';
 // This ensures consistent white space between the last content element and screen bottom
 export const BOTTOM_SPACING = 80;
 
+// Specific bottom spacing for competition-related screens (active, invites, results)
+// Provides extra scroll room for competition cards and action buttons
+export const COMPETITION_SCREEN_BOTTOM_SPACING = 100;
+
 // Reusable scroll content styles
 export const globalStyles = StyleSheet.create({
   scrollContent: {
