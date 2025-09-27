@@ -1050,7 +1050,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: BOTTOM_SPACING,
+    paddingBottom: 120,
   },
   
   // Title Card
@@ -1441,6 +1441,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF2F2',
     marginHorizontal: 16,
     marginTop: 20,
+    marginBottom: 0,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
@@ -1461,6 +1462,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFE5E5',
     marginHorizontal: 16,
     marginTop: 20,
+    marginBottom: 0,
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
@@ -1583,7 +1585,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#A4D65E',
     marginHorizontal: 16,
-    marginVertical: 20,
+    marginTop: 20,
+    marginBottom: 0,
     padding: 18,
     borderRadius: 12,
     shadowColor: '#000',

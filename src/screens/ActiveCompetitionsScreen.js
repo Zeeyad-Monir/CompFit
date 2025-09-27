@@ -1205,7 +1205,7 @@ const handleCompetitionPress = async (competition) => {
           ref={scrollViewRef}
           style={styles.scroll}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: BOTTOM_SPACING }}
+          contentContainerStyle={{ paddingBottom: 30 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
