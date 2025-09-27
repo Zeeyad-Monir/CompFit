@@ -14,9 +14,10 @@ import {
   Platform,
   Image,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Header } from '../components';
+import { Header, SmartKeyboardAwareScrollView } from '../components';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -283,6 +284,26 @@ export default function ProfileScreen({ route, navigation }) {
     isProvisional: true,
     friendsRankingList: []
   });
+
+  // Keyboard visibility state for better input field handling
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  // Add keyboard event listeners for physical device support
+  useEffect(() => {
+    const showListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const hideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+    
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+    };
+  }, []);
 
   /* ----- Real-time profile subscription with wins/losses ----- */
   useEffect(() => {
@@ -1545,7 +1566,7 @@ export default function ProfileScreen({ route, navigation }) {
   );
 
   const renderFriendsTab = () => (
-    <ScrollView 
+    <SmartKeyboardAwareScrollView 
       ref={friendsScrollRef}
       style={styles.scrollView}
       contentContainerStyle={styles.scrollViewContent}
@@ -1559,6 +1580,11 @@ export default function ProfileScreen({ route, navigation }) {
           tintColor="#A4D65E"
         />
       }
+      extraScrollHeight={100}
+      extraHeight={130}
+      enableAutomaticScroll={true}
+      keyboardShouldPersistTaps="handled"
+      enableOnAndroid={true}
     >
       {/* Friends Ranking Section - Moved from Profile tab */}
       <View style={styles.section}>
@@ -1587,6 +1613,14 @@ export default function ProfileScreen({ route, navigation }) {
               autoCapitalize="none"
               autoCorrect={false}
               inputAccessoryViewID={friendUsernameDoneButton.inputAccessoryViewID}
+              onFocus={() => {
+                // Add a small delay to ensure keyboard animation completes on physical devices
+                if (Platform.OS === 'ios') {
+                  setTimeout(() => {
+                    // The SmartKeyboardAwareScrollView will handle the scrolling automatically
+                  }, 100);
+                }
+              }}
             />
             <TouchableOpacity onPress={sendFriendRequest} style={styles.addFriendButton}>
               <Ionicons name="person-add" size={24} color="#FFFFFF" />
@@ -1845,7 +1879,7 @@ export default function ProfileScreen({ route, navigation }) {
           </View>
         )}
       </View>
-    </ScrollView>
+    </SmartKeyboardAwareScrollView>
   );
 
   return (
