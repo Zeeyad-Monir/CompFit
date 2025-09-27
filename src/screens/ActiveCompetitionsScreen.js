@@ -1544,7 +1544,7 @@ const styles = StyleSheet.create({
   },
   
   statusBadgeResults: {
-    backgroundColor: '#4A90E2', // Blue for results
+    backgroundColor: '#5A8A2E', // Darker green for results
   },
 
   statusBadgeText: {
