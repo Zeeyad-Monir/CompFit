@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Animated, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
 
 /**
  * Props
@@ -19,7 +20,9 @@ const Dropdown = ({
   containerStyle,
   priorityItems = [],
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const [tempSelection, setTempSelection] = useState(selectedValue);
+  const slideAnim = useRef(new Animated.Value(320)).current; // Initial position below screen
 
   // Organize items: priority items first, then the rest
   const organizedItems = useMemo(() => {
@@ -30,11 +33,41 @@ const Dropdown = ({
     return [...priority, ...remaining];
   }, [items, priorityItems]);
 
-  const toggle = () => setIsOpen(o => !o);
-  
-  const select = value => {
-    onValueChange(value);
-    setIsOpen(false);
+  // Update temp selection when selectedValue changes
+  useEffect(() => {
+    setTempSelection(selectedValue);
+  }, [selectedValue]);
+
+  const showDropdownPicker = () => {
+    setTempSelection(selectedValue);
+    setShowPicker(true);
+    // Animate slide up
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const hideDropdownPicker = () => {
+    // Animate slide down
+    Animated.timing(slideAnim, {
+      toValue: 320,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      setShowPicker(false);
+    });
+  };
+
+  const handleDone = () => {
+    onValueChange(tempSelection);
+    hideDropdownPicker();
+  };
+
+  const handleCancel = () => {
+    setTempSelection(selectedValue);
+    hideDropdownPicker();
   };
 
   return (
@@ -43,54 +76,95 @@ const Dropdown = ({
 
       <TouchableOpacity
         style={styles.dropdownButton}
-        onPress={toggle}
+        onPress={showDropdownPicker}
         activeOpacity={0.8}
       >
         <Text style={styles.selectedText}>{selectedValue}</Text>
         <Ionicons
-          name={isOpen ? 'chevron-up' : 'chevron-down'}
+          name="chevron-down"
           size={20}
-          color="#1A1E23"
+          color="#A4D65E"
         />
       </TouchableOpacity>
 
-      {isOpen && (
-        <View style={styles.optionsContainer}>
-          <ScrollView
-            showsVerticalScrollIndicator={true}
-            nestedScrollEnabled={true}
-            style={styles.scrollViewStyle}
-            contentContainerStyle={styles.scrollContent}
-          >
-            {organizedItems.map((item, index) => {
-              const isPriority = priorityItems.includes(item);
-              return (
-                <TouchableOpacity
-                  key={`${item}-${index}`}
-                  style={[
-                    styles.optionItem,
-                    selectedValue === item && styles.selectedOption,
-                    isPriority && styles.priorityOption,
-                  ]}
-                  onPress={() => select(item)}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      selectedValue === item && styles.selectedOptionText,
-                      isPriority && styles.priorityOptionText,
-                    ]}
-                  >
-                    {item}
-                  </Text>
-                  {selectedValue === item && (
-                    <Ionicons name="checkmark" size={20} color="#A4D65E" />
-                  )}
+      {Platform.OS === 'ios' && showPicker && (
+        <Modal
+          transparent={true}
+          animationType="fade"
+          visible={showPicker}
+          onRequestClose={hideDropdownPicker}
+        >
+          <View style={styles.modalOverlay}>
+            <Animated.View style={[styles.modalContent, {
+              transform: [{ translateY: slideAnim }]
+            }]}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={handleCancel}>
+                  <Text style={styles.cancelText}>Cancel</Text>
                 </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
+                <TouchableOpacity onPress={handleDone}>
+                  <Text style={styles.doneText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={tempSelection}
+                  onValueChange={setTempSelection}
+                  style={styles.picker}
+                  itemStyle={styles.pickerItem}
+                >
+                  {organizedItems.map((item, index) => (
+                    <Picker.Item
+                      key={`${item}-${index}`}
+                      label={item}
+                      value={item}
+                    />
+                  ))}
+                </Picker>
+              </View>
+            </Animated.View>
+          </View>
+        </Modal>
+      )}
+
+      {Platform.OS === 'android' && showPicker && (
+        <Modal
+          transparent={true}
+          animationType="fade"
+          visible={showPicker}
+          onRequestClose={hideDropdownPicker}
+        >
+          <View style={styles.modalOverlay}>
+            <Animated.View style={[styles.modalContent, {
+              transform: [{ translateY: slideAnim }]
+            }]}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={handleCancel}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleDone}>
+                  <Text style={styles.doneText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={tempSelection}
+                  onValueChange={setTempSelection}
+                  style={styles.picker}
+                  mode="dropdown"
+                >
+                  {organizedItems.map((item, index) => (
+                    <Picker.Item
+                      key={`${item}-${index}`}
+                      label={item}
+                      value={item}
+                    />
+                  ))}
+                </Picker>
+              </View>
+            </Animated.View>
+          </View>
+        </Modal>
       )}
     </View>
   );
@@ -101,7 +175,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '400',
     color: '#1A1E23',
     marginBottom: 8,
   },
@@ -116,56 +191,49 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   selectedText: {
-    fontSize: 17,
-    color: '#1A1E23',
-  },
-  /* Fixed height scrollable container for smooth scrolling */
-  optionsContainer: {
-    marginTop: 4,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    height: 320, // Fixed height for 8 visible items
-  },
-  scrollViewStyle: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 10,
-  },
-  optionItem: {
-    padding: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  selectedOption: { 
-    backgroundColor: '#F9FAF9' 
-  },
-  priorityOption: {
-    backgroundColor: '#E8F5E8',
-    borderBottomWidth: 2,
-    borderBottomColor: '#A4D65E',
-  },
-  optionText: {
     fontSize: 16,
     color: '#1A1E23',
+  },
+  modalOverlay: {
     flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
-  selectedOptionText: {
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: 320,
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  cancelText: {
+    color: '#6B7280',
+    fontSize: 16,
+  },
+  doneText: {
     color: '#A4D65E',
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-  priorityOptionText: {
-    fontWeight: '600',
+  pickerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  picker: {
+    width: '100%',
+    height: 200,
+  },
+  pickerItem: {
+    fontSize: 20,
     color: '#1A1E23',
   },
 });
