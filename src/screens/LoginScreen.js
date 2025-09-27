@@ -230,7 +230,16 @@ export default function LoginScreen({ navigation }) {
                 value={email}
                 onChangeText={setEmail}
                 editable={!loading}
-                textContentType="emailAddress"
+                autoCorrect={false}
+                autoComplete="off"
+                spellCheck={false}
+                dataDetectorTypes="none"
+                textContentType="none"
+                importantForAutofill="no"
+                disableFullscreenUI={true}
+                caretHidden={false}
+                selectTextOnFocus={false}
+                clearButtonMode="never"
               />
 
               <View style={styles.passwordContainer}>
@@ -245,7 +254,16 @@ export default function LoginScreen({ navigation }) {
                   value={password}
                   onChangeText={setPassword}
                   editable={!loading}
-                  textContentType="password"
+                  autoCorrect={false}
+                  autoComplete="off"
+                  spellCheck={false}
+                  dataDetectorTypes="none"
+                  textContentType="none"
+                  importantForAutofill="no"
+                  disableFullscreenUI={true}
+                  caretHidden={false}
+                  selectTextOnFocus={false}
+                  clearButtonMode="never"
                 />
                 <TouchableOpacity
                   style={styles.eyeIcon}
@@ -414,6 +432,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEEEEE',
     borderWidth: 1,
     borderColor: 'transparent',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    textDecorationLine: 'none',
+    outlineStyle: 'none',
   },
   emailInput: {
     marginBottom: 12,
