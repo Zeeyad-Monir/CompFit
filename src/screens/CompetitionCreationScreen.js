@@ -45,7 +45,7 @@ import {
   formatDraftDate 
 } from '../utils/competitionDrafts';
 import { assignCompetitionBackground } from '../utils/competitionBackgrounds';
-import { BOTTOM_SPACING } from '../styles/globalStyles';
+import { BOTTOM_SPACING, COMPETITION_CREATION_BOTTOM_SPACING } from '../styles/globalStyles';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -2494,7 +2494,7 @@ const styles = StyleSheet.create({
 
   // Common
   scrollView: { flex: 1, paddingHorizontal: 16 },
-  scrollContent: { paddingBottom: BOTTOM_SPACING },
+  scrollContent: { paddingBottom: COMPETITION_CREATION_BOTTOM_SPACING },
   section: { marginTop: 24 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1A1E23', marginBottom: 10, marginTop: 15  },
   sectionSubtext: { fontSize: 14, color: '#666', marginBottom: 15 },

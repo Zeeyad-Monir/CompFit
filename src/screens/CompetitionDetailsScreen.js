@@ -33,7 +33,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { uploadToCloudinary, uploadMultipleToCloudinary } from '../utils/uploadImage';
 import CompactPhotoGallery from '../components/CompactPhotoGallery';
 import FullScreenPhotoViewer from '../components/FullScreenPhotoViewer';
-import { BOTTOM_SPACING } from '../styles/globalStyles';
+import { BOTTOM_SPACING, COMPETITION_LOBBY_BOTTOM_SPACING } from '../styles/globalStyles';
 
 const CompetitionDetailsScreen = ({ route, navigation }) => {
   const { competition, initialTab } = route.params;
@@ -2602,7 +2602,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   workoutsScrollContent: {
-    paddingBottom: BOTTOM_SPACING,
+    paddingBottom: COMPETITION_LOBBY_BOTTOM_SPACING,
   },
   loadingText: {
     textAlign: 'center',
@@ -2714,7 +2714,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
   rulesScrollContent: {
-    paddingBottom: BOTTOM_SPACING,
+    paddingBottom: COMPETITION_LOBBY_BOTTOM_SPACING,
   },
   rulesSection: {
     marginBottom: 24,
@@ -3194,7 +3194,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   rankingsScrollContent: {
-    paddingBottom: BOTTOM_SPACING,
+    paddingBottom: COMPETITION_LOBBY_BOTTOM_SPACING,
   },
   rankingItem: {
     flexDirection: 'row',
@@ -3270,7 +3270,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, 
   },
   addScrollContent: { 
-    paddingBottom: BOTTOM_SPACING, 
+    paddingBottom: COMPETITION_LOBBY_BOTTOM_SPACING, 
   },
   dateSection: { 
     marginBottom: 11, 
